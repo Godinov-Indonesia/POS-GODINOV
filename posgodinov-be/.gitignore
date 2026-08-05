@@ -1,0 +1,33 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+tmp_app
+tmp/
+main
+
+# Environment variables
+.env
+
+# Go workspace file
+go.work
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Test output
+*.test
+coverage.out
+
+# AI Files
+.agents/
+AGENTS.md
+GEMINI.md
+
+# Logs
+*.log

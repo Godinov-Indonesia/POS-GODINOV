@@ -1,0 +1,42 @@
+name: Build and Push to Docker Hub
+
+# Catatan: Bagian 'on' di-comment sesuai instruksi agar tidak otomatis tertrigger saat ini
+# on:
+#   push:
+#     branches: [ "development" ] # Jalan tiap ada perubahan di branch development 
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build and Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/posgodinov-backend:latest
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: build-push # Hanya jalan jika image berhasil di build dan disimpan ke docker hub
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/www/apps/backend
+            docker compose pull app
+            docker compose up -d app
+            docker image prune -f

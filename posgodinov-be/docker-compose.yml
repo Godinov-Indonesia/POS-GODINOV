@@ -1,0 +1,40 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: posgodinov_backend
+    image: godinov/posgodinov-backend:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_PORT=8080
+      - PASETO_SYMMETRIC_KEY=${PASETO_SYMMETRIC_KEY:-12345678901234567890123456789012}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+      # Hubungkan ke container 'db' pada internal port 5432
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-posgodinov}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - DB_NAME=${DB_NAME:-posgodinov}
+      - DB_SSLMODE=disable
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:17-alpine
+    container_name: posgodinov_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-posgodinov}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+      POSTGRES_DB: ${DB_NAME:-posgodinov}
+    ports:
+      # Port mapping: Host (5433) -> Container (5432)
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
