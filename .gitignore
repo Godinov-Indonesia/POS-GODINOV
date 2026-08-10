@@ -1,0 +1,27 @@
+# Penjaga tingkat repo.
+#
+# Setiap sub-proyek punya .gitignore sendiri, tetapi ROOT sebelumnya tidak —
+# sehingga perkakas yang tidak sengaja berjalan dari sini (mis. `npx tsc`)
+# membuat node_modules/ dan .next/ di root tanpa ada yang mencegahnya
+# ter-commit. Berkas ini menutup celah itu.
+
+# Dependensi & artefak build yang salah tempat
+/node_modules/
+/.next/
+/out/
+/build/
+/package.json
+/package-lock.json
+/tsconfig.json
+/next-env.d.ts
+*.tsbuildinfo
+
+# Berkas lingkungan — tidak pernah di-commit
+.env
+.env.*
+!.env.example
+
+# OS & editor
+.DS_Store
+Thumbs.db
+*.swp
