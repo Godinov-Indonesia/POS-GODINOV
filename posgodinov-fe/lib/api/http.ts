@@ -85,6 +85,16 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   const { raw, bareArrayBody, auth = 'access', headers, __retried, ...init } = opts
   void __retried
 
+  // Dihitung DI LUAR blok try.
+  //
+  // Kegagalan di sini bersifat sesi atau konfigurasi — token tidak ada, atau
+  // resolver belum terdaftar — dan sama sekali bukan kegagalan jaringan.
+  // Sebelumnya baris ini berada di dalam `try`, sehingga galat "resolver belum
+  // terdaftar" tertangkap blok catch dan tampil sebagai "Server tidak merespons
+  // di …": pesan yang mengirim orang menelusuri backend yang sebenarnya sehat
+  // dan sudah menjawab `200`.
+  const authHeaders = await authHeader(auth)
+
   let res: Response
   try {
     res = await fetch(`${BASE_URL}${path}`, {
@@ -92,14 +102,13 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
       body: bareArrayBody ? JSON.stringify(bareArrayBody) : init.body,
       headers: {
         'Content-Type': 'application/json',
-        ...(await authHeader(auth)),
+        ...authHeaders,
         ...headers,
         // Sengaja TIDAK mengirim X-Tenant-ID — backend tidak membacanya ([03 §0]).
       },
     })
   } catch (cause) {
-    // `authHeader` melempar PosApiError sebelum fetch — jangan menyamarkannya
-    // sebagai kegagalan jaringan.
+    // Hanya kegagalan `fetch` yang sampai ke sini sekarang.
     if (cause instanceof PosApiError) throw cause
 
     // statusCode 0 → `isRetryable` bernilai true.

@@ -24,8 +24,24 @@ export function DeviceBindScreen() {
   const [serialOutlet, setSerialOutlet] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [outletLabel, setOutletLabel] = React.useState('')
-  const [state, setState] = React.useState<'idle' | 'binding' | 'syncing' | 'done'>('idle')
+  const [state, setState] = React.useState<
+    'idle' | 'binding' | 'syncing' | 'bound-no-data' | 'done'
+  >('idle')
   const [error, setError] = React.useState<string | null>(null)
+  const [retrying, setRetrying] = React.useState(false)
+
+  const retryMasterSync = async () => {
+    setRetrying(true)
+    setError(null)
+    try {
+      await syncMasterData()
+      setState('done')
+    } catch (err) {
+      setError(`Unduhan master data masih gagal: ${describe(err)}`)
+    } finally {
+      setRetrying(false)
+    }
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -47,19 +63,54 @@ export function DeviceBindScreen() {
       // Password owner tidak pernah disimpan — hanya dipakai sekali di sini.
       setPassword('')
 
+      // Sejak titik ini perangkat SUDAH terikat dan token sudah tersimpan.
+      // Kegagalan berikutnya tidak boleh membuat layar kembali ke keadaan awal
+      // seolah pemasangan gagal — mengulang binding hanya menerbitkan token
+      // baru tanpa alasan, dan operator kehilangan jejak apa yang sebenarnya
+      // sudah berhasil.
       setState('syncing')
-      await syncMasterData()
-      setState('done')
+      try {
+        await syncMasterData()
+        setState('done')
+      } catch (syncErr) {
+        setError(
+          `Perangkat berhasil diikat, tetapi unduhan master data gagal: ${describe(syncErr)}`,
+        )
+        setState('bound-no-data')
+      }
     } catch (err) {
-      setError(
-        err instanceof PosApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : 'Pemasangan gagal',
-      )
+      setError(describe(err))
       setState('idle')
     }
+  }
+
+  if (state === 'bound-no-data') {
+    return (
+      <main className="flex min-h-dvh items-center justify-center p-4">
+        <div className="flex w-[28rem] max-w-full flex-col gap-3 rounded-2xl border border-border bg-surface p-6 text-center shadow-elevated">
+          <h1 className="text-pos-lg font-bold text-fg">Perangkat sudah terikat</h1>
+          <p className="text-pos-sm text-fg-muted">
+            Pemasangan berhasil dan token perangkat tersimpan.{' '}
+            <strong>Tidak perlu mengulang pemasangan.</strong> Yang belum selesai hanyalah unduhan
+            master data — produk, kategori, dan daftar kasir.
+          </p>
+          {error ? (
+            <p role="alert" className="text-pos-sm text-danger">
+              {error}
+            </p>
+          ) : null}
+          <Button variant="primary" size="xl" onClick={retryMasterSync} disabled={retrying}>
+            {retrying ? 'Mengunduh…' : 'Coba Unduh Master Data Lagi'}
+          </Button>
+          <a
+            href="/pos"
+            className="text-pos-sm font-medium text-accent underline"
+          >
+            Lanjut ke aplikasi kasir — unduh nanti lewat Pengaturan
+          </a>
+        </div>
+      </main>
+    )
   }
 
   if (state === 'done') {
@@ -171,4 +222,17 @@ export function DeviceBindScreen() {
       </form>
     </main>
   )
+}
+
+/**
+ * Pesan galat apa adanya.
+ *
+ * `PosApiError` sudah berbahasa Indonesia dan layak ditampilkan ([05 §3.2]);
+ * `Error` biasa — mis. kesalahan konfigurasi klien — juga lebih berguna
+ * ditampilkan daripada diganti kalimat generik yang menyembunyikan sebabnya.
+ */
+function describe(err: unknown): string {
+  if (err instanceof PosApiError) return err.message
+  if (err instanceof Error) return err.message
+  return 'Pemasangan gagal'
 }
