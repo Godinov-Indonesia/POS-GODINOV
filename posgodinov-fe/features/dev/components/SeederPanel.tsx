@@ -105,8 +105,14 @@ export function SeederPanel() {
             <p className="text-pos-sm text-fg-muted">
               Mengisi <code>staffs</code>, <code>categories</code>, dan <code>products</code>, lalu
               menulis device token <strong>palsu</strong> agar aplikasi kasir terbuka penuh tanpa
-              binding. Sinkronisasi ke server akan ditolak <code>401</code> — itu disengaja.
+              binding.
             </p>
+            <Banner tone="warning" icon={AlertTriangle}>
+              Sinkronisasi ke server <strong>akan ditolak</strong> dengan pesan{' '}
+              <em>&ldquo;Token tidak valid atau sudah kedaluwarsa&rdquo;</em> — itu disengaja, bukan
+              bug. Jalur ini hanya untuk menguji POS offline. Untuk menguji sinkronisasi sungguhan,
+              lakukan pemasangan nyata di <code>/pos/bind</code>.
+            </Banner>
             <Button variant="primary" onClick={runDexie} disabled={busy !== null}>
               {busy === 'dexie' ? 'Mengisi…' : 'Isi IndexedDB'}
             </Button>

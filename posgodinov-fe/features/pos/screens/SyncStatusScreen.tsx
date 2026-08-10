@@ -1,7 +1,7 @@
 'use client'
 
 import { useLiveQuery } from 'dexie-react-hooks'
-import { AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, RefreshCw, ShieldAlert } from 'lucide-react'
 import * as React from 'react'
 
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +34,7 @@ export function SyncStatusScreen() {
   const lastError = useSyncStore((s) => s.lastError)
   const lastSuccessAt = useSyncStore((s) => s.lastSuccessAt)
   const lastSkipped = useSyncStore((s) => s.lastSkipped)
+  const deviceRejected = useSyncStore((s) => s.deviceRejected)
 
   const counts = useLiveQuery(
     async () => ({
@@ -58,10 +59,31 @@ export function SyncStatusScreen() {
         <h1 className="text-pos-lg font-bold text-fg">Status Sinkronisasi</h1>
       </div>
 
-      <Banner tone="warning" title="Sinkronisasi hanya berjalan saat aplikasi terbuka">
-        Biarkan aplikasi ini terbuka sampai antrean kosong. Menutup tab menghentikan pengiriman —
-        data tetap aman di perangkat, tetapi belum sampai ke server.
-      </Banner>
+      {deviceRejected ? (
+        <Banner tone="danger" icon={ShieldAlert} title="Perangkat ditolak server">
+          <p>
+            Token pemasangan perangkat ini tidak sah atau sudah dicabut, sehingga sinkronisasi
+            otomatis dihentikan — mencoba terus tidak akan berhasil sampai perangkat dipasang ulang.
+          </p>
+          <p className="mt-1">
+            <strong>Data penjualan tetap aman di perangkat</strong> dan akan terkirim setelah
+            pemasangan ulang berhasil. Tidak ada yang hilang.
+          </p>
+          <p className="mt-1">Dua penyebab yang paling sering:</p>
+          <ul className="mt-0.5 list-inside list-disc">
+            <li>Perangkat diisi data uji lewat seeder, yang menulis token contoh — bukan token asli.</li>
+            <li>Pemasangan dilakukan ke server lain, atau kunci token server telah berganti.</li>
+          </ul>
+          <a href="/pos/bind" className="mt-2 inline-block font-semibold underline">
+            Buka Halaman Pemasangan Perangkat →
+          </a>
+        </Banner>
+      ) : (
+        <Banner tone="warning" title="Sinkronisasi hanya berjalan saat aplikasi terbuka">
+          Biarkan aplikasi ini terbuka sampai antrean kosong. Menutup tab menghentikan pengiriman —
+          data tetap aman di perangkat, tetapi belum sampai ke server.
+        </Banner>
+      )}
 
       <div className="grid gap-2 sm:grid-cols-3">
         <CountCard label="Transaksi" value={counts.transactions} />
@@ -77,7 +99,7 @@ export function SyncStatusScreen() {
           disabled={syncing || !online}
         >
           <RefreshCw className={syncing ? 'size-5 animate-spin' : 'size-5'} aria-hidden="true" />
-          {syncing ? 'MENYINKRONKAN…' : 'SINKRONKAN SEKARANG'}
+          {syncing ? 'MENYINKRONKAN…' : deviceRejected ? 'COBA LAGI' : 'SINKRONKAN SEKARANG'}
         </Button>
 
         {!online ? (
@@ -132,8 +154,9 @@ export function SyncStatusScreen() {
       )}
 
       <p className="text-pos-xs text-fg-muted">
-        Baris yang berulang kali gagal tidak pernah dibuang. Mesin akan terus mencoba dengan jeda
-        yang membesar hingga maksimal 5 menit.
+        {deviceRejected
+          ? 'Percobaan otomatis dihentikan sampai perangkat dipasang ulang. Tidak ada baris yang dibuang — seluruh antrean menunggu di perangkat.'
+          : 'Baris yang berulang kali gagal tidak pernah dibuang. Mesin akan terus mencoba dengan jeda yang membesar hingga maksimal 5 menit.'}
       </p>
     </div>
   )

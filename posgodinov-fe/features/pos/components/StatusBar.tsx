@@ -1,7 +1,7 @@
 'use client'
 
 import { useLiveQuery } from 'dexie-react-hooks'
-import { AlertTriangle, CloudOff, Menu, RefreshCw, Wifi } from 'lucide-react'
+import { AlertTriangle, CloudOff, Menu, RefreshCw, ShieldAlert, Wifi } from 'lucide-react'
 import * as React from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -30,6 +30,7 @@ export function StatusBar({ outletLabel }: { outletLabel: string }) {
   const online = useOnlineStatus()
   const clockSkewMs = useSyncStore((s) => s.clockSkewMs)
   const syncing = useSyncStore((s) => s.syncing)
+  const deviceRejected = useSyncStore((s) => s.deviceRejected)
 
   const queued = useLiveQuery(async () => {
     const [transactions, shifts, wastes] = await Promise.all([
@@ -86,14 +87,27 @@ export function StatusBar({ outletLabel }: { outletLabel: string }) {
           onClick={() => posNavigate('sync-status')}
           className={cn(
             'flex items-center gap-1 rounded-sm px-2 py-0.5 text-pos-xs',
-            queued > 0 ? 'bg-warning text-fg' : 'text-fg-inverse/80',
+            deviceRejected
+              ? 'bg-danger font-semibold text-fg-inverse'
+              : queued > 0
+                ? 'bg-warning text-fg'
+                : 'text-fg-inverse/80',
           )}
         >
-          <RefreshCw
-            className={cn('size-3.5', syncing && 'animate-spin')}
-            aria-hidden="true"
-          />
-          <Num>{queued > 99 ? '99+' : queued}</Num> antre
+          {deviceRejected ? (
+            <>
+              <ShieldAlert className="size-3.5" aria-hidden="true" />
+              Perangkat ditolak
+            </>
+          ) : (
+            <>
+              <RefreshCw
+                className={cn('size-3.5', syncing && 'animate-spin')}
+                aria-hidden="true"
+              />
+              <Num>{queued > 99 ? '99+' : queued}</Num> antre
+            </>
+          )}
         </button>
 
         {staffName ? <span className="text-pos-xs text-fg-inverse/80">{staffName}</span> : null}
