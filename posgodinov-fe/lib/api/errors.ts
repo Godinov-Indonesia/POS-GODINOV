@@ -51,9 +51,23 @@ export class PosApiError extends Error {
  * Sesi tidak dapat dipulihkan tanpa login ulang — dilempar oleh session manager
  * ([05 §1.4.3]). Bukan turunan `PosApiError`: ini kondisi klien, bukan response.
  */
+export type SessionExpiredReason = 'no-session' | 'no-refresh-token' | 'refresh-token-expired'
+
+/**
+ * Pesan yang layak dibaca kasir/pemilik. Kode alasannya tetap tersimpan di
+ * `reason` untuk penelusuran — sebelumnya kode itu ikut menjadi pesan
+ * (`"Sesi berakhir: no-session"`), yang tidak berarti apa pun bagi pengguna
+ * dan tidak memberi tahu apa yang harus dilakukan.
+ */
+const REASON_MESSAGE: Record<SessionExpiredReason, string> = {
+  'no-session': 'Sesi Anda tidak lagi lengkap. Silakan masuk kembali.',
+  'no-refresh-token': 'Sesi Anda tidak lagi lengkap. Silakan masuk kembali.',
+  'refresh-token-expired': 'Sesi Anda telah berakhir setelah 7 hari. Silakan masuk kembali.',
+}
+
 export class SessionExpiredError extends Error {
-  constructor(readonly reason: 'no-session' | 'no-refresh-token' | 'refresh-token-expired') {
-    super(`Sesi berakhir: ${reason}`)
+  constructor(readonly reason: SessionExpiredReason) {
+    super(REASON_MESSAGE[reason])
     this.name = 'SessionExpiredError'
   }
 }

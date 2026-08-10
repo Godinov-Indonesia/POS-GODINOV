@@ -196,6 +196,33 @@ export const useSessionStore = create<SessionState & SessionActions>()(
         activeOutletId: s.activeOutletId,
         status: s.status,
       }),
+
+      /**
+       * Penjaga konsistensi saat hidrasi.
+       *
+       * `accessToken` dan `status` berada di `sessionStorage`, sedangkan
+       * `refreshToken` di `localStorage` ([05 §1.4.2]). Keduanya **dapat
+       * menyimpang**: pengguna membersihkan salah satu lewat DevTools,
+       * peramban membuang localStorage karena kuota, atau tab lain melakukan
+       * logout yang hanya sebagian tersimpan.
+       *
+       * Bila itu terjadi, `status` yang bertahan bernilai `'authenticated'`
+       * padahal token tidak lengkap — shell Admin ikut merender penuh dan
+       * setiap query langsung gagal. Menurunkannya di sini membuat keadaan
+       * separuh itu **tidak pernah ada**, alih-alih ditambal di setiap
+       * pemanggil.
+       */
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+        const complete = !!state.accessToken && !!state.refreshToken
+        if (complete || state.status === 'unauthenticated') return
+
+        useSessionStore.setState({
+          ...INITIAL_STATE,
+          activeOutletId: state.activeOutletId,
+          status: 'unauthenticated',
+        })
+      },
     },
   ),
 )

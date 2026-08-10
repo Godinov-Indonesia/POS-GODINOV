@@ -21,13 +21,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const hydrated = useHasHydrated()
   const status = useSessionStore((s) => s.status)
 
-  React.useEffect(() => {
-    if (hydrated && status !== 'authenticated' && status !== 'refreshing') {
-      router.replace('/login')
-    }
-  }, [hydrated, status, router])
+  const usable = status === 'authenticated' || status === 'refreshing'
 
-  if (!hydrated || status === 'unauthenticated') {
+  React.useEffect(() => {
+    if (hydrated && !usable) router.replace('/login')
+  }, [hydrated, usable, router])
+
+  // Seluruh status selain `authenticated`/`refreshing` menahan render, bukan
+  // hanya `unauthenticated`. Sebelumnya status `expired` lolos ke bawah:
+  // shell ikut merender, `OutletSwitcher` menembak query ber-token, dan
+  // galat sesi muncul sebelum pengalihan ke halaman login sempat berjalan.
+  if (!hydrated || !usable) {
     return (
       <div className="flex min-h-dvh flex-col gap-4 p-6">
         <Skeleton className="h-16 w-full" />

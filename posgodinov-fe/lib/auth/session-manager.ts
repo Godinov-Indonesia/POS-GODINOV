@@ -66,7 +66,17 @@ export function scheduleProactiveRefresh(expiry: number): void {
 export async function getValidAccessToken(): Promise<string> {
   const s = useSessionStore.getState()
 
-  if (!s.accessToken || !s.refreshToken) throw new SessionExpiredError('no-session')
+  // Sesi separuh — mis. `accessToken` masih ada di sessionStorage sementara
+  // `refreshToken` sudah hilang dari localStorage. Keduanya disimpan di tempat
+  // berbeda ([05 §1.4.2]) sehingga dapat menyimpang.
+  //
+  // `hardLogout` di sini WAJIB: tanpa itu, setiap request melempar galat yang
+  // sama selamanya tanpa ada yang membersihkan keadaan rusaknya, dan pengguna
+  // terjebak di layar yang tidak pernah pulih maupun mengalihkannya ke login.
+  if (!s.accessToken || !s.refreshToken) {
+    hardLogout('expired')
+    throw new SessionExpiredError('no-session')
+  }
 
   // Refresh token sudah mati → tidak ada jalan keluar selain login ulang.
   if (s.refreshTokenExpiry !== null && Date.now() >= s.refreshTokenExpiry) {
