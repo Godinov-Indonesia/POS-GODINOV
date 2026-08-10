@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# Contoh konfigurasi sengaja dilacak — tidak memuat rahasia apa pun.
+!.env.example
 
 # vercel
 .vercel
