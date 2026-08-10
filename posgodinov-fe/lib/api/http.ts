@@ -98,9 +98,29 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
       },
     })
   } catch (cause) {
-    // Gagal jaringan / offline. statusCode 0 → `isRetryable` bernilai true.
+    // `authHeader` melempar PosApiError sebelum fetch — jangan menyamarkannya
+    // sebagai kegagalan jaringan.
     if (cause instanceof PosApiError) throw cause
-    throw new PosApiError(0, 'Tidak dapat terhubung ke server', undefined, path)
+
+    // statusCode 0 → `isRetryable` bernilai true.
+    //
+    // `fetch` menolak dengan TypeError yang sama untuk perangkat offline,
+    // server mati, CORS terblokir, DNS gagal, dan mixed content. Pesan tunggal
+    // "tidak dapat terhubung" membuat kelima kondisi itu mustahil dibedakan
+    // saat memperbaiki masalah — padahal tindakan operatornya sangat berbeda.
+    // Karena itu kondisi yang DAPAT dipastikan dibedakan di sini, dan alamat
+    // yang dituju selalu disertakan.
+    const offline = typeof navigator !== 'undefined' && !navigator.onLine
+    const detail = cause instanceof Error ? cause.message : String(cause)
+
+    throw new PosApiError(
+      0,
+      offline
+        ? 'Perangkat sedang offline. Data tetap tersimpan dan akan dikirim saat koneksi kembali.'
+        : `Server tidak merespons di ${BASE_URL}. Periksa apakah backend berjalan dan alamatnya benar.`,
+      { network: detail },
+      path,
+    )
   }
 
   dateHeaderObserver?.(res.headers.get('Date'))
