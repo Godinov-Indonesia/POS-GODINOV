@@ -25,7 +25,9 @@ export async function openShift(params: {
   openingBalanceMinor: number
 }): Promise<LocalShift> {
   const shift: LocalShift = {
-    id: newUuid(),
+    id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : newUuid(),
     staff_id: params.staffId,
     opening_balance: params.openingBalanceMinor,
     closing_balance: 0,

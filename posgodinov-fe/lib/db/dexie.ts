@@ -61,6 +61,13 @@ export class POSDatabase extends Dexie {
       meta: 'key',
       syncLog: '++id, at, ok',
     })
+
+    // v3 — tambahkan indeks _syncedAt untuk pembersihan data master yang yatim (stale).
+    this.version(3).stores({
+      staffs: 'id, staff_identifier, _syncedAt',
+      categories: 'id, name, _syncedAt',
+      products: 'id, category_id, name, _syncedAt',
+    })
   }
 }
 

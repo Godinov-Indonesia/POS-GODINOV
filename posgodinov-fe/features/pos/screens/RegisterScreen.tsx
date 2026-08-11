@@ -17,6 +17,7 @@ import { listCategories, listProducts } from '@/lib/db/repositories/master.repo'
 import type { LocalProduct } from '@/lib/db/models'
 import { newUuid } from '@/lib/uuid'
 import { cn } from '@/lib/utils/cn'
+import { HoldCartModal } from '@/features/pos/components/HoldCartModal'
 
 const ALL = '__all__'
 const UNCATEGORIZED = '__none__'
@@ -39,6 +40,7 @@ export function RegisterScreen() {
   const addProduct = useCartStore((s) => s.addProduct)
   const clearCart = useCartStore((s) => s.clear)
   const staffId = usePosAuthStore((s) => s.staffId)
+  const [holdOpen, setHoldOpen] = React.useState(false)
 
   const qtyByProduct = React.useMemo(
     () => new Map(lines.map((line) => [line.product_id, line.quantity])),
@@ -67,14 +69,16 @@ export function RegisterScreen() {
 
   const hasUncategorized = products.some((p) => p.category_id === null)
 
-  const onHold = async () => {
+  const onHold = () => {
+    if (!staffId || !lines.length) return
+    setHoldOpen(true)
+  }
+
+  const handleHoldConfirm = async (label: string) => {
     if (!staffId || !lines.length) return
 
-    const label = window.prompt('Nama atau nomor meja untuk pesanan ini?')
-    if (label === null) return
-
     await holdCart({
-      label: label.trim() || 'Tanpa nama',
+      label: label || 'Tanpa nama',
       staffId,
       // ID item dibuat sekarang dan dipertahankan saat pesanan diambil kembali —
       // konsisten dengan aturan "UUID dibuat sekali" ([05 §1.5.1]).
@@ -89,6 +93,7 @@ export function RegisterScreen() {
     })
 
     clearCart()
+    setHoldOpen(false)
     toast.success('Pesanan ditahan')
   }
 
@@ -158,6 +163,11 @@ export function RegisterScreen() {
       </div>
 
       <CartPanel onPay={() => posNavigate('payment')} onHold={onHold} />
+      <HoldCartModal
+        open={holdOpen}
+        onClose={() => setHoldOpen(false)}
+        onConfirm={handleHoldConfirm}
+      />
     </div>
   )
 }

@@ -65,28 +65,33 @@ export function CartPanel({
                   <Money minor={lineTotal(line)} size="md" />
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {/* Stepper 56px — kelas "Sering" ([06 §2.1]). */}
+                <div className="flex items-center gap-3">
                   <Button
                     variant="neutral"
-                    size="lg"
-                    className="w-14"
-                    aria-label={`Kurangi ${line.product_name}`}
+                    size="icon"
+                    className={`h-12 w-12 text-pos-lg font-bold shrink-0 transition-colors ${
+                      line.quantity === 1 ? 'bg-danger-subtle text-danger border-danger/30 hover:bg-danger/20' : ''
+                    }`}
+                    aria-label={line.quantity === 1 ? `Hapus ${line.product_name}` : `Kurangi ${line.product_name}`}
                     onClick={() => increment(line.product_id, -1)}
                   >
-                    <Minus className="size-5" aria-hidden="true" />
+                    {line.quantity === 1 ? (
+                      <Trash2 className="size-5" strokeWidth={2.5} aria-hidden="true" />
+                    ) : (
+                      <Minus className="size-5" strokeWidth={2.5} aria-hidden="true" />
+                    )}
                   </Button>
 
-                  <Num className="w-10 text-center text-pos-md font-semibold">{line.quantity}</Num>
+                  <Num className="w-10 text-center text-pos-lg font-bold">{line.quantity}</Num>
 
                   <Button
                     variant="neutral"
-                    size="lg"
-                    className="w-14"
+                    size="icon"
+                    className="h-12 w-12 text-pos-lg font-bold shrink-0"
                     aria-label={`Tambah ${line.product_name}`}
                     onClick={() => increment(line.product_id, 1)}
                   >
-                    <Plus className="size-5" aria-hidden="true" />
+                    <Plus className="size-5" strokeWidth={2.5} aria-hidden="true" />
                   </Button>
 
                   <Money minor={line.unit_price} size="sm" tone="muted" className="ml-auto" />
@@ -94,11 +99,11 @@ export function CartPanel({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-danger"
+                    className="text-danger h-12 w-12 shrink-0"
                     aria-label={`Hapus ${line.product_name}`}
                     onClick={() => removeLine(line.product_id)}
                   >
-                    <Trash2 className="size-4" aria-hidden="true" />
+                    <Trash2 className="size-5" aria-hidden="true" />
                   </Button>
                 </div>
               </li>

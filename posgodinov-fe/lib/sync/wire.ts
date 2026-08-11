@@ -23,13 +23,16 @@ const stripLocal = <T extends object>(row: T): Partial<T> =>
   Object.fromEntries(Object.entries(row).filter(([key]) => !key.startsWith('_'))) as Partial<T>
 
 export const toWireShift = (shift: LocalShift): ShiftPayload => {
-  const bare = stripLocal(shift)
   return {
-    ...bare,
+    id: shift.id,
+    staff_id: shift.staff_id,
     opening_balance: toMajor(shift.opening_balance),
     closing_balance: toMajor(shift.closing_balance),
     expected_balance: toMajor(shift.expected_balance),
     discrepancy: toMajor(shift.discrepancy),
+    status: shift.status,
+    client_opened_at: shift.client_opened_at,
+    client_closed_at: shift.client_closed_at,
   } as ShiftPayload
 }
 
@@ -37,17 +40,22 @@ export const toWireTransaction = (transaction: LocalTransaction): TransactionPay
   // Melempar bila entah bagaimana ada nilai tak sah yang lolos ke Dexie.
   paymentMethodSchema.parse(transaction.payment_method)
 
-  const bare = stripLocal(transaction)
-
   return {
-    ...bare,
+    id: transaction.id,
+    shift_id: transaction.shift_id,
+    customer_name: transaction.customer_name || "",
     total_amount: toMajor(transaction.total_amount),
+    payment_method: transaction.payment_method,
+    status: transaction.status,
+    cancel_notes: transaction.cancel_notes || "",
+    client_created_at: transaction.client_created_at,
     items: transaction.items.map((item) => ({
-      ...stripLocal(item),
+      id: item.id,
+      transaction_id: transaction.id,
+      product_id: item.product_id,
+      quantity: Number(item.quantity),
       unit_price: toMajor(item.unit_price),
     })),
-    // `business_id` / `outlet_id` sengaja TIDAK dikirim — backend menimpanya
-    // paksa dari device token ([03 §2.3]).
   } as TransactionPayload
 }
 

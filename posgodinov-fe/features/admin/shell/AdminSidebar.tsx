@@ -79,7 +79,7 @@ export function AdminSidebar() {
   return (
     <aside className="hidden w-64 shrink-0 flex-col bg-surface-inverse text-fg-inverse lg:flex">
       <div className="flex h-16 items-center px-5 text-pos-lg font-bold tracking-tight">
-        GODINOV
+        POS GODINOV
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 pb-6">

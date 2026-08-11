@@ -33,16 +33,22 @@ export async function syncMasterData(): Promise<MasterSyncResult> {
   const now = nowIso()
   let pruned = 0
 
-  await db.transaction('rw', db.staffs, db.categories, db.products, db.meta, async () => {
-    await db.staffs.bulkPut(staffs.map((s) => ({ ...s, _syncedAt: now })))
-    await db.categories.bulkPut(categories.map((c) => ({ ...c, _syncedAt: now })))
-    await db.products.bulkPut(
-      products.map((p) => ({
-        ...p,
-        price: toMinor(p.price), // Rupiah desimal → integer sen (ADR-05)
-        _syncedAt: now,
-      })),
-    )
+  await db.transaction('rw', [db.staffs, db.categories, db.products, db.meta], async () => {
+    if (staffs.length > 0) {
+      await db.staffs.bulkPut(staffs.map((s) => ({ ...s, _syncedAt: now })))
+    }
+    if (categories.length > 0) {
+      await db.categories.bulkPut(categories.map((c) => ({ ...c, _syncedAt: now })))
+    }
+    if (products.length > 0) {
+      await db.products.bulkPut(
+        products.map((p) => ({
+          ...p,
+          price: toMinor(p.price), // Integer Sen
+          _syncedAt: now,
+        })),
+      )
+    }
 
     // REKONSILIASI BARIS YATIM ([05 §1.5.1]).
     //

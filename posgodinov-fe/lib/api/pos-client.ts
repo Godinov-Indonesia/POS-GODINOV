@@ -10,11 +10,46 @@
  */
 
 import { request, requestList, type RequestOptions } from '@/lib/api/http'
+import { db } from '@/lib/db/dexie'
+import { PosApiError } from '@/lib/api/errors'
 
-export function posRequest<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  return request<T>(path, { ...opts, auth: 'device' })
+export async function posRequest<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const deviceTokenRow = await db.meta.get('device.token')
+  const deviceToken = deviceTokenRow?.value as string | undefined
+  if (!deviceToken) {
+    throw new PosApiError(
+      401,
+      'Perangkat belum terikat. Silakan lakukan Device Binding di /pos/bind terlebih dahulu.',
+      undefined,
+      path,
+    )
+  }
+
+  const headers = {
+    ...opts.headers,
+    Authorization: `Bearer ${deviceToken}`,
+  }
+
+  return request<T>(path, { ...opts, headers, auth: 'none' })
 }
 
-export function posRequestList<T>(path: string, opts: RequestOptions = {}): Promise<T[]> {
-  return requestList<T>(path, { ...opts, auth: 'device' })
+export async function posRequestList<T>(path: string, opts: RequestOptions = {}): Promise<T[]> {
+  const deviceTokenRow = await db.meta.get('device.token')
+  const deviceToken = deviceTokenRow?.value as string | undefined
+  if (!deviceToken) {
+    throw new PosApiError(
+      401,
+      'Perangkat belum terikat. Silakan lakukan Device Binding di /pos/bind terlebih dahulu.',
+      undefined,
+      path,
+    )
+  }
+
+  const headers = {
+    ...opts.headers,
+    Authorization: `Bearer ${deviceToken}`,
+  }
+
+  return requestList<T>(path, { ...opts, headers, auth: 'none' })
 }
+

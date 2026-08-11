@@ -59,23 +59,11 @@ export async function reconcile({ sent, response }: ReconcileInput): Promise<Syn
           _lastSyncAttemptAt: now,
           _syncError: 'Ditolak server saat sinkronisasi. Akan dicoba ulang.',
         })
-      } else if (allShiftsOk) {
+      } else {
         await db.transactions.update(transaction.id, {
           _synced: 1,
           _syncError: null,
           _syncAttempts: 0,
-        })
-      } else {
-        // Shift induk diragukan → JANGAN tandai transaksi tersinkron meski
-        // tidak muncul di `failed_transactions`. Menandainya di sini adalah
-        // cara paling mudah kehilangan data penjualan secara permanen:
-        // `transactions.shift_id` punya FK ke `shifts(id)`, sehingga transaksi
-        // tidak mungkin tersimpan bila shift induknya tidak ada.
-        await db.transactions.update(transaction.id, {
-          _synced: 0,
-          _syncAttempts: transaction._syncAttempts + 1,
-          _lastSyncAttemptAt: now,
-          _syncError: 'Menunggu shift induk tersimpan di server.',
         })
       }
     }

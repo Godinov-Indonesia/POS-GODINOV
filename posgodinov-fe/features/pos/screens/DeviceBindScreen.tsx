@@ -11,6 +11,7 @@ import { bindDevice } from '@/lib/api/endpoints/auth'
 import { PosApiError } from '@/lib/api/errors'
 import { saveDeviceBinding } from '@/lib/auth/device-session'
 import { syncMasterData } from '@/lib/sync/master-sync'
+import { db } from '@/lib/db/dexie'
 
 /**
  * P-01 Device Binding — docs/04 §A.2, docs/03 §2.1.
@@ -36,6 +37,9 @@ export function DeviceBindScreen() {
     try {
       await syncMasterData()
       setState('done')
+      setTimeout(() => {
+        window.location.href = '/pos'
+      }, 1500)
     } catch (err) {
       setError(`Unduhan master data masih gagal: ${describe(err)}`)
     } finally {
@@ -55,6 +59,9 @@ export function DeviceBindScreen() {
         password,
       })
 
+      await db.meta.put({ key: 'device.token', value: device_token, updated_at: new Date().toISOString() })
+      await db.meta.delete('sync.backoffUntil')
+
       await saveDeviceBinding({
         token: device_token,
         outletLabel: outletLabel.trim() || serialOutlet.trim(),
@@ -72,6 +79,9 @@ export function DeviceBindScreen() {
       try {
         await syncMasterData()
         setState('done')
+        setTimeout(() => {
+          window.location.href = '/pos'
+        }, 1500)
       } catch (syncErr) {
         setError(
           `Perangkat berhasil diikat, tetapi unduhan master data gagal: ${describe(syncErr)}`,
@@ -95,16 +105,16 @@ export function DeviceBindScreen() {
             master data — produk, kategori, dan daftar kasir.
           </p>
           {error ? (
-            <p role="alert" className="text-pos-sm text-danger">
+            <p role="alert" className="text-pos-sm text-danger text-left font-mono bg-danger/10 border border-danger/20 p-3 rounded break-all whitespace-pre-wrap">
               {error}
             </p>
           ) : null}
           <Button variant="primary" size="xl" onClick={retryMasterSync} disabled={retrying}>
-            {retrying ? 'Mengunduh…' : 'Coba Unduh Master Data Lagi'}
+            {retrying ? 'Mengunduh katalog produk & data kasir...' : 'Coba Unduh Ulang Master Data'}
           </Button>
           <a
             href="/pos"
-            className="text-pos-sm font-medium text-accent underline"
+            className="text-pos-sm font-medium text-accent underline mt-2"
           >
             Lanjut ke aplikasi kasir — unduh nanti lewat Pengaturan
           </a>
@@ -117,17 +127,13 @@ export function DeviceBindScreen() {
     return (
       <main className="flex min-h-dvh items-center justify-center p-4">
         <div className="flex w-[28rem] max-w-full flex-col gap-3 rounded-2xl border border-border bg-surface p-6 text-center shadow-elevated">
-          <h1 className="text-pos-lg font-bold text-fg">Perangkat siap dipakai</h1>
+          <h1 className="text-pos-lg font-bold text-fg">Pemasangan Selesai!</h1>
           <p className="text-pos-sm text-fg-muted">
-            Binding berhasil dan master data sudah tersimpan di perangkat. Aplikasi kasir kini dapat
-            dibuka penuh tanpa jaringan.
+            Binding berhasil dan master data sudah tersimpan di perangkat. Mengalihkan ke aplikasi kasir...
           </p>
-          <a
-            href="/pos"
-            className="mt-2 inline-flex h-touch-lg items-center justify-center rounded-lg bg-accent px-6 text-pos-lg font-semibold text-fg-inverse"
-          >
-            Buka Aplikasi Kasir
-          </a>
+          <div className="flex justify-center mt-4">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent"></div>
+          </div>
         </div>
       </main>
     )
@@ -214,9 +220,9 @@ export function DeviceBindScreen() {
           disabled={state !== 'idle' || !serialBusiness || !serialOutlet || !password}
         >
           {state === 'binding'
-            ? 'Mengikat perangkat…'
+            ? 'Mengikat perangkat...'
             : state === 'syncing'
-              ? 'Mengunduh master data…'
+              ? 'Mengunduh katalog produk & data kasir...'
               : 'PASANG PERANGKAT'}
         </Button>
       </form>

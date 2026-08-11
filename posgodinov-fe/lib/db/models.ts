@@ -154,6 +154,8 @@ export type MetaKey =
   | 'sync.backoffUntil'
   /** angka, ditulis `detectClockSkew` */
   | 'clock.lastSkewMs'
+  /** Penanda database telah terisi seeder lokal. */
+  | 'seed.isSeeded'
 
 export type SyncTrigger = 'online' | 'interval' | 'shift-close' | 'manual' | 'startup'
 

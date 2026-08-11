@@ -38,7 +38,6 @@ const BCRYPT_COST = 10
 
 /** Penanda bahwa isi database berasal dari seeder, bukan sinkronisasi nyata. */
 export const SEED_MARKER_KEY = 'device.outletLabel'
-const FAKE_DEVICE_TOKEN = 'v4.local.SEED-ONLY-NOT-A-REAL-TOKEN'
 
 export type DexieSeedResult = {
   staffs: number
@@ -89,7 +88,7 @@ export async function seedDexie(): Promise<DexieSeedResult> {
     await db.products.bulkPut(products)
   })
 
-  await setMeta('device.token', FAKE_DEVICE_TOKEN)
+  await setMeta('seed.isSeeded', true)
   await setMeta('device.boundAt', now)
   await setMeta('device.outletLabel', SEED_OUTLET.name)
   await setMeta('master.lastSyncAt', now)
@@ -135,6 +134,6 @@ export async function resetSeed(): Promise<DexieResetResult> {
 
 /** Apakah database saat ini berisi hasil seeder (bukan sinkronisasi nyata)? */
 export async function isSeeded(): Promise<boolean> {
-  const token = await db.meta.get('device.token')
-  return token?.value === FAKE_DEVICE_TOKEN
+  const marker = await db.meta.get('seed.isSeeded')
+  return marker?.value === true
 }
