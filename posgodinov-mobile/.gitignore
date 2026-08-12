@@ -24,6 +24,8 @@ android/app/release/
 android/key.properties
 *.jks
 *.keystore
+# key.properties.example SENGAJA dilacak — ia template tanpa rahasia.
+!android/key.properties.example
 
 # ── iOS (belum dalam lingkup rilis, tapi jaga kebersihan) ───────────────────
 ios/Pods/

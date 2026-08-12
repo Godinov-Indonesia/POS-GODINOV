@@ -46,8 +46,7 @@ dependencies:
   permission_handler: ^11.3.1   # izin runtime BLUETOOTH_CONNECT/SCAN Android 12+ [09 §4.6]
 
   # ── Utilitas ───────────────────────────────────────────────────────────────
-  get_it: ^8.0.0                # composition root — setara DI manual di main.go
-  injectable: ^2.5.0
+  get_it: ^8.0.0                # composition root — registrasi MANUAL, lihat core/di/injection.dart
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
   intl: ^0.19.0                 # NumberFormat id_ID, DateFormat
@@ -63,7 +62,6 @@ dev_dependencies:
   drift_dev: ^2.20.0
   freezed: ^2.5.7
   json_serializable: ^6.8.0
-  injectable_generator: ^2.6.2
   bloc_test: ^9.1.7
   mocktail: ^1.0.4
   flutter_lints: ^4.0.0

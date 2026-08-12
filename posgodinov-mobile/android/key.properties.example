@@ -1,0 +1,15 @@
+# Salin menjadi `android/key.properties` dan isi dengan kredensial sungguhan.
+#
+# 🔴 `key.properties` dan berkas .jks/.keystore TIDAK PERNAH di-commit.
+#    Kehilangan keystore berarti aplikasi tidak dapat diperbarui lagi di
+#    perangkat yang sudah terpasang — Android menolak APK yang ditandatangani
+#    kunci berbeda.
+#
+# Membuat keystore baru:
+#   keytool -genkey -v -keystore ~/godinov-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias godinov
+
+storePassword=GANTI_INI
+keyPassword=GANTI_INI
+keyAlias=godinov
+storeFile=/path/absolut/ke/godinov-release.jks
