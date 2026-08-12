@@ -1,0 +1,56 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    # Berkas hasil build_runner — tidak pernah ditulis tangan, tidak perlu dianalisis.
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.config.dart"
+    - "**/*.drift.dart"
+
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+
+  errors:
+    # Naikkan dari INFO menjadi ERROR. Ketiganya menjaga kontrak dokumen 09,
+    # jadi tidak boleh lolos hanya karena "cuma peringatan".
+    # (Lint-nya sendiri diaktifkan di blok `linter` di bawah — menyebutkannya
+    #  di sini hanya mengubah severity, tidak mengaktifkannya.)
+    always_use_package_imports: error # impor relatif menembus batas lapisan tanpa terdeteksi
+    unawaited_futures: error # sync fire-and-forget WAJIB eksplisit `unawaited(...)`
+    close_sinks: error # StreamController printer & sync wajib ditutup
+
+linter:
+  rules:
+    # ── Kebersihan dasar ────────────────────────────────────────────────────
+    - always_declare_return_types
+    - prefer_final_locals
+    - prefer_single_quotes
+    - require_trailing_commas
+    - unnecessary_lambdas
+    - use_super_parameters
+
+    # ── Penegak kontrak dokumen 09 ──────────────────────────────────────────
+    # Batas lapisan hanya dapat ditegakkan import_lint bila impor memakai
+    # `package:` — impor relatif tidak terlihat olehnya ([09 §2.2]).
+    - always_use_package_imports
+
+    # Sync dipicu fire-and-forget di beberapa tempat ([09 §7.3]); menuliskannya
+    # tanpa `unawaited()` menyembunyikan Future yang gagal secara diam-diam.
+    - unawaited_futures
+
+    # PrinterManager & SyncEngine memegang StreamController jangka panjang.
+    - close_sinks
+
+    # `dynamic` menghapus seluruh manfaat tipe pada payload amplop API.
+    - avoid_dynamic_calls
+
+    # Token warna & spacing wajib const — tidak ada alokasi per-frame di grid produk.
+    - prefer_const_constructors
+    - prefer_const_declarations
+    - prefer_const_literals_to_create_immutables
+
+    # `print` tidak pernah masuk build release — pakai logging interceptor.
+    - avoid_print

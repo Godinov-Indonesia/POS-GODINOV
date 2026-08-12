@@ -1,0 +1,108 @@
+name: posgodinov_mobile
+description: POS Godinov — kasir offline-first untuk Tablet Android & Handheld POS.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ── State Management ───────────────────────────────────────────────────────
+  flutter_bloc: ^8.1.6          # Cubit — ADR-09 [05 §0.3]
+  bloc: ^8.1.4
+  equatable: ^2.0.5             # kesetaraan state tanpa boilerplate
+
+  # ── Basis data lokal (offline engine) ──────────────────────────────────────
+  drift: ^2.20.0                # SQL bertipe aman, migrasi ter-versi, stream reaktif
+  sqlite3_flutter_libs: ^0.5.24 # binari SQLite terbaru untuk semua ABI Android
+  path_provider: ^2.1.4
+  path: ^1.9.0
+
+  # ── Penyimpanan rahasia ────────────────────────────────────────────────────
+  flutter_secure_storage: ^9.2.2   # Android KeyStore via EncryptedSharedPreferences
+
+  # ── Jaringan ───────────────────────────────────────────────────────────────
+  dio: ^5.7.0                   # + interceptor device token / error / logging
+  connectivity_plus: ^6.0.5     # pemicu sync saat koneksi kembali
+
+  # ── Printer ────────────────────────────────────────────────────────────────
+  flutter_pos_printer_platform_image_3: ^1.0.8  # transport: BT Classic (SPP), BLE, USB, TCP
+  esc_pos_utils_2: ^2.0.4                       # encoder ESC/POS + CP437/CP858, barcode, QR
+  image: ^4.2.0                                 # raster logo → ESC/POS bitmap
+
+  # ── Kriptografi & identitas ────────────────────────────────────────────────
+  bcrypt: ^1.1.3                # dibandingkan di isolate lewat compute()
+  uuid: ^4.5.1                  # v4, dibuat KLIEN — dasar idempotensi [03 §2.3]
+
+  # ── Latar & sistem ─────────────────────────────────────────────────────────
+  workmanager: ^0.5.2           # Android WorkManager — sync saat aplikasi tertutup
+  wakelock_plus: ^1.2.8         # layar tetap menyala saat shift terbuka / mode Kiosk
+  package_info_plus: ^8.0.2
+  device_info_plus: ^10.1.2     # deteksi Sunmi/iMin untuk memilih adapter printer
+  permission_handler: ^11.3.1   # izin runtime BLUETOOTH_CONNECT/SCAN Android 12+ [09 §4.6]
+
+  # ── Utilitas ───────────────────────────────────────────────────────────────
+  get_it: ^8.0.0                # composition root — setara DI manual di main.go
+  injectable: ^2.5.0
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+  intl: ^0.19.0                 # NumberFormat id_ID, DateFormat
+  synchronized: ^3.2.0          # mutex sync engine (pengganti Web Locks)
+  collection: ^1.18.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  build_runner: ^2.4.13
+  drift_dev: ^2.20.0
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+  injectable_generator: ^2.6.2
+  bloc_test: ^9.1.7
+  mocktail: ^1.0.4
+  flutter_lints: ^4.0.0
+  import_lint: ^2.1.0           # penegakan batas lapisan — [09 §2.2]
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+
+  # ⚠️ FONT DIBUNDEL, BUKAN DIUNDUH RUNTIME ([09 §1.2]).
+  #
+  # Blok di bawah sengaja DIKOMENTARI sampai berkas .ttf benar-benar ada di
+  # assets/fonts/. Mengaktifkannya lebih dulu membuat `flutter build` gagal
+  # dengan "unable to locate asset entry".
+  #
+  # Tugas M0.2 pada [10-flutter-implementation-plan.md]:
+  #   1. Unduh Inter (400/500/600/700) dan JetBrains Mono (500/700)
+  #   2. Letakkan di assets/fonts/
+  #   3. Hapus komentar blok ini
+  #
+  # Tanpa JetBrainsMono, `FontFeature.tabularFigures()` pada MoneyText tidak
+  # bekerja dan seluruh aturan tipografi keuangan [06 §2.4] gugur.
+  #
+  # fonts:
+  #   - family: Inter
+  #     fonts:
+  #       - asset: assets/fonts/Inter-Regular.ttf
+  #         weight: 400
+  #       - asset: assets/fonts/Inter-Medium.ttf
+  #         weight: 500
+  #       - asset: assets/fonts/Inter-SemiBold.ttf
+  #         weight: 600
+  #       - asset: assets/fonts/Inter-Bold.ttf
+  #         weight: 700
+  #   - family: JetBrainsMono
+  #     fonts:
+  #       - asset: assets/fonts/JetBrainsMono-Medium.ttf
+  #         weight: 500
+  #       - asset: assets/fonts/JetBrainsMono-Bold.ttf
+  #         weight: 700
