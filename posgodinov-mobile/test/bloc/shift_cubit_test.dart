@@ -4,6 +4,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/features/shift/domain/entities/shift.dart';
+import 'package:posgodinov_mobile/features/shift/domain/shift_math.dart';
 import 'package:posgodinov_mobile/features/shift/domain/repositories/shift_repository.dart';
 import 'package:posgodinov_mobile/features/shift/presentation/cubit/shift_cubit.dart';
 
@@ -45,6 +46,15 @@ class _FakeShiftRepository implements ShiftRepository {
     _controller.add(shift);
     return shift;
   }
+
+  @override
+  Future<List<CashLine>> cashLinesOf(String shiftId) async => const <CashLine>[];
+
+  @override
+  Future<Shift> close({
+    required String shiftId,
+    required int closingBalanceMinor,
+  }) async => throw UnimplementedError();
 
   void emitShift(Shift? shift) => _controller.add(shift);
 

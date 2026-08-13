@@ -33,6 +33,12 @@ class NetworkPrinterAdapter implements PrinterTransport {
   Future<bool> isAvailable() async => true;
 
   @override
+  Future<List<PrinterTarget>> discover({
+    Duration timeout = const Duration(seconds: 6),
+  }) async =>
+      const <PrinterTarget>[];
+
+  @override
   Future<void> connect(PrinterTarget target) async {
     // Koneksi TIDAK dipertahankan antar-cetak. Printer LAN kerap memutus
     // koneksi menganggur setelah beberapa menit, dan soket yang tampak hidup

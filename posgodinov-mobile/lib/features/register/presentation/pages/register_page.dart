@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:posgodinov_mobile/core/di/injection.dart';
 import 'package:posgodinov_mobile/features/auth/domain/entities/cashier_session.dart';
+import 'package:posgodinov_mobile/features/auth/presentation/cubit/cashier_auth_cubit.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/cart_line.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/catalog.dart';
 import 'package:posgodinov_mobile/features/register/domain/repositories/register_repository.dart';
@@ -175,7 +176,10 @@ class _RegisterPageState extends State<RegisterPage> {
     _push(
       BlocProvider<PrinterCubit>.value(
         value: getIt<PrinterCubit>(),
-        child: SettingsPage(cashierName: widget.session.name),
+        child: SettingsPage(
+          cashierName: widget.session.name,
+          onChangeCashier: () => getIt<CashierAuthCubit>().logout(),
+        ),
       ),
     );
   }

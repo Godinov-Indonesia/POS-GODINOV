@@ -20,6 +20,7 @@ import 'package:posgodinov_mobile/core/database/tables/sync_meta_table.dart';
 import 'package:posgodinov_mobile/core/database/tables/transaction_items_table.dart';
 import 'package:posgodinov_mobile/core/database/tables/transactions_table.dart';
 import 'package:posgodinov_mobile/core/database/tables/wastes_table.dart';
+import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/storage/secure_storage_service.dart';
 
 part 'app_database.g.dart';

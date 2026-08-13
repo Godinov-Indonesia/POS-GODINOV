@@ -160,22 +160,47 @@ class _SettingsPageState extends State<SettingsPage> {
 
           _Section(
             title: 'DATA',
-            child: Column(
-              children: <Widget>[
-                _ActionTile(
-                  icon: Icons.cloud_download_outlined,
-                  label: 'Tarik ulang data outlet',
-                  hint: 'Produk, kategori, dan kasir. Menarik SELURUH katalog.',
-                  onTap: () => getIt<MasterSyncCubit>().sync(),
-                ),
-                const SizedBox(height: Gap.sm),
-                _ActionTile(
-                  icon: Icons.person_outline,
-                  label: 'Ganti kasir — ${widget.cashierName}',
-                  hint: 'Shift yang sedang berjalan tidak ikut ditutup.',
-                  onTap: widget.onChangeCashier,
-                ),
-              ],
+            child: BlocConsumer<MasterSyncCubit, MasterSyncState>(
+              bloc: getIt<MasterSyncCubit>(),
+              listener: (BuildContext context, MasterSyncState state) {
+                if (state is MasterSyncDone) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Data outlet berhasil ditarik ulang.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else if (state is MasterSyncFailure) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Gagal menarik data: ${state.message}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              builder: (BuildContext context, MasterSyncState state) {
+                final bool isSyncing = state is MasterSyncDownloading;
+                return Column(
+                  children: <Widget>[
+                    _ActionTile(
+                      icon: Icons.cloud_download_outlined,
+                      label: isSyncing ? 'Menarik data...' : 'Tarik ulang data outlet',
+                      hint: isSyncing
+                          ? 'Sedang mengunduh seluruh katalog data outlet...'
+                          : 'Produk, kategori, dan kasir. Menarik SELURUH katalog.',
+                      onTap: isSyncing ? null : () => getIt<MasterSyncCubit>().sync(),
+                    ),
+                    const SizedBox(height: Gap.sm),
+                    _ActionTile(
+                      icon: Icons.person_outline,
+                      label: 'Ganti kasir — ${widget.cashierName}',
+                      hint: 'Shift yang sedang berjalan tidak ikut ditutup.',
+                      onTap: isSyncing ? null : widget.onChangeCashier,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
 

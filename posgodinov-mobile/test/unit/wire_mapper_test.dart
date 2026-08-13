@@ -3,6 +3,7 @@ import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/database/app_database.dart';
 import 'package:posgodinov_mobile/core/database/daos/transaction_dao.dart';
 import 'package:posgodinov_mobile/core/sync/wire_mapper.dart';
+import 'package:posgodinov_mobile/core/sync/sync_models.dart';
 
 final DateTime _openedAt = DateTime.utc(2026, 8, 10, 1);
 final DateTime _createdAt = DateTime.utc(2026, 8, 10, 3, 22, 11);

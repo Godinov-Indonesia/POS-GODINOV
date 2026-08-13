@@ -16,7 +16,7 @@ class _NoJitter implements Random {
 }
 
 void main() {
-  const Backoff jitterFree = Backoff(random: _NoJitter());
+  final Backoff jitterFree = Backoff(random: _NoJitter());
 
   group('Kurva eksponensial', () {
     test('kegagalan pertama menunggu 5 detik', () {

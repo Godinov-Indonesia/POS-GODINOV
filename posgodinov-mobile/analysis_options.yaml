@@ -54,3 +54,79 @@ linter:
 
     # `print` tidak pernah masuk build release — pakai logging interceptor.
     - avoid_print
+
+import_lint:
+  severity: error
+  rules:
+    domain_no_flutter:
+      target: "package:posgodinov_mobile/features/*/domain/**"
+      from: "package:flutter/**"
+      except: []
+    domain_no_drift:
+      target: "package:posgodinov_mobile/features/*/domain/**"
+      from: "package:drift/**"
+      except: []
+    domain_no_dio:
+      target: "package:posgodinov_mobile/features/*/domain/**"
+      from: "package:dio/**"
+      except: []
+    domain_no_flutter_bloc:
+      target: "package:posgodinov_mobile/features/*/domain/**"
+      from: "package:flutter_bloc/**"
+      except: []
+    domain_no_data:
+      target: "package:posgodinov_mobile/features/*/domain/**"
+      from: "package:posgodinov_mobile/features/*/data/**"
+      except: []
+    domain_no_presentation:
+      target: "package:posgodinov_mobile/features/*/domain/**"
+      from: "package:posgodinov_mobile/features/*/presentation/**"
+      except: []
+    core_config_no_features:
+      target: "package:posgodinov_mobile/core/config/**"
+      from: "package:posgodinov_mobile/features/**"
+      except: []
+    core_crypto_no_features:
+      target: "package:posgodinov_mobile/core/crypto/**"
+      from: "package:posgodinov_mobile/features/**"
+      except: []
+    core_database_no_features:
+      target: "package:posgodinov_mobile/core/database/**"
+      from: "package:posgodinov_mobile/features/**"
+      except: []
+    core_error_no_features:
+      target: "package:posgodinov_mobile/core/error/**"
+      from: "package:posgodinov_mobile/features/**"
+      except: []
+    core_kiosk_no_features:
+      target: "package:posgodinov_mobile/core/kiosk/**"
+      from: "package:posgodinov_mobile/features/**"
+      except: []
+    core_network_no_features:
+      target: "package:posgodinov_mobile/core/network/**"
+      from: "package:posgodinov_mobile/features/**"
+      except: []
+    core_printer_no_features:
+      target: "package:posgodinov_mobile/core/printer/**"
+      from: "package:posgodinov_mobile/features/**"
+      except: []
+    core_storage_no_features:
+      target: "package:posgodinov_mobile/core/storage/**"
+      from: "package:posgodinov_mobile/features/**"
+      except: []
+    core_sync_no_features:
+      target: "package:posgodinov_mobile/core/sync/**"
+      from: "package:posgodinov_mobile/features/**"
+      except: []
+    core_utils_no_features:
+      target: "package:posgodinov_mobile/core/utils/**"
+      from: "package:posgodinov_mobile/features/**"
+      except: []
+    no_raw_palette_outside_theme:
+      target: "package:posgodinov_mobile/features/**"
+      from: "package:posgodinov_mobile/shared/theme/godinov_colors.dart"
+      except: []
+    presentation_no_data:
+      target: "package:posgodinov_mobile/features/*/presentation/**"
+      from: "package:posgodinov_mobile/features/*/data/**"
+      except: []

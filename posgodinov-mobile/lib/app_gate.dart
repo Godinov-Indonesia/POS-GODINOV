@@ -91,37 +91,48 @@ class _AppGateState extends State<AppGate> {
 
   @override
   Widget build(BuildContext context) {
-    return switch (_step) {
-      GateStep.checking => const _Splash(),
+    return BlocListener<CashierAuthCubit, CashierAuthState>(
+      bloc: getIt<CashierAuthCubit>(),
+      listener: (BuildContext context, CashierAuthState state) {
+        if (state is CashierLoggedOut) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
+          }
+          _goTo(GateStep.cashierLogin);
+        }
+      },
+      child: switch (_step) {
+        GateStep.checking => const _Splash(),
 
-      GateStep.binding => BlocProvider<DeviceBindingCubit>(
-          create: (_) => DeviceBindingCubit(getIt<DeviceRepository>()),
-          child: BindingPage(
-            onBound: () {
-              // Perangkat baru saja punya token — jadwalkan sinkronisasi latar
-              // sekarang, bukan menunggu start berikutnya.
-              unawaited(const BackgroundSync().ensureScheduled());
-              _goTo(GateStep.masterSync);
-            },
+        GateStep.binding => BlocProvider<DeviceBindingCubit>(
+            create: (_) => DeviceBindingCubit(getIt<DeviceRepository>()),
+            child: BindingPage(
+              onBound: () {
+                // Perangkat baru saja punya token — jadwalkan sinkronisasi latar
+                // sekarang, bukan menunggu start berikutnya.
+                unawaited(const BackgroundSync().ensureScheduled());
+                _goTo(GateStep.masterSync);
+              },
+            ),
           ),
-        ),
 
-      GateStep.masterSync => BlocProvider<MasterSyncCubit>.value(
-          value: getIt<MasterSyncCubit>(),
-          child: MasterSyncPage(
-            onCompleted: () => _goTo(GateStep.cashierLogin),
+        GateStep.masterSync => BlocProvider<MasterSyncCubit>.value(
+            value: getIt<MasterSyncCubit>(),
+            child: MasterSyncPage(
+              onCompleted: () => _goTo(GateStep.cashierLogin),
+            ),
           ),
-        ),
 
-      GateStep.cashierLogin => BlocProvider<CashierAuthCubit>.value(
-          value: getIt<CashierAuthCubit>(),
-          child: PinLoginPage(onLoggedIn: () => _goTo(GateStep.openShift)),
-        ),
+        GateStep.cashierLogin => BlocProvider<CashierAuthCubit>.value(
+            value: getIt<CashierAuthCubit>(),
+            child: PinLoginPage(onLoggedIn: () => _goTo(GateStep.openShift)),
+          ),
 
-      GateStep.openShift => _OpenShiftStep(onOpened: () => _goTo(GateStep.ready)),
+        GateStep.openShift => _OpenShiftStep(onOpened: () => _goTo(GateStep.ready)),
 
-      GateStep.ready => const _RegisterStep(),
-    };
+        GateStep.ready => const _RegisterStep(),
+      },
+    );
   }
 }
 

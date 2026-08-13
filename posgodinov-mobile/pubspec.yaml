@@ -39,7 +39,7 @@ dependencies:
   uuid: ^4.5.1                  # v4, dibuat KLIEN — dasar idempotensi [03 §2.3]
 
   # ── Latar & sistem ─────────────────────────────────────────────────────────
-  workmanager: ^0.5.2           # Android WorkManager — sync saat aplikasi tertutup
+  workmanager: ^0.10.7           # Android WorkManager — sync saat aplikasi tertutup
   wakelock_plus: ^1.2.8         # layar tetap menyala saat shift terbuka / mode Kiosk
   package_info_plus: ^8.0.2
   device_info_plus: ^10.1.2     # deteksi Sunmi/iMin untuk memilih adapter printer
@@ -47,6 +47,7 @@ dependencies:
 
   # ── Utilitas ───────────────────────────────────────────────────────────────
   get_it: ^8.0.0                # composition root — registrasi MANUAL, lihat core/di/injection.dart
+  injectable: ^2.5.0
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
   intl: ^0.19.0                 # NumberFormat id_ID, DateFormat
@@ -59,9 +60,10 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   build_runner: ^2.4.13
-  drift_dev: ^2.20.0
-  freezed: ^2.5.7
-  json_serializable: ^6.8.0
+  drift_dev: 2.20.0
+  freezed: 2.4.7
+  json_serializable: 6.8.0
+  injectable_generator: 2.6.2
   bloc_test: ^9.1.7
   mocktail: ^1.0.4
   flutter_lints: ^4.0.0
