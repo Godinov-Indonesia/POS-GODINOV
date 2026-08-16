@@ -86,7 +86,12 @@ Future<void> _lockOrientation() async {
             DeviceOrientation.landscapeLeft,
             DeviceOrientation.landscapeRight,
           ]
-        : const <DeviceOrientation>[DeviceOrientation.portraitUp],
+        : const <DeviceOrientation>[
+            DeviceOrientation.portraitUp,
+            DeviceOrientation.portraitDown,
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ],
   );
 }
 
