@@ -79,9 +79,21 @@ export function SyncMasterScreen() {
           </Button>
         )}
 
-        <Button variant="ghost" onClick={() => posNavigate('login')}>
-          Lewati untuk sekarang
-        </Button>
+        {/*
+          ⛔ TOMBOL "LEWATI UNTUK SEKARANG" DIHAPUS PADA M15.1 (butir 10).
+          ⛔ JANGAN DIKEMBALIKAN.
+
+          Membuka shift dengan katalog kemarin berarti berjualan seharian pada
+          harga yang sudah tidak berlaku, dan kerugiannya tidak dapat dikoreksi
+          setelah pelanggan pulang.
+
+          Tombol ini akan ditekan setiap pagi oleh kasir yang sedang terburu-buru
+          — itulah persis mengapa ia tidak boleh ada. Gerbang di P-04
+          (`lib/pos/master-gate.ts`) tetap memblokir bila unduhan belum pernah
+          berhasil, sehingga melewati layar ini pun tidak menghasilkan jalan
+          pintas; yang tersisa hanyalah kasir yang bingung mengapa shift-nya
+          tidak dapat dibuka.
+        */}
       </div>
     </div>
   )

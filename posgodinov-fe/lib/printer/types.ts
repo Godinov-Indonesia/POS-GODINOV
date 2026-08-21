@@ -9,7 +9,7 @@
  *                                       └─► ReceiptPrinter (transport)
  */
 
-import type { PaymentMethod } from '@/lib/constants/payment'
+import type { PaymentSummaryMethod } from '@/lib/constants/payment'
 
 export type PrinterKind = 'web-bluetooth' | 'lan-epos' | 'rawbt' | 'browser-print'
 
@@ -69,7 +69,11 @@ export type Receipt = {
   items: ReceiptItem[]
   /** sen */
   total: number
-  paymentMethod: PaymentMethod
+  /**
+   * Ringkasan, bukan satu tender: transaksi multi-tender tercetak sebagai
+   * `SPLIT` ([11 §3.2]). Rincian per tender masuk struk pada M14.
+   */
+  paymentMethod: PaymentSummaryMethod
   /** sen */
   cashReceived?: number
   /** sen */

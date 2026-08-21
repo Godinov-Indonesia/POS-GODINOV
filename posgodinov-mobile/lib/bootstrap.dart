@@ -11,6 +11,7 @@ import 'package:posgodinov_mobile/core/storage/secure_storage_service.dart';
 import 'package:posgodinov_mobile/core/sync/background_sync_worker.dart';
 import 'package:posgodinov_mobile/core/sync/sync_triggers.dart';
 import 'package:posgodinov_mobile/features/printer/presentation/cubit/printer_cubit.dart';
+import 'package:posgodinov_mobile/features/printing/presentation/cubit/print_queue_cubit.dart';
 import 'package:posgodinov_mobile/features/sync/presentation/cubit/sync_cubit.dart';
 
 /// Menyiapkan aplikasi sebelum bingkai pertama digambar.
@@ -41,6 +42,13 @@ Future<void> bootstrap() async {
   // langsung melihat apakah printernya siap, bukan mengetahuinya saat struk
   // pertama gagal keluar.
   await getIt<PrinterCubit>().observe();
+
+  // Antrean cetak ikut menyimak sejak awal ([11 §M14.1]).
+  //
+  // Ia juga melakukan `flush()` pertama di sini: struk yang tertinggal dari
+  // sesi sebelumnya — printer mati saat tutup toko, misalnya — harus terbit
+  // begitu perangkat menyala kembali, tanpa menunggu kasir menyadarinya.
+  await getIt<PrintQueueCubit>().observe();
 
   await _scheduleBackgroundSync();
 }

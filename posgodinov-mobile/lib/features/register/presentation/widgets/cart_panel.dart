@@ -23,7 +23,23 @@ class CartPanel extends StatelessWidget {
   });
 
   final CartState state;
+
+  /// Menaikkan kuantitas — tidak pernah diaudit, tidak ada yang hilang.
   final ValueChanged<String> onIncrement;
+
+  /// ⚠️ **KONTRAK BUTIR 5 ([11 §M13.4]).**
+  ///
+  /// Ketiga callback penurunan di bawah WAJIB disambungkan ke
+  /// `CartVoidGuard`, **bukan** langsung ke `CartCubit.decrement`,
+  /// `CartCubit.removeLine`, atau `CartCubit.clear`.
+  ///
+  /// Menyambungkannya langsung akan membuat penurunan kuantitas berapa pun
+  /// lolos tanpa Void Sheet dan tanpa satu pun baris `void_logs` — persis
+  /// lubang yang sempat ada di sini sebelum gerbangnya dipasang, dan lubang
+  /// yang tidak terlihat salah dari berkas ini sendiri.
+  ///
+  /// `CartCubit` memberi tanda yang sama pada ketiga metode itu; widget ini
+  /// mengulanginya karena di sinilah orang berikutnya akan menyambungkannya.
   final ValueChanged<String> onDecrement;
   final ValueChanged<String> onRemove;
   final VoidCallback onClear;

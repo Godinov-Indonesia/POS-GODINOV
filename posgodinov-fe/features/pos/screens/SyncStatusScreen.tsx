@@ -10,15 +10,25 @@ import { Banner, EmptyState } from '@/components/ui/feedback'
 import { Money, Num, shortId } from '@/components/ui/money'
 import { posNavigate } from '@/features/pos/router/usePosRouter'
 import { useSyncStore } from '@/features/pos/sync/sync-store'
+import { useCanAttemptNetwork, useConnectivityStatus } from '@/features/pos/sync/useConnectivity'
 import { runManualSync } from '@/features/pos/sync/useSyncEngine'
-import { useOnlineStatus } from '@/features/pos/components/StatusBar'
 import type { LocalTransaction } from '@/lib/db/models'
 import { countUnsyncedShifts } from '@/lib/db/repositories/shift.repo'
 import {
+  countQuarantinedReturns,
+  countQuarantinedSecurityEvents,
+  countQuarantinedTransactions,
+  countQuarantinedVoidLogs,
+  countQuarantinedWastes,
+  countUnsyncedReturns,
+  countUnsyncedSecurityEvents,
   countUnsyncedTransactions,
+  countUnsyncedVoidLogs,
   countUnsyncedWastes,
   listFailedTransactions,
+  listQuarantinedTransactions,
 } from '@/lib/db/repositories/transaction.repo'
+import { CONNECTIVITY_LABEL } from '@/lib/sync/connectivity-store'
 import { formatDateTimeId } from '@/lib/time'
 
 /**
@@ -29,7 +39,8 @@ import { formatDateTimeId } from '@/lib/time'
  * 2. Kegagalan shift tidak dilaporkan per-ID, sehingga peringatannya agregat.
  */
 export function SyncStatusScreen() {
-  const online = useOnlineStatus()
+  const connectivity = useConnectivityStatus()
+  const canAttempt = useCanAttemptNetwork()
   const syncing = useSyncStore((s) => s.syncing)
   const lastError = useSyncStore((s) => s.lastError)
   const lastSuccessAt = useSyncStore((s) => s.lastSuccessAt)
@@ -41,13 +52,49 @@ export function SyncStatusScreen() {
       transactions: await countUnsyncedTransactions(),
       shifts: await countUnsyncedShifts(),
       wastes: await countUnsyncedWastes(),
+      returns: await countUnsyncedReturns(),
+      voidLogs: await countUnsyncedVoidLogs(),
+      securityEvents: await countUnsyncedSecurityEvents(),
     }),
     [],
-    { transactions: 0, shifts: 0, wastes: 0 },
+    { transactions: 0, shifts: 0, wastes: 0, returns: 0, voidLogs: 0, securityEvents: 0 },
+  )
+
+  /** Kelompok ketiga — baris yang ditolak server secara PERMANEN ([11 §4.3]). */
+  const quarantined = useLiveQuery(
+    async () => ({
+      transactions: await countQuarantinedTransactions(),
+      wastes: await countQuarantinedWastes(),
+      returns: await countQuarantinedReturns(),
+      voidLogs: await countQuarantinedVoidLogs(),
+      securityEvents: await countQuarantinedSecurityEvents(),
+    }),
+    [],
+    { transactions: 0, wastes: 0, returns: 0, voidLogs: 0, securityEvents: 0 },
   )
 
   const failed = useLiveQuery(() => listFailedTransactions(), [], [] as LocalTransaction[])
-  const queued = counts.transactions + counts.shifts + counts.wastes
+  const blocked = useLiveQuery(() => listQuarantinedTransactions(), [], [] as LocalTransaction[])
+
+  const queued =
+    counts.transactions +
+    counts.shifts +
+    counts.wastes +
+    counts.returns +
+    counts.voidLogs +
+    counts.securityEvents
+
+  const quarantinedTotal =
+    quarantined.transactions +
+    quarantined.wastes +
+    quarantined.returns +
+    quarantined.voidLogs +
+    quarantined.securityEvents
+
+  // "Antre" adalah baris yang belum pernah gagal. Menghitungnya sebagai
+  // `total - gagal` mencegah satu baris muncul di dua kelompok sekaligus —
+  // kasir yang melihat angka yang sama dua kali akan berhenti mempercayainya.
+  const waiting = Math.max(0, queued - failed.length)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
@@ -85,25 +132,71 @@ export function SyncStatusScreen() {
         </Banner>
       )}
 
+      {/* ── TIGA KELOMPOK ANTREAN ([11 §M12.3]) ─────────────────────────────
+          Pembagiannya bukan kosmetik: hanya kelompok ketiga yang menuntut
+          manusia. Menyatukan ketiganya membuat satu baris cacat permanen
+          tersembunyi di antara seratus baris yang akan beres sendiri. */}
       <div className="grid gap-2 sm:grid-cols-3">
-        <CountCard label="Transaksi" value={counts.transactions} />
-        <CountCard label="Shift" value={counts.shifts} />
-        <CountCard label="Waste" value={counts.wastes} />
+        <GroupCard
+          tone="neutral"
+          label="Antre"
+          value={waiting}
+          hint="Menunggu giliran kirim. Tidak ada yang perlu dilakukan."
+        />
+        <GroupCard
+          tone="warning"
+          label="Gagal (akan diulang)"
+          value={failed.length}
+          hint="Mesin mencoba lagi otomatis dengan jeda yang membesar."
+        />
+        <GroupCard
+          tone="danger"
+          label="Butuh tindakan"
+          value={quarantinedTotal}
+          hint="Ditolak server secara permanen — mengirim ulang tidak akan berhasil."
+        />
       </div>
+
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-xl border border-border bg-surface p-3 text-pos-sm sm:grid-cols-3">
+        <Row label="Transaksi">
+          <Num>{counts.transactions}</Num>
+        </Row>
+        <Row label="Shift">
+          <Num>{counts.shifts}</Num>
+        </Row>
+        <Row label="Waste">
+          <Num>{counts.wastes}</Num>
+        </Row>
+        <Row label="Retur">
+          <Num>{counts.returns}</Num>
+        </Row>
+        <Row label="Pembatalan">
+          <Num>{counts.voidLogs}</Num>
+        </Row>
+        <Row label="Audit keamanan">
+          <Num>{counts.securityEvents}</Num>
+        </Row>
+      </dl>
 
       <div className="flex flex-wrap items-center gap-3">
         <Button
           variant="primary"
           size="xl"
           onClick={() => void runManualSync()}
-          disabled={syncing || !online}
+          disabled={syncing || !canAttempt}
         >
           <RefreshCw className={syncing ? 'size-5 animate-spin' : 'size-5'} aria-hidden="true" />
           {syncing ? 'MENYINKRONKAN…' : deviceRejected ? 'COBA LAGI' : 'SINKRONKAN SEKARANG'}
         </Button>
 
-        {!online ? (
+        {/* `degraded` sengaja TIDAK mematikan tombol: menekannya adalah
+            satu-satunya cara mengetahui captive portal sudah dilewati. */}
+        {connectivity === 'offline' ? (
           <Badge tone="neutral">Perangkat offline — akan otomatis dicoba saat online</Badge>
+        ) : connectivity === 'degraded' ? (
+          <Badge tone="warning">
+            {CONNECTIVITY_LABEL.degraded} — jaringan terdeteksi, tetapi server belum menjawab
+          </Badge>
         ) : null}
       </div>
 
@@ -127,28 +220,33 @@ export function SyncStatusScreen() {
         </Banner>
       ) : null}
 
-      <h2 className="mt-2 text-pos-base font-semibold text-fg">Transaksi bermasalah</h2>
+      {blocked.length > 0 ? (
+        <>
+          <h2 className="mt-2 text-pos-base font-semibold text-danger">
+            Butuh tindakan — ditolak permanen
+          </h2>
+          <Banner tone="danger" icon={ShieldAlert} title="Baris ini tidak akan terkirim sendiri">
+            Server menolaknya dengan alasan yang <strong>tidak berubah</strong> berapa kali pun
+            dikirim ulang — misalnya pembayaran kartu tanpa nomor trace, atau retur yang melebihi
+            jumlah aslinya. Baris ini sudah dikeluarkan dari antrean supaya tidak menahan baris di
+            belakangnya. <strong>Datanya tetap tersimpan di perangkat</strong>; laporkan ke
+            supervisor beserta kode struk di bawah.
+          </Banner>
+          <ul className="flex flex-col gap-2">
+            {blocked.map((transaction) => (
+              <TransactionRow key={transaction.id} transaction={transaction} tone="danger" />
+            ))}
+          </ul>
+        </>
+      ) : null}
+
+      <h2 className="mt-2 text-pos-base font-semibold text-fg">Gagal — akan diulang otomatis</h2>
       {failed.length === 0 ? (
         <EmptyState title="Tidak ada transaksi yang gagal" />
       ) : (
         <ul className="flex flex-col gap-2">
           {failed.map((transaction) => (
-            <li
-              key={transaction.id}
-              className="flex items-center gap-3 rounded-xl border border-danger/30 bg-danger-subtle p-3"
-            >
-              <div className="flex min-w-0 flex-1 flex-col">
-                <Num className="font-semibold">{shortId(transaction.id)}</Num>
-                <span className="text-pos-xs text-fg-muted">
-                  {formatDateTimeId(transaction.client_created_at)} ·{' '}
-                  <Num>{transaction._syncAttempts}</Num> percobaan
-                </span>
-                {transaction._syncError ? (
-                  <span className="text-pos-xs text-danger">{transaction._syncError}</span>
-                ) : null}
-              </div>
-              <Money minor={transaction.total_amount} size="md" />
-            </li>
+            <TransactionRow key={transaction.id} transaction={transaction} tone="warning" />
           ))}
         </ul>
       )}
@@ -156,7 +254,7 @@ export function SyncStatusScreen() {
       <p className="text-pos-xs text-fg-muted">
         {deviceRejected
           ? 'Percobaan otomatis dihentikan sampai perangkat dipasang ulang. Tidak ada baris yang dibuang — seluruh antrean menunggu di perangkat.'
-          : 'Baris yang berulang kali gagal tidak pernah dibuang. Mesin akan terus mencoba dengan jeda yang membesar hingga maksimal 5 menit.'}
+          : 'Baris yang berulang kali gagal tidak pernah dibuang. Mesin akan terus mencoba dengan jeda yang membesar hingga maksimal 5 menit. Baris "Butuh tindakan" pun tetap tersimpan — ia hanya berhenti diantre agar tidak menahan yang lain.'}
       </p>
     </div>
   )
@@ -169,12 +267,66 @@ const SKIP_LABEL = {
   empty: 'Tidak ada yang perlu dikirim',
 } as const
 
-function CountCard({ label, value }: { label: string; value: number }) {
+/** Kartu satu kelompok antrean. Nilai nol tetap ditampilkan — ketiadaan angka
+ *  lebih membingungkan daripada angka nol. */
+function GroupCard({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string
+  value: number
+  hint: string
+  tone: 'neutral' | 'warning' | 'danger'
+}) {
+  // Warna SAJA tidak pernah menjadi satu-satunya penanda ([06 §1.5]); teks
+  // `hint` di bawah angka membawa arti yang sama.
+  const toneClass =
+    value === 0
+      ? 'border-border bg-surface'
+      : tone === 'danger'
+        ? 'border-danger/40 bg-danger-subtle'
+        : tone === 'warning'
+          ? 'border-warning/40 bg-warning-subtle'
+          : 'border-border bg-surface'
+
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border bg-surface p-3">
-      <span className="text-pos-sm text-fg-muted">{label}</span>
-      <Num className="text-pos-xl font-semibold">{value}</Num>
+    <div className={`flex flex-col gap-0.5 rounded-xl border p-3 ${toneClass}`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-pos-sm text-fg-muted">{label}</span>
+        <Num className="text-pos-xl font-semibold">{value}</Num>
+      </div>
+      <span className="text-pos-xs text-fg-muted">{hint}</span>
     </div>
+  )
+}
+
+function TransactionRow({
+  transaction,
+  tone,
+}: {
+  transaction: LocalTransaction
+  tone: 'warning' | 'danger'
+}) {
+  const border = tone === 'danger' ? 'border-danger/30 bg-danger-subtle' : 'border-warning/30 bg-warning-subtle'
+
+  return (
+    <li className={`flex items-center gap-3 rounded-xl border p-3 ${border}`}>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Num className="font-semibold">{transaction.short_code ?? shortId(transaction.id)}</Num>
+        <span className="text-pos-xs text-fg-muted">
+          {formatDateTimeId(transaction.client_created_at)} ·{' '}
+          <Num>{transaction._syncAttempts}</Num> percobaan
+        </span>
+        {transaction._syncError ? (
+          <span className={tone === 'danger' ? 'text-pos-xs text-danger' : 'text-pos-xs text-fg-muted'}>
+            {transaction._syncError}
+          </span>
+        ) : null}
+      </div>
+      <Money minor={transaction.total_amount} size="md" />
+    </li>
   )
 }
 

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:posgodinov_mobile/core/di/injection.dart';
+import 'package:posgodinov_mobile/core/sync/sync_triggers.dart';
+import 'package:posgodinov_mobile/features/auth/presentation/cubit/cashier_auth_cubit.dart';
+import 'package:posgodinov_mobile/features/history/presentation/widgets/void_reason_sheet.dart';
 import 'package:posgodinov_mobile/features/register/domain/repositories/register_repository.dart';
 import 'package:posgodinov_mobile/features/register/presentation/cubit/held_cart_cubit.dart';
+import 'package:posgodinov_mobile/features/shift/presentation/cubit/shift_cubit.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
 import 'package:posgodinov_mobile/shared/theme/app_theme.dart';
 import 'package:posgodinov_mobile/shared/theme/godinov_tokens.dart';
@@ -122,14 +127,18 @@ class _HeldTile extends StatelessWidget {
           ),
           // 24 dp memisahkan aksi destruktif ([06 §2.2]).
           const SizedBox(width: Gap.destructive),
-          IconButton(
-            onPressed: () => context.read<HeldCartCubit>().discard(item.id),
-            icon: const Icon(Icons.delete_outline),
-            color: t.danger,
-            tooltip: 'Buang pesanan',
-            constraints: const BoxConstraints(
-              minWidth: Touch.standard,
-              minHeight: Touch.standard,
+          // BUKAN ikon tempat sampah: aksinya BUKAN penghapusan (butir 13), dan
+          // ikon yang berbohong tentang akibatnya adalah cara termudah membuat
+          // kasir menekannya tanpa berpikir.
+          TextButton.icon(
+            onPressed: () => _cancelHeldCart(context, item),
+            icon: Icon(Icons.block, size: 18, color: t.danger),
+            label: Text(
+              'Batalkan',
+              style: PosText.sm.copyWith(color: t.danger),
+            ),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(Touch.standard, Touch.standard),
             ),
           ),
         ],
@@ -180,4 +189,58 @@ class _HoldLabelDialogState extends State<HoldLabelDialog> {
       ],
     );
   }
+}
+
+
+/// Membatalkan pesanan tertahan — **butir 13** ([11 §M13.5]).
+///
+/// Melewati Void Sheet yang SAMA dengan pembatalan transaksi dan penurunan
+/// kuantitas: aturan `OTHER` wajib bercatatan dan peringatan struk harus
+/// berbunyi identik di mana pun pembatalan terjadi.
+Future<void> _cancelHeldCart(
+  BuildContext context,
+  HeldCartSummary item,
+) async {
+  final ShiftState shift = context.read<ShiftCubit>().state;
+  final CashierAuthState auth = context.read<CashierAuthCubit>().state;
+
+  if (shift is! ShiftActive || auth is! CashierLoggedIn) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Pembatalan harus terikat pada shift dan kasir yang aktif.',
+        ),
+      ),
+    );
+    return;
+  }
+
+  final HeldCartCubit cubit = context.read<HeldCartCubit>();
+
+  final VoidReasonResult? result = await showVoidReasonSheet(
+    context,
+    title: 'Batalkan pesanan ${item.label.isEmpty ? 'tanpa nama' : item.label}',
+    description:
+        '${item.itemCount} item akan dibatalkan. Isinya dicatat utuh pada log '
+        'pembatalan — pesanan tertahan tidak pernah ada di server, sehingga '
+        'catatan itulah satu-satunya salinan yang tersisa.',
+    valueMinor: item.totalMinor,
+    // Pembatalan pesanan tertahan tunduk pada kebijakan yang sama dengan
+    // pembatalan transaksi; nilainya diambil dari master data pada M15.
+    requiresAuth: true,
+    submitLabel: 'Ya, batalkan pesanan',
+  );
+
+  if (result == null) return;
+
+  await cubit.cancel(
+    id: item.id,
+    shiftId: shift.shift.id,
+    staffId: auth.session.staffId,
+    reasonCode: result.reasonCode,
+    reasonNotes: result.reasonNotes,
+    cashierName: auth.session.name,
+  );
+
+  getIt<SyncTriggers>().onVoidSaved();
 }

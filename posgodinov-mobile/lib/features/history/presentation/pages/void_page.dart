@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:posgodinov_mobile/core/di/injection.dart';
+import 'package:posgodinov_mobile/core/pos/cancellation_policy.dart';
 import 'package:posgodinov_mobile/core/sync/sync_triggers.dart';
+import 'package:posgodinov_mobile/features/auth/presentation/cubit/cashier_auth_cubit.dart';
 import 'package:posgodinov_mobile/features/history/domain/entities/history_entry.dart';
 import 'package:posgodinov_mobile/features/history/presentation/cubit/history_cubit.dart';
+import 'package:posgodinov_mobile/features/history/presentation/widgets/void_reason_sheet.dart';
+import 'package:posgodinov_mobile/features/shift/presentation/cubit/shift_cubit.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
 import 'package:posgodinov_mobile/shared/theme/app_theme.dart';
 import 'package:posgodinov_mobile/shared/theme/godinov_tokens.dart';
@@ -17,8 +21,13 @@ import 'package:posgodinov_mobile/shared/widgets/touch_button.dart';
 /// mengembalikan bahan baku ke inventori di server dan mengubah laporan
 /// pemilik; ia tidak layak berada satu ketukan dari daftar riwayat.
 ///
-/// Dua lapis perlindungan: `cancel_notes` **wajib**, dan konfirmasi kedua
-/// sebelum eksekusi.
+/// ═══════════════════════════════════════════════════════════════════════════
+/// LAYAR INI TIDAK LAGI MEMUTUSKAN APA PUN
+/// ═══════════════════════════════════════════════════════════════════════════
+///
+/// Seluruh keputusan datang dari [decideCancellation] ([11 §M13.1]). Bila
+/// transaksinya ternyata sudah tercetak, layar ini **menolak memprosesnya** dan
+/// mengarahkan ke alur Retur — itulah butir 15 dalam bentuk yang dilihat kasir.
 class VoidPage extends StatefulWidget {
   const VoidPage({super.key, required this.entry});
 
@@ -29,54 +38,92 @@ class VoidPage extends StatefulWidget {
 }
 
 class _VoidPageState extends State<VoidPage> {
-  final TextEditingController _notes = TextEditingController();
   bool _busy = false;
 
-  @override
-  void dispose() {
-    _notes.dispose();
-    super.dispose();
-  }
-
-  bool get _canSubmit => _notes.text.trim().length >= 4 && !_busy;
+  CancellationDecision get _decision => decideCancellation(
+        CancellableTransaction(
+          id: widget.entry.id,
+          status: widget.entry.status,
+          receiptPrintedAt: widget.entry.receiptPrintedAt,
+          items: <CancellableItem>[
+            for (int i = 0; i < widget.entry.lines.length; i++)
+              CancellableItem(
+                id: i < widget.entry.itemIds.length
+                    ? widget.entry.itemIds[i]
+                    : '',
+                productId: widget.entry.lines[i].productId,
+                productName: widget.entry.lines[i].productName,
+                quantity: widget.entry.lines[i].quantity,
+                unitPriceMinor: widget.entry.lines[i].unitPriceMinor,
+              ),
+          ],
+        ),
+      );
 
   Future<void> _submit() async {
-    final bool? yakin = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext ctx) => AlertDialog(
-        title: Text('Batalkan transaksi ini?', style: PosText.buttonLg),
-        content: Text(
-          'Bahan baku akan dikembalikan ke inventori saat data tersinkron. '
-          'Pembatalan tidak dapat diurungkan.',
-          style: PosText.base,
+    // Keputusan diambil ULANG tepat sebelum menulis: antara render dan ketukan,
+    // struknya bisa saja baru selesai tercetak.
+    final CancellationDecision decision = _decision;
+    if (!decision.isVoid) {
+      _showBlocked(decision);
+      return;
+    }
+
+    final ShiftState shift = context.read<ShiftCubit>().state;
+    final CashierAuthState auth = context.read<CashierAuthCubit>().state;
+
+    if (shift is! ShiftActive || auth is! CashierLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Pembatalan harus terikat pada shift dan kasir yang aktif.',
+          ),
         ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Tidak jadi'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: ctx.tokens.danger,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Ya, batalkan'),
-          ),
-        ],
-      ),
+      );
+      return;
+    }
+
+    final VoidReasonResult? result = await showVoidReasonSheet(
+      context,
+      title: 'Batalkan transaksi',
+      description:
+          'Bahan baku akan dikembalikan ke inventori saat data tersinkron. '
+          'Pastikan uang sudah dikembalikan kepada pelanggan.',
+      valueMinor: widget.entry.totalMinor,
+      requiresAuth: decision.requiresAuth,
+      submitLabel: 'Ya, batalkan transaksi',
     );
 
-    if (yakin != true || !mounted) return;
+    if (result == null || !mounted) return;
 
     setState(() => _busy = true);
     await context.read<HistoryCubit>().voidTransaction(
           id: widget.entry.id,
-          cancelNotes: _notes.text,
+          shiftId: shift.shift.id,
+          staffId: auth.session.staffId,
+          reasonCode: result.reasonCode,
+          reasonNotes: result.reasonNotes,
+          cashierName: auth.session.name,
           // Void masuk antrean; picu sinkronisasi agar stok segera dipulihkan.
-          onVoided: () async => getIt<SyncTriggers>().onTransactionSaved(),
+          // Pembatalan memakai pemicunya sendiri agar `syncLog` mencatat
+          // alasan yang paling layak ditelusuri auditor ([11 §M12.2]).
+          onVoided: () async => getIt<SyncTriggers>().onVoidSaved(),
         );
 
     if (mounted) Navigator.of(context).pop();
+  }
+
+  void _showBlocked(CancellationDecision decision) {
+    final String message = switch (decision.kind) {
+      CancellationKind.returnTransaction =>
+        'Struk transaksi ini sudah tercetak — gunakan alur Retur.',
+      CancellationKind.forbidden =>
+        decision.reason?.message ?? 'Pembatalan tidak dapat diproses.',
+      CancellationKind.voidTransaction => '',
+    };
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -140,29 +187,43 @@ class _VoidPageState extends State<VoidPage> {
                 ),
 
                 const SizedBox(height: Gap.xl),
-                Text(
-                  'Alasan pembatalan (wajib)',
-                  style: PosText.sm.copyWith(color: t.fgMuted),
-                ),
-                const SizedBox(height: Gap.xs),
-                TextField(
-                  controller: _notes,
-                  enabled: !_busy,
-                  autofocus: true,
-                  maxLines: 3,
-                  onChanged: (_) => setState(() {}),
-                  style: PosText.base,
-                  decoration: const InputDecoration(
-                    hintText: 'Contoh: pelanggan membatalkan pesanan',
+                if (_decision.isReturn)
+                  // Butir 15 dinyatakan APA ADANYA, bukan dengan menyembunyikan
+                  // tombolnya diam-diam. Kasir yang tidak tahu mengapa
+                  // tombolnya hilang akan mencari jalan lain.
+                  Container(
+                    padding: const EdgeInsets.all(Gap.lg),
+                    decoration: BoxDecoration(
+                      color: t.warningSubtle,
+                      borderRadius: BorderRadius.circular(Radii.lg),
+                    ),
+                    child: Text(
+                      'Struk transaksi ini SUDAH tercetak dan sudah berpindah '
+                      'ke pelanggan. Mengubah transaksi aslinya berarti '
+                      'menerbitkan versi kedua yang bertentangan dengan kertas '
+                      'di tangan mereka. Gunakan alur Retur.',
+                      style: PosText.sm,
+                    ),
+                  )
+                else if (_decision.isForbidden)
+                  Container(
+                    padding: const EdgeInsets.all(Gap.lg),
+                    decoration: BoxDecoration(
+                      color: t.dangerSubtle,
+                      borderRadius: BorderRadius.circular(Radii.lg),
+                    ),
+                    child: Text(
+                      _decision.reason?.message ??
+                          'Pembatalan tidak dapat diproses.',
+                      style: PosText.sm,
+                    ),
+                  )
+                else
+                  Text(
+                    'Alasan pembatalan dipilih pada langkah berikutnya, dan '
+                    'terlihat oleh pemilik pada laporan.',
+                    style: PosText.sm.copyWith(color: t.fgMuted),
                   ),
-                ),
-                const SizedBox(height: Gap.xs),
-                Text(
-                  // Pemilik yang melihat transaksi batal di dashboard berhak
-                  // tahu alasannya.
-                  'Alasan ini terlihat oleh pemilik pada laporan.',
-                  style: PosText.xs.copyWith(color: t.fgSubtle),
-                ),
 
                 const SizedBox(height: Gap.xxl),
                 TouchButton(
@@ -170,7 +231,7 @@ class _VoidPageState extends State<VoidPage> {
                   icon: Icons.block,
                   variant: TouchVariant.danger,
                   isLoading: _busy,
-                  onPressed: _canSubmit ? _submit : null,
+                  onPressed: _decision.isVoid && !_busy ? _submit : null,
                 ),
               ],
             ),

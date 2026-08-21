@@ -7,10 +7,14 @@ import { CloseShiftScreen } from '@/features/pos/screens/CloseShiftScreen'
 import { HeldCartsScreen } from '@/features/pos/screens/HeldCartsScreen'
 import { HistoryScreen } from '@/features/pos/screens/HistoryScreen'
 import { OpenShiftScreen } from '@/features/pos/screens/OpenShiftScreen'
+import { PaymentCardScreen } from '@/features/pos/screens/PaymentCardScreen'
+import { PaymentCashScreen } from '@/features/pos/screens/PaymentCashScreen'
 import { PaymentScreen } from '@/features/pos/screens/PaymentScreen'
+import { PaymentSplitScreen } from '@/features/pos/screens/PaymentSplitScreen'
 import { ProductWasteScreen } from '@/features/pos/screens/ProductWasteScreen'
 import { ReceiptScreen } from '@/features/pos/screens/ReceiptScreen'
 import { RegisterScreen } from '@/features/pos/screens/RegisterScreen'
+import { ReturnScreen } from '@/features/pos/screens/ReturnScreen'
 import { SettingsScreen } from '@/features/pos/screens/SettingsScreen'
 import { SyncMasterScreen } from '@/features/pos/screens/SyncMasterScreen'
 import { SyncStatusScreen } from '@/features/pos/screens/SyncStatusScreen'
@@ -31,10 +35,14 @@ const SCREENS: Record<PosScreen, React.ComponentType> = {
   'open-shift': OpenShiftScreen,
   register: RegisterScreen,
   payment: PaymentScreen,
+  'payment-cash': PaymentCashScreen,
+  'payment-card': PaymentCardScreen,
+  'payment-split': PaymentSplitScreen,
   receipt: ReceiptScreen,
   'held-carts': HeldCartsScreen,
   history: HistoryScreen,
   void: VoidScreen,
+  return: ReturnScreen,
   'product-waste': ProductWasteScreen,
   'close-shift': CloseShiftScreen,
   'sync-status': SyncStatusScreen,

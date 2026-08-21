@@ -8,6 +8,7 @@ import 'package:posgodinov_mobile/features/register/domain/cart_math.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/cart_line.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/sale_transaction.dart';
 import 'package:posgodinov_mobile/features/register/domain/repositories/register_repository.dart';
+import 'package:posgodinov_mobile/features/register/domain/entities/tender_draft.dart';
 
 /// Mesin status transaksi — **satu-satunya state machine sejati di aplikasi**.
 ///
@@ -179,15 +180,43 @@ class TransactionCubit extends Cubit<TransactionState> {
   ///    karena printer bermasalah.
   /// 2. **Cetak.** Kegagalan di sini **tidak** membatalkan apa pun.
   /// 3. **Picu sync**, *fire-and-forget*.
+  /// [tenders] adalah rincian pembayaran dari alur M17.2 (butir 8).
+  ///
+  /// Kosong berarti jalur metode tunggal; repositori mensintesis satu baris
+  /// tender supaya invarian `Σ tenders = total_amount` berlaku untuk SETIAP
+  /// transaksi ([11 §M17.2]).
+  ///
+  /// ⚠️ Ketika [tenders] terisi, state `TxConfirming` **tidak** lagi menjadi
+  /// syarat: alur layar-penuh menyusun tendernya sendiri dan memanggil ini
+  /// langsung dari layar terakhir. Yang tetap wajib adalah adanya total yang
+  /// sedang dibayar — tanpa itu tidak ada yang dapat diseimbangkan.
   Future<void> confirmPayment({
     required String shiftId,
     required String cashierName,
     required List<CartLine> lines,
     String customerName = '',
+    List<TenderDraft> tenders = const <TenderDraft>[],
+    int cashReceivedMinor = 0,
   }) async {
     final TransactionState s = state;
-    if (s is! TxConfirming) return; // transisi tidak sah — abaikan
-    if (!s.isPayable || lines.isEmpty) return;
+
+    final int total = switch (s) {
+      TxSelectingPayment(totalMinor: final int v) => v,
+      TxConfirming(totalMinor: final int v) => v,
+      _ => -1,
+    };
+    if (total < 0 || lines.isEmpty) return;
+
+    // Jalur lama (dialog metode tunggal) masih menuntut `TxConfirming` dan
+    // `isPayable`; jalur baru membawa tendernya sendiri.
+    if (tenders.isEmpty) {
+      if (s is! TxConfirming) return;
+      if (!s.isPayable) return;
+    }
+
+    final PaymentMethod method = s is TxConfirming ? s.method : PaymentMethod.cash;
+    final int cashReceived =
+        tenders.isEmpty && s is TxConfirming ? s.cashReceivedMinor : cashReceivedMinor;
 
     emit(const TxPersisting());
 
@@ -196,9 +225,10 @@ class TransactionCubit extends Cubit<TransactionState> {
       transaction = await _repository.completeSale(
         shiftId: shiftId,
         lines: lines,
-        paymentMethod: s.method,
-        cashReceivedMinor: s.cashReceivedMinor,
+        paymentMethod: method,
+        cashReceivedMinor: cashReceived,
         customerName: customerName,
+        tenders: tenders,
       );
     } on Object catch (e) {
       // SATU-SATUNYA jalur yang membatalkan transaksi: penyimpanan gagal,

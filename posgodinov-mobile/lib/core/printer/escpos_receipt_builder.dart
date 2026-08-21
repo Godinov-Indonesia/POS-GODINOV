@@ -87,7 +87,7 @@ class EscPosReceiptBuilder {
       ]),
     );
 
-    if (r.paymentMethod == PaymentMethod.cash) {
+    if (r.paymentMethod.isCash) {
       bytes.addAll(_kv(g, 'TUNAI', Money.format(r.cashReceivedMinor)));
       bytes.addAll(_kv(g, 'KEMBALI', Money.format(r.changeMinor)));
     } else {
@@ -121,7 +121,7 @@ class EscPosReceiptBuilder {
 
     // Laci kas hanya dibuka untuk transaksi tunai. Membukanya pada QRIS atau
     // kartu hanya mengundang kesalahan hitung di akhir shift.
-    if (r.paymentMethod == PaymentMethod.cash) {
+    if (r.paymentMethod.isCash) {
       bytes.addAll(g.drawer(pin: PosDrawer.pin2));
     }
 

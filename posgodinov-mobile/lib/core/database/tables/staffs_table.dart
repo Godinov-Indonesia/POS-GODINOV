@@ -25,6 +25,27 @@ class Staffs extends Table {
   /// **Tidak pernah** ditampilkan, di-log, maupun dikirim ke mana pun.
   TextColumn get pinHash => text()();
 
+  /* ── v2 · otorisasi OFFLINE (butir 12) ───────────────────────────────── */
+
+  /// Peran staff, mis. `OWNER` / `SUPERVISOR` / `CASHIER` ([11 §4.4]).
+  ///
+  /// Bawaannya string KOSONG, bukan `CASHIER` maupun peran istimewa. Perangkat
+  /// yang master datanya berasal dari server pra-v2 karena itu tidak punya
+  /// siapa pun yang berwenang Force Close — dan itu keadaan yang benar: jalur
+  /// darurat yang terbuka untuk semua orang bukan kompatibilitas, melainkan
+  /// pintu belakang ([11 §M15.2]).
+  ///
+  /// Ikut master data justru supaya otorisasi dapat diputuskan **tanpa
+  /// jaringan**: Force Close dibutuhkan tepat ketika ada yang tidak beres.
+  TextColumn get role => text().withDefault(const Constant(''))();
+
+  /// Izin granular di atas peran, disimpan sebagai JSON array.
+  ///
+  /// Drift tidak punya tipe daftar; JSON dipilih ketimbang tabel terpisah
+  /// karena isinya selalu dibaca utuh bersama barisnya dan tidak pernah
+  /// di-query per elemen.
+  TextColumn get permissionsJson => text().withDefault(const Constant('[]'))();
+
   DateTimeColumn get syncedAt => dateTime()();
 
   @override

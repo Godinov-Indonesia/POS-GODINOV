@@ -8,6 +8,7 @@ import 'package:posgodinov_mobile/features/register/domain/entities/cart_line.da
 import 'package:posgodinov_mobile/features/register/domain/entities/sale_transaction.dart';
 import 'package:posgodinov_mobile/features/register/domain/repositories/register_repository.dart';
 import 'package:posgodinov_mobile/features/register/presentation/cubit/transaction_cubit.dart';
+import 'package:posgodinov_mobile/features/register/domain/entities/tender_draft.dart';
 
 const List<CartLine> _lines = <CartLine>[
   CartLine(
@@ -28,6 +29,25 @@ class _FakeRegisterRepository implements RegisterRepository {
   int saveCount = 0;
   List<CartLine>? savedLines;
 
+  /// Butir 5 — tidak dipakai uji ini; `TransactionCubit` tidak pernah
+  /// membatalkan baris keranjang ([11 §M13.4]).
+  @override
+  Future<void> recordCartLineVoid({
+    required String shiftId,
+    required String staffId,
+    required CartLine line,
+    required int quantityBefore,
+    required int quantityAfter,
+    required String reasonCode,
+    required String reasonNotes,
+    String? authorizedBy,
+    String cashierName = '',
+    String? authorizedByName,
+  }) async {}
+
+  /// Tender yang diterima pemanggil terakhir — dipakai uji M17.2.
+  List<TenderDraft> savedTenders = const <TenderDraft>[];
+
   @override
   Future<SaleTransaction> completeSale({
     required String shiftId,
@@ -35,17 +55,23 @@ class _FakeRegisterRepository implements RegisterRepository {
     required PaymentMethod paymentMethod,
     required int cashReceivedMinor,
     String customerName = '',
+    List<TenderDraft> tenders = const <TenderDraft>[],
   }) async {
     saveCount++;
     if (shouldThrow) throw StateError('disk penuh');
     savedLines = lines;
+    savedTenders = tenders;
 
     return SaleTransaction(
       id: 'tx-uuid-1',
       shiftId: shiftId,
       lines: lines,
       totalAmountMinor: _total,
-      paymentMethod: paymentMethod,
+      // Ringkasan mengikuti jumlah tender — sama seperti implementasi
+      // sesungguhnya ([11 §M17.2]).
+      paymentMethod: tenders.length > 1
+          ? PaymentSummary.split
+          : PaymentSummary.fromPaymentMethod(paymentMethod),
       status: TransactionStatus.completed,
       clientCreatedAt: DateTime.utc(2026, 8, 12, 10, 30),
       cashReceivedMinor: cashReceivedMinor,

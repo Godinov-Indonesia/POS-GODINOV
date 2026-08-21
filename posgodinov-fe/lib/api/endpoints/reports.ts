@@ -17,7 +17,7 @@
 
 import { adminRequest, adminRequestList } from '@/lib/api/admin-client'
 import { toMinor } from '@/lib/money'
-import type { OutletId, PosTransaction } from '@/lib/types/api'
+import type { IsoDateTime, OutletId, PosTransaction, TransactionStatus } from '@/lib/types/api'
 import type { DateRange } from '@/lib/time'
 
 const rangeQuery = (range: DateRange): string =>
@@ -67,7 +67,8 @@ export type TransactionReportRow = {
   customer_name: string
   total_amount_minor: number
   payment_method: string
-  status: 'COMPLETED' | 'CANCELLED'
+  /** `VOIDED` (v2) dan `CANCELLED` (warisan v1) sama-sama muncul ([11 §2.1]). */
+  status: TransactionStatus
   cancel_notes: string
   /** Waktu transaksi sesungguhnya di perangkat. */
   client_created_at: string
@@ -102,5 +103,108 @@ export async function listTransactionReport(
       quantity: item.quantity,
       unit_price_minor: toMinor(item.unit_price),
     })),
+  }))
+}
+
+/* ── Rekonsiliasi shift — butir 9 ([11 §M15.3]) ───────────────────────────── */
+
+/**
+ * Bentuk kawat satu baris rekonsiliasi.
+ *
+ * ⚠️ Endpoint ini adalah **satu-satunya** tempat `expected_*` dan `*_variance`
+ * meninggalkan server, dan ia berada di bawah token Business — bukan device
+ * token. Aturan R3 melarang angka ini mencapai perangkat kasir; memanggilnya
+ * dari bundle POS akan melanggar batas itu, dan `no-restricted-imports` pada
+ * `features/admin/**` maupun sebaliknya menjaga keduanya tetap terpisah.
+ *
+ * Seluruh nominal masih **Rupiah desimal** — konversi ke sen terjadi di bawah.
+ */
+type ShiftReconciliationDto = {
+  shift_id: string
+  staff_id: string
+  staff_name: string
+  device_id: string
+  status: string
+  opening_balance: number
+  declared_cash: number
+  declared_edc_total: number
+  declared_qris_total: number
+  blind_close: boolean
+  expected_cash: number | null
+  expected_edc_total: number | null
+  expected_qris_total: number | null
+  cash_variance: number | null
+  edc_variance: number | null
+  qris_variance: number | null
+  flagged: boolean
+  variance_threshold: number
+  client_opened_at: IsoDateTime
+  client_closed_at: IsoDateTime | null
+  reconciled_at: IsoDateTime | null
+}
+
+export type ShiftReconciliationView = {
+  shiftId: string
+  staffName: string
+  deviceId: string
+  status: string
+  openingBalanceMinor: number
+  declaredCashMinor: number
+  declaredEdcMinor: number
+  declaredQrisMinor: number
+  blindClose: boolean
+  /** `null` = shift belum direkonsiliasi server. **Bukan** berarti nol. */
+  expectedCashMinor: number | null
+  expectedEdcMinor: number | null
+  expectedQrisMinor: number | null
+  cashVarianceMinor: number | null
+  edcVarianceMinor: number | null
+  qrisVarianceMinor: number | null
+  flagged: boolean
+  varianceThresholdMinor: number
+  openedAt: IsoDateTime
+  closedAt: IsoDateTime | null
+  reconciledAt: IsoDateTime | null
+}
+
+/**
+ * `toMinor` yang mempertahankan `null`.
+ *
+ * `toMinor(null as never)` menghasilkan `0`, dan nol pada kolom ekspektasi
+ * berarti "shift ini pas" — kebalikan dari "shift ini belum dihitung". Layar
+ * pemilik harus dapat membedakan keduanya.
+ */
+const toMinorOrNull = (value: number | null): number | null =>
+  value === null ? null : toMinor(value)
+
+export const listShiftReconciliation = async (
+  outletId: OutletId,
+  range: DateRange,
+): Promise<ShiftReconciliationView[]> => {
+  const rows = await adminRequestList<ShiftReconciliationDto>(
+    `/v1/business/outlets/${outletId}/reports/shift-reconciliation${rangeQuery(range)}`,
+  )
+
+  return rows.map((r) => ({
+    shiftId: r.shift_id,
+    staffName: r.staff_name,
+    deviceId: r.device_id,
+    status: r.status,
+    openingBalanceMinor: toMinor(r.opening_balance),
+    declaredCashMinor: toMinor(r.declared_cash),
+    declaredEdcMinor: toMinor(r.declared_edc_total),
+    declaredQrisMinor: toMinor(r.declared_qris_total),
+    blindClose: r.blind_close,
+    expectedCashMinor: toMinorOrNull(r.expected_cash),
+    expectedEdcMinor: toMinorOrNull(r.expected_edc_total),
+    expectedQrisMinor: toMinorOrNull(r.expected_qris_total),
+    cashVarianceMinor: toMinorOrNull(r.cash_variance),
+    edcVarianceMinor: toMinorOrNull(r.edc_variance),
+    qrisVarianceMinor: toMinorOrNull(r.qris_variance),
+    flagged: r.flagged,
+    varianceThresholdMinor: toMinor(r.variance_threshold),
+    openedAt: r.client_opened_at,
+    closedAt: r.client_closed_at,
+    reconciledAt: r.reconciled_at,
   }))
 }

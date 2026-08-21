@@ -123,7 +123,7 @@ class _Completed extends StatelessWidget {
         const Divider(height: Gap.xl),
         _Row(label: 'TOTAL', minor: transaction.totalAmountMinor,
             size: MoneySize.xl),
-        if (transaction.paymentMethod == PaymentMethod.cash) ...<Widget>[
+        if (transaction.paymentMethod.isCash) ...<Widget>[
           const SizedBox(height: Gap.xs),
           _Row(
             label: 'Tunai',

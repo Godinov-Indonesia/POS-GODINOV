@@ -28,6 +28,29 @@ class HistoryRemoteDataSource {
     }
   }
 
+  /// `GET /v1/pos/transactions/lookup?code=` — **butir 16** ([11 §M17.3]).
+  ///
+  /// ⚠️ Mengembalikan SATU transaksi, bukan daftar. Endpoint yang mengembalikan
+  /// daftar adalah penelusuran massal dengan nama lain.
+  ///
+  /// `null` berarti kodenya tidak ada — DAN juga berarti kodenya milik outlet
+  /// lain. Server sengaja tidak membedakan keduanya: membedakannya akan
+  /// membocorkan keberadaan transaksi cabang lain lewat pesan galat.
+  Future<HistoryEntry?> lookup(String code) async {
+    try {
+      final Response<dynamic> response = await _client.dio.get<dynamic>(
+        '$_path/lookup',
+        queryParameters: <String, dynamic>{'code': code},
+      );
+      return Envelope.data(response, _fromJson);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      final Object? error = e.error;
+      if (error is Failure) throw error;
+      throw NetworkFailure(e.message ?? 'Gagal mencari transaksi.');
+    }
+  }
+
   HistoryEntry _fromJson(Map<String, dynamic> json) {
     return HistoryEntry(
       id: json['id'] as String? ?? '',
@@ -50,6 +73,7 @@ class HistoryRemoteDataSource {
   }
 
   HistoryLine _line(Map<String, dynamic> json) => HistoryLine(
+        productId: json['product_id'] as String? ?? '',
         // Server tidak menyimpan nama produk pada item ([02 §2.13]).
         productName: 'Produk',
         quantity: (json['quantity'] as num?)?.toInt() ?? 0,
@@ -58,11 +82,11 @@ class HistoryRemoteDataSource {
 
   /// Nilai tak dikenal dari data historis tidak boleh menggagalkan seluruh
   /// daftar — kolomnya `VARCHAR` bebas tanpa enum ([02 §2.12]).
-  PaymentMethod _method(String? raw) {
-    for (final PaymentMethod m in PaymentMethod.values) {
+  PaymentSummary _method(String? raw) {
+    for (final PaymentSummary m in PaymentSummary.values) {
       if (m.wireValue == raw) return m;
     }
-    return PaymentMethod.cash;
+    return PaymentSummary.cash;
   }
 
   TransactionStatus _status(String? raw) =>

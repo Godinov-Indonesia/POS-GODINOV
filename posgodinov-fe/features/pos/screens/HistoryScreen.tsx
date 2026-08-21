@@ -1,33 +1,72 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, Ban, Check, Receipt } from 'lucide-react'
+import { ArrowLeft, Ban, Check, Receipt, Search, X } from 'lucide-react'
 import * as React from 'react'
 
 import { Badge, SyncBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Banner, EmptyState, SkeletonTable } from '@/components/ui/feedback'
+import { Banner, EmptyState, Skeleton } from '@/components/ui/feedback'
+import { Input } from '@/components/ui/input'
 import { Money, Num, shortId } from '@/components/ui/money'
+import {
+  lookupByCode,
+  LOOKUP_LIMIT,
+  MIN_CODE_LENGTH,
+  type LookupResult,
+} from '@/features/pos/history/receipt-lookup'
 import { posNavigate } from '@/features/pos/router/usePosRouter'
-import { fetchServerTransactions } from '@/lib/api/endpoints/pos-sync'
-import { POS_SERVER_HISTORY_LIMIT } from '@/lib/constants/limits'
 import type { LocalTransaction } from '@/lib/db/models'
-import { listTransactionsToday } from '@/lib/db/repositories/transaction.repo'
-import { toMinor } from '@/lib/money'
+import { getOpenShift } from '@/lib/db/repositories/shift.repo'
+import {
+  listAllTransactions,
+  listTransactionsOfShift,
+} from '@/lib/db/repositories/transaction.repo'
+import { readPosConfig } from '@/lib/pos/config'
 import { formatDateTimeId } from '@/lib/time'
-import { cn } from '@/lib/utils/cn'
 
 /**
- * P-09 Riwayat Transaksi — docs/04 §A.1.
+ * P-09 Riwayat Transaksi — **butir 16** ([11 §M17.3]).
  *
- * Dua tab dengan sumber data berbeda:
- * - **Hari Ini** → Dexie. Selalu tersedia, termasuk yang belum tersinkron.
- * - **Sebelumnya** → server, dan **hanya 50 transaksi terbaru selamanya**
- *   karena paginasi di-hard-code di backend ([03 §2.4]).
+ * ═══════════════════════════════════════════════════════════════════════════
+ * HANYA SHIFT BERJALAN. TAB "SEBELUMNYA" DIHAPUS.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Tab "Sebelumnya" yang menampilkan 50 transaksi terakhir dari server
+ * **dihapus dari kode**, bukan disembunyikan. Ia memperlihatkan transaksi kasir
+ * lain kepada kasir yang sedang bertugas — dan layar ini adalah pintu masuk ke
+ * Void dan Retur. Kasir sore yang dapat melihat transaksi shift pagi dapat
+ * membatalkannya, dengan selisih kas jatuh ke orang yang sudah pulang.
+ *
+ * Tab "Hari Ini" pun tidak cukup: satu hari memuat dua sampai tiga shift.
+ * Kueri kini memakai indeks komposit `[shift_id+client_created_at]` pada shift
+ * yang benar-benar terbuka.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * SATU-SATUNYA JALAN KE MASA LALU ADALAH KODE STRUK
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Pelanggan yang datang membawa struk kemarin tetap harus dapat dilayani. Yang
+ * berubah adalah bentuk aksesnya: kasir harus MENGETAHUI kode yang dicarinya,
+ * bukan menelusuri daftar. Hasilnya satu transaksi — tidak pernah daftar.
+ *
+ * ⚠️ Transaksi hasil pencarian dapat **diretur** (M13), tetapi tidak dapat
+ * **di-void**: struknya sudah tercetak dan berpindah tangan, dan butir 15
+ * melarang membatalkan dokumen yang sudah ada di tangan pelanggan.
  */
 export function HistoryScreen() {
-  const [tab, setTab] = React.useState<'today' | 'server'>('today')
+  const shift = useLiveQuery(() => getOpenShift(), [], undefined)
+
+  // ── FEATURE FLAG `history_scope` ([11 §M18.2]) ─────────────────────────
+  //
+  // Bawaan `'ACTIVE_SHIFT'` — dan bawaan itu KETAT dengan sengaja. Perangkat
+  // yang belum pernah menarik `config` dari server memakai perilaku v2 penuh;
+  // kebijakan longgar secara bawaan berarti outlet yang syncnya tertinggal
+  // berjalan tanpa isolasi riwayat tanpa ada yang menyadarinya.
+  //
+  // `'ALL'` adalah jalan mundur ke perilaku v1 untuk satu bisnis yang belum
+  // siap, tanpa menuntut *rollback* rilis.
+  const scope = useLiveQuery(async () => (await readPosConfig()).historyScope, [], undefined)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
@@ -36,120 +75,82 @@ export function HistoryScreen() {
           <ArrowLeft className="size-4" aria-hidden="true" />
           Kembali
         </Button>
-        <h1 className="text-pos-lg font-bold text-fg">Riwayat Transaksi</h1>
+        <h1 className="text-pos-lg font-bold text-fg">Riwayat Shift Ini</h1>
       </div>
 
-      <div className="flex gap-2">
-        <TabButton active={tab === 'today'} onClick={() => setTab('today')}>
-          Hari Ini
-        </TabButton>
-        <TabButton active={tab === 'server'} onClick={() => setTab('server')}>
-          Sebelumnya
-        </TabButton>
-      </div>
+      <ReceiptSearch />
 
-      {tab === 'today' ? <TodayTab /> : <ServerTab />}
+      {scope === undefined || shift === undefined ? (
+        <Skeleton className="h-64" />
+      ) : scope === 'ALL' ? (
+        <AllHistory />
+      ) : !shift ? (
+        <Banner tone="warning" title="Tidak ada shift terbuka">
+          Riwayat terikat pada shift yang sedang berjalan. Buka shift terlebih dahulu.
+        </Banner>
+      ) : (
+        <ShiftHistory shiftId={shift.id} />
+      )}
     </div>
   )
 }
 
-function TodayTab() {
+/** Daftar transaksi shift berjalan. */
+function ShiftHistory({ shiftId }: { shiftId: string }) {
   const transactions = useLiveQuery(
-    () => listTransactionsToday(),
-    [],
-    [] as LocalTransaction[],
+    () => listTransactionsOfShift(shiftId),
+    [shiftId],
+    undefined,
   )
 
+  if (transactions === undefined) return <Skeleton className="h-64" />
+
   if (!transactions.length) {
-    return <EmptyState icon={Receipt} title="Belum ada transaksi hari ini" />
+    return (
+      <EmptyState
+        icon={Receipt}
+        title="Belum ada transaksi pada shift ini"
+        description="Transaksi shift sebelumnya tidak ditampilkan. Gunakan pencarian kode struk bila pelanggan membawa struk lama."
+      />
+    )
   }
 
   return (
     <ul className="flex flex-col gap-2">
       {transactions.map((transaction) => (
-        <li
-          key={transaction.id}
-          className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3"
-        >
-          <div className="flex min-w-0 flex-1 flex-col">
-            <span className="flex items-center gap-2">
-              <Num className="font-semibold">{shortId(transaction.id)}</Num>
-              {transaction.status === 'CANCELLED' ? (
-                <Badge tone="danger" icon={Ban}>
-                  Dibatalkan
-                </Badge>
-              ) : (
-                <Badge tone="success" icon={Check}>
-                  Selesai
-                </Badge>
-              )}
-              <SyncBadge state={transaction._synced === 1 ? 'synced' : 'pending'} />
-            </span>
-            <span className="text-pos-xs text-fg-muted">
-              {formatDateTimeId(transaction.client_created_at)} ·{' '}
-              <Num>{transaction.items.length}</Num> item
-            </span>
-          </div>
-
-          <Money
-            minor={transaction.total_amount}
-            size="lg"
-            tone={transaction.status === 'CANCELLED' ? 'muted' : 'default'}
-          />
-
-          <Button
-            variant="neutral"
-            onClick={() => posNavigate('receipt', { transactionId: transaction.id })}
-          >
-            Struk
-          </Button>
-        </li>
+        <TransactionRow key={transaction.id} transaction={transaction} />
       ))}
     </ul>
   )
 }
 
-function ServerTab() {
-  const { data, isPending, error } = useQuery({
-    queryKey: ['pos', 'server-transactions'],
-    queryFn: fetchServerTransactions,
-  })
+/**
+ * Riwayat TANPA isolasi shift — hanya aktif pada `history_scope: 'ALL'`
+ * ([11 §M18.2]).
+ *
+ * Menampilkan spanduk yang menyatakan keadaan itu apa adanya. Kasir berhak tahu
+ * bahwa ia sedang melihat transaksi rekannya, dan pemilik berhak melihat bahwa
+ * outletnya berjalan dengan pengendalian yang dimatikan.
+ */
+function AllHistory() {
+  const transactions = useLiveQuery(() => listAllTransactions(), [], undefined)
 
-  if (isPending) return <SkeletonTable />
-
-  if (error) {
-    return (
-      <Banner tone="danger">
-        Gagal memuat riwayat server. Tab ini memerlukan jaringan; riwayat hari ini tetap tersedia
-        offline.
-      </Banner>
-    )
-  }
+  if (transactions === undefined) return <Skeleton className="h-64" />
 
   return (
     <div className="flex flex-col gap-2">
-      <Banner tone="info">
-        Menampilkan <Num>{POS_SERVER_HISTORY_LIMIT}</Num> transaksi terakhir dari server. Backend
-        belum menyediakan paginasi maupun filter tanggal untuk endpoint ini.
+      <Banner tone="warning" title="Isolasi riwayat sedang dimatikan">
+        Outlet ini disetel menampilkan transaksi dari seluruh shift
+        (<code>history_scope: ALL</code>). Perilaku bawaan v2 membatasi riwayat pada shift
+        berjalan.
       </Banner>
 
-      {!data?.length ? (
-        <EmptyState icon={Receipt} title="Tidak ada riwayat di server" />
+      {transactions.length === 0 ? (
+        <EmptyState icon={Receipt} title="Belum ada transaksi di perangkat ini" />
       ) : (
         <ul className="flex flex-col gap-2">
-          {data.map((transaction) => (
-            <li
-              key={transaction.id}
-              className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3"
-            >
-              <div className="flex min-w-0 flex-1 flex-col">
-                <Num className="font-semibold">{shortId(transaction.id)}</Num>
-                <span className="text-pos-xs text-fg-muted">
-                  {formatDateTimeId(transaction.client_created_at)}
-                </span>
-              </div>
-              <Money minor={toMinor(transaction.total_amount)} size="lg" />
-            </li>
+          {transactions.map((transaction) => (
+            <TransactionRow key={transaction.id} transaction={transaction} />
           ))}
         </ul>
       )}
@@ -157,28 +158,200 @@ function ServerTab() {
   )
 }
 
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
+/**
+ * Kolom pencarian kode struk.
+ *
+ * Dipisah menjadi komponen sendiri supaya state-nya tidak ikut dirender ulang
+ * setiap kali `useLiveQuery` daftar transaksi memancar — yang terjadi pada
+ * setiap transaksi baru selama jam sibuk.
+ */
+function ReceiptSearch() {
+  const [code, setCode] = React.useState('')
+  const [result, setResult] = React.useState<LookupResult | null>(null)
+  const [searching, setSearching] = React.useState(false)
+
+  const tooShort = code.trim().length > 0 && code.trim().length < MIN_CODE_LENGTH
+
+  const search = async () => {
+    setSearching(true)
+    try {
+      setResult(await lookupByCode(code))
+    } finally {
+      setSearching(false)
+    }
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        'h-touch rounded-md border px-4 text-pos-sm',
-        active
-          ? 'border-accent bg-accent-subtle font-semibold text-accent'
-          : 'border-border bg-surface text-fg-muted',
-      )}
-    >
-      {children}
-    </button>
+    <div className="flex flex-col gap-2">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          void search()
+        }}
+        className="flex items-center gap-2"
+      >
+        <div className="relative flex-1">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
+            aria-hidden="true"
+          />
+          <Input
+            className="pl-9 font-mono"
+            placeholder="Kode struk atau UUID transaksi"
+            aria-label="Cari kode struk"
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value)
+              // Hasil lama dibuang begitu kasir mengetik lagi. Membiarkannya
+              // membuat hasil pencarian sebelumnya tampak seperti hasil untuk
+              // kode yang sedang diketik.
+              if (result) setResult(null)
+            }}
+          />
+        </div>
+        <Button
+          type="submit"
+          variant="neutral"
+          size="lg"
+          disabled={searching || code.trim().length < MIN_CODE_LENGTH}
+        >
+          {searching ? 'Mencari…' : 'Cari'}
+        </Button>
+      </form>
+
+      {tooShort ? (
+        <p className="text-pos-xs text-fg-muted">
+          Minimal <Num>{MIN_CODE_LENGTH}</Num> karakter. Pencarian yang lebih pendek akan menjaring
+          transaksi yang tidak Anda cari.
+        </p>
+      ) : null}
+
+      {result ? <LookupOutcome result={result} onDismiss={() => setResult(null)} /> : null}
+    </div>
+  )
+}
+
+function LookupOutcome({
+  result,
+  onDismiss,
+}: {
+  result: LookupResult
+  onDismiss: () => void
+}) {
+  switch (result.status) {
+    case 'found':
+      return (
+        <div className="flex flex-col gap-2 rounded-xl border border-accent bg-accent-subtle p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-pos-sm font-semibold text-fg">
+              Hasil pencarian
+              {result.source === 'server' ? ' · dari server' : ' · tersimpan di perangkat'}
+            </span>
+            <Button variant="ghost" size="icon" aria-label="Tutup hasil" onClick={onDismiss}>
+              <X className="size-4" aria-hidden="true" />
+            </Button>
+          </div>
+          {/* `fromLookup` menandai baris ini sebagai transaksi LUAR shift:
+              tombol Void disembunyikan, Retur tetap ada (butir 15). */}
+          <TransactionRow transaction={result.transaction} fromLookup />
+        </div>
+      )
+
+    case 'not-found':
+      return (
+        <Banner tone="warning" title="Transaksi tidak ditemukan">
+          Periksa kembali kode pada struk. Kode dari outlet lain tidak dapat dicari dari perangkat
+          ini.
+        </Banner>
+      )
+
+    case 'too-short':
+      return (
+        <Banner tone="warning">
+          Kode terlalu pendek — minimal <Num>{MIN_CODE_LENGTH}</Num> karakter.
+        </Banner>
+      )
+
+    case 'rate-limited':
+      return (
+        <Banner tone="warning" title="Terlalu banyak pencarian">
+          Batas <Num>{LOOKUP_LIMIT}</Num> pencarian per menit tercapai. Coba lagi dalam{' '}
+          <Num>{Math.ceil(result.retryAfterMs / 1000)}</Num> detik.
+        </Banner>
+      )
+
+    case 'offline':
+      return (
+        <Banner tone="danger" title="Tidak dapat menghubungi server">
+          Transaksi lampau memerlukan jaringan. Riwayat shift berjalan tetap tersedia offline.
+        </Banner>
+      )
+  }
+}
+
+function TransactionRow({
+  transaction,
+  fromLookup = false,
+}: {
+  transaction: LocalTransaction
+  fromLookup?: boolean
+}) {
+  const cancelled = transaction.status === 'VOIDED' || transaction.status === 'CANCELLED'
+
+  return (
+    <li className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="flex flex-wrap items-center gap-2">
+          <Num className="font-semibold">
+            {transaction.short_code ?? shortId(transaction.id)}
+          </Num>
+          {cancelled ? (
+            <Badge tone="danger" icon={Ban}>
+              Dibatalkan
+            </Badge>
+          ) : (
+            <Badge tone="success" icon={Check}>
+              Selesai
+            </Badge>
+          )}
+          <SyncBadge state={transaction._synced === 1 ? 'synced' : 'pending'} />
+        </span>
+        <span className="text-pos-xs text-fg-muted">
+          {formatDateTimeId(transaction.client_created_at)} ·{' '}
+          <Num>{transaction.items.length}</Num> item
+        </span>
+      </div>
+
+      <Money
+        minor={transaction.total_amount}
+        size="lg"
+        tone={cancelled ? 'muted' : 'default'}
+      />
+
+      <Button
+        variant="neutral"
+        onClick={() => posNavigate('receipt', { transactionId: transaction.id })}
+      >
+        Struk
+      </Button>
+
+      {/*
+        Retur BOLEH, Void TIDAK — butir 15 ([11 §2.1]).
+
+        Transaksi hasil pencarian berasal dari shift lain; struknya sudah
+        tercetak dan berpindah tangan ke pelanggan. Membatalkannya berarti
+        menerbitkan realitas kedua yang bertentangan dengan kertas di tangan
+        pelanggan. Retur adalah peristiwa keuangan BARU yang tidak mengubah
+        transaksi asal, dan karena itu tetap sah.
+      */}
+      {fromLookup && !cancelled ? (
+        <Button
+          variant="neutral"
+          onClick={() => posNavigate('return', { transactionId: transaction.id })}
+        >
+          Retur
+        </Button>
+      ) : null}
+    </li>
   )
 }

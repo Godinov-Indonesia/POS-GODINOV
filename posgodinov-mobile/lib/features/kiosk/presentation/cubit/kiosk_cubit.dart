@@ -221,12 +221,19 @@ class KioskCubit extends Cubit<KioskState> {
   /// Ketukan pada area tersembunyi. `true` berarti dialog PIN layak dibuka.
   bool registerExitTap() => _guard.registerTap();
 
-  /// Memverifikasi PIN staff, lalu keluar bila cocok.
-  Future<bool> attemptExit(String pin) async {
-    final bool ok = await _guard.verifyExitPin(pin);
-    if (ok) await disable();
-    return ok;
+  /// Memverifikasi PIN staff **berizin**, lalu keluar bila sah ([11 §M17.4]).
+  ///
+  /// Mengembalikan putusan lengkap, bukan `bool`: layar perlu membedakan
+  /// "sisa dua percobaan" dari "terkunci 60 detik" untuk memberi tahu staff apa
+  /// yang harus ia lakukan — dan `false` tidak membawa informasi itu.
+  Future<KioskExitVerdict> attemptExit(String pin) async {
+    final KioskExitVerdict verdict = await _guard.attemptExit(pin);
+    if (verdict.ok) await disable();
+    return verdict;
   }
+
+  /// Sisa jeda; [Duration.zero] berarti dialog PIN boleh dibuka.
+  Duration exitLockoutRemaining() => _guard.lockoutRemaining();
 
   // ── Idle ───────────────────────────────────────────────────────────────────
 

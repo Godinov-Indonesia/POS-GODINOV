@@ -2,7 +2,13 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:posgodinov_mobile/core/database/app_database.dart';
+import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/database/daos/held_cart_dao.dart';
+import 'package:posgodinov_mobile/core/database/daos/void_log_dao.dart';
+import 'package:posgodinov_mobile/core/database/tables/void_logs_table.dart';
+import 'package:posgodinov_mobile/core/printer/audit_receipt_data.dart';
+import 'package:posgodinov_mobile/core/printer/print_queue_service.dart';
+import 'package:posgodinov_mobile/core/utils/money.dart';
 import 'package:posgodinov_mobile/features/register/domain/cart_math.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/cart_line.dart';
 import 'package:posgodinov_mobile/features/register/domain/repositories/register_repository.dart';
@@ -15,14 +21,23 @@ import 'package:uuid/uuid.dart';
 /// tanpa memicu migrasi skema.
 class HeldCartRepositoryImpl implements HeldCartRepository {
   const HeldCartRepositoryImpl({
+    required AppDatabase database,
     required HeldCartDao dao,
+    required VoidLogDao voidLogDao,
+    required PrintQueueService printQueue,
     Uuid uuid = const Uuid(),
     DateTime Function()? now,
-  })  : _dao = dao,
+  })  : _db = database,
+        _dao = dao,
+        _voidLogDao = voidLogDao,
+        _printQueue = printQueue,
         _uuid = uuid,
         _now = now ?? DateTime.now;
 
+  final AppDatabase _db;
   final HeldCartDao _dao;
+  final VoidLogDao _voidLogDao;
+  final PrintQueueService _printQueue;
   final Uuid _uuid;
   final DateTime Function() _now;
 
@@ -80,9 +95,102 @@ class HeldCartRepositoryImpl implements HeldCartRepository {
     return lines;
   }
 
+  /// ═══════════════════════════════════════════════════════════════════════
+  /// PEMBATALAN, BUKAN PENGHAPUSAN ([11 §M13.5])
+  /// ═══════════════════════════════════════════════════════════════════════
+  ///
+  /// Urutannya mengikat: `void_logs` ditulis **lebih dulu**, baris hold dibuang
+  /// kemudian, keduanya dalam satu transaksi SQLite. Urutan sebaliknya membuka
+  /// jendela — sekecil apa pun — di mana pesanannya sudah lenyap tetapi
+  /// jejaknya belum ada.
   @override
-  Future<void> discard(String id) async {
-    await _dao.remove(id);
+  Future<void> cancel({
+    required String id,
+    required String shiftId,
+    required String staffId,
+    required String reasonCode,
+    required String reasonNotes,
+    String? authorizedBy,
+    String cashierName = '',
+    String? authorizedByName,
+  }) async {
+    final DateTime now = DateTime.now().toUtc();
+    final String voidLogId = _uuid.v4();
+    HeldCart? cancelled;
+    List<CartLine> cancelledLines = const <CartLine>[];
+
+    await _db.transaction(() async {
+      final HeldCart? cart = await _dao.findById(id);
+      if (cart == null) return;
+
+      final List<CartLine> lines = _decode(cart.linesJson);
+
+      cancelled = cart;
+      cancelledLines = lines;
+
+      await _voidLogDao.insertLog(
+        VoidLogsCompanion.insert(
+          id: voidLogId,
+          shiftId: shiftId,
+          staffId: staffId,
+          authorizedBy: Value<String?>(authorizedBy),
+          scope: VoidScope.heldOrder,
+          heldCartId: Value<String?>(id),
+          quantityBefore: Value<int>(
+            lines.fold<int>(0, (int sum, CartLine l) => sum + l.quantity),
+          ),
+          quantityAfter: const Value<int>(0),
+          valueAmountMinor: cart.totalMinor,
+          reasonCode: reasonCode,
+          reasonNotes: Value<String>(reasonNotes),
+          // ⚠️ WAJIB UTUH — lihat catatan pada kontraknya.
+          itemsSnapshotJson: Value<String?>(
+            jsonEncode(<Map<String, dynamic>>[
+              for (final CartLine l in lines)
+                <String, dynamic>{
+                  'product_id': l.productId,
+                  'product_name': l.productName,
+                  'quantity': l.quantity,
+                  'unit_price': Money.toMajor(l.unitPriceMinor),
+                },
+            ]),
+          ),
+          clientCreatedAt: now,
+        ),
+      );
+
+      await _dao.remove(id);
+    });
+
+    // ── BUTIR 6 — struk pembatalan, DI LUAR transaksi basis data ──────────
+    final HeldCart? cart = cancelled;
+    if (cart != null) {
+      await _printQueue.enqueueCancelReceipt(
+        voidLogId,
+        CancelReceiptData(
+          outletName: await _printQueue.resolveOutletName(),
+          issuedAt: now,
+          scope: VoidScope.heldOrder,
+          // Label pesanan menggantikan kode struk: pesanan tertahan tidak
+          // pernah punya nomor struk, dan "Meja 4" jauh lebih berguna bagi
+          // supervisor daripada UUID.
+          heldCartLabel: cart.label,
+          cashierName: cashierName,
+          authorizedByName: authorizedByName,
+          reasonCode: reasonCode,
+          reasonNotes: reasonNotes,
+          lines: <AuditReceiptLine>[
+            for (final CartLine l in cancelledLines)
+              AuditReceiptLine(
+                productName: l.productName,
+                quantity: l.quantity,
+                unitPriceMinor: l.unitPriceMinor,
+              ),
+          ],
+          totalCancelledMinor: cart.totalMinor,
+        ),
+      );
+    }
   }
 
   String _encode(List<CartLine> lines) => jsonEncode(

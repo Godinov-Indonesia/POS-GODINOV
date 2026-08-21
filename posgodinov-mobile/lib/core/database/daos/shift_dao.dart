@@ -57,20 +57,44 @@ class ShiftDao extends DatabaseAccessor<AppDatabase> with _$ShiftDaoMixin {
         .get();
   }
 
-  /// Menutup shift dengan angka hasil hitung kasir. Seluruh nominal **sen**.
+  /// Menutup shift — **Blind Closing**, butir 9 ([11 §M15.3]).
+  ///
+  /// ═══════════════════════════════════════════════════════════════════════
+  /// TIGA ANGKA MASUK. NOL ANGKA DIHITUNG.
+  /// ═══════════════════════════════════════════════════════════════════════
+  ///
+  /// Parameter `expectedBalanceMinor` dan `discrepancyMinor` yang dulu ada di
+  /// sini SENGAJA dihapus, bukan dijadikan opsional. Wewenang menghitungnya
+  /// pindah ke `ShiftReconcileService` di server (aturan R3/R4), dan parameter
+  /// opsional akan tetap diisi oleh pemanggil lama yang tidak dibaca ulang
+  /// siapa pun — lalu angkanya merambat kembali ke server.
+  ///
+  /// `closingBalanceMinor` v1 diisi dari deklarasi laci selama jendela
+  /// deprekasi M18: laporan lama membacanya, dan membiarkannya nol membuat
+  /// seluruh shift v2 tampak kosong di laporan yang belum dimigrasi.
+  ///
+  /// Seluruh nominal **sen**.
   Future<void> closeShift({
     required String id,
-    required int closingBalanceMinor,
-    required int expectedBalanceMinor,
-    required int discrepancyMinor,
+    required int declaredCashMinor,
+    required int declaredEdcMinor,
+    required int declaredQrisMinor,
     required DateTime clientClosedAt,
+    bool blindClose = true,
+    String? closedBy,
   }) {
     return (update(db.shifts)..where(($ShiftsTable s) => s.id.equals(id))).write(
       ShiftsCompanion(
         status: const Value<ShiftStatus>(ShiftStatus.closed),
-        closingBalanceMinor: Value<int>(closingBalanceMinor),
-        expectedBalanceMinor: Value<int>(expectedBalanceMinor),
-        discrepancyMinor: Value<int>(discrepancyMinor),
+        declaredCashMinor: Value<int>(declaredCashMinor),
+        declaredEdcTotalMinor: Value<int>(declaredEdcMinor),
+        declaredQrisTotalMinor: Value<int>(declaredQrisMinor),
+        blindClose: Value<bool>(blindClose),
+        closedBy: Value<String?>(closedBy),
+
+        // Jendela deprekasi — lihat catatan di atas.
+        closingBalanceMinor: Value<int>(declaredCashMinor),
+
         clientClosedAt: Value<DateTime?>(clientClosedAt),
         // Shift yang ditutup WAJIB kembali ke antrean: penutupan adalah
         // sinkronisasi kedua yang membawa angka kas sesungguhnya.
@@ -107,4 +131,34 @@ class ShiftDao extends DatabaseAccessor<AppDatabase> with _$ShiftDaoMixin {
       );
     });
   }
+
+  /// Memindahkan baris ke KARANTINA ([11 §4.3]).
+  ///
+  /// Dipanggil ketika server menolak dengan `retryable: false`. Barisnya
+  /// **tidak dihapus** — datanya tetap utuh dan muncul di P-13 sebagai "Butuh
+  /// tindakan". Yang berubah hanya keanggotaannya di antrean, supaya satu baris
+  /// cacat permanen berhenti menahan seluruh baris di belakangnya.
+  Future<void> markQuarantined(String id, DateTime at, String reason) {
+    return (update(db.shifts)..where(($ShiftsTable t) => t.id.equals(id)))
+        .write(
+      ShiftsCompanion(
+        quarantined: const Value<bool>(true),
+        synced: const Value<bool>(false),
+        syncError: Value<String?>(reason),
+        lastSyncAttemptAt: Value<DateTime?>(at),
+      ),
+    );
+  }
+
+  /// Jumlah baris yang menuntut tindakan manusia.
+  Stream<int> watchQuarantinedCount() {
+    final Expression<int> count = db.shifts.id.count();
+    final JoinedSelectStatement<HasResultSet, dynamic> query =
+        selectOnly(db.shifts)
+          ..addColumns(<Expression<Object>>[count])
+          ..where(db.shifts.quarantined.equals(true));
+
+    return query.map((TypedResult row) => row.read(count) ?? 0).watchSingle();
+  }
+
 }

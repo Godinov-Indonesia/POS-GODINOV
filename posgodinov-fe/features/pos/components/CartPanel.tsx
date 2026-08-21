@@ -6,8 +6,15 @@ import * as React from 'react'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/dialog'
 import { Money, Num } from '@/components/ui/money'
-import { cartItemCount, cartTotal, lineTotal } from '@/features/pos/cart/cart-math'
+import { toast } from '@/components/ui/toaster'
+import { cartItemCount, cartTotal, lineTotal, type CartLine } from '@/features/pos/cart/cart-math'
 import { useCartStore } from '@/features/pos/cart/cart-store'
+import { VoidSheet } from '@/features/pos/components/VoidSheet'
+import { usePosAuthStore } from '@/features/pos/auth/pos-auth-store'
+import { VOID_THRESHOLD_QTY } from '@/lib/constants/cancellation'
+import { getOpenShift } from '@/lib/db/repositories/shift.repo'
+import { recordVoidLog } from '@/lib/db/repositories/void-log.repo'
+import { readPosConfig } from '@/lib/pos/config'
 
 /**
  * `CartPanel` — docs/06 §4.4 & §4.5.
@@ -25,9 +32,155 @@ export function CartPanel({
 }) {
   const lines = useCartStore((s) => s.lines)
   const increment = useCartStore((s) => s.increment)
-  const removeLine = useCartStore((s) => s.removeLine)
   const clear = useCartStore((s) => s.clear)
   const [confirmClear, setConfirmClear] = React.useState(false)
+
+  const staffId = usePosAuthStore((s) => s.staffId)
+  const staffName = usePosAuthStore((s) => s.staffName)
+
+  // ── BUTIR 5 — Strict Qty Audit ([11 §M13.4]) ──────────────────────────────
+  //
+  // Ambang datang dari master data agar pemilik dapat mengubahnya tanpa rilis
+  // baru; bawaannya dipakai sampai `config` pertama tiba.
+  const [threshold, setThreshold] = React.useState(VOID_THRESHOLD_QTY)
+  const [requiresAuth, setRequiresAuth] = React.useState(true)
+  React.useEffect(() => {
+    let alive = true
+    void readPosConfig().then((config) => {
+      if (!alive) return
+      setThreshold(config.voidThresholdQty)
+      setRequiresAuth(config.requireSupervisorForVoid)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  /**
+   * Penurunan yang tertahan ambang dan menunggu pembatalan tercatat.
+   *
+   * `lines` berisi satu baris untuk penurunan stepper, atau SELURUH baris untuk
+   * "Kosongkan" — lihat catatan pada [requestClear].
+   */
+  const [pendingVoid, setPendingVoid] = React.useState<{
+    kind: 'line' | 'clear'
+    entries: { line: CartLine; nextQuantity: number; decrease: number }[]
+  } | null>(null)
+  const [voidBusy, setVoidBusy] = React.useState(false)
+
+  const pendingDecrease = pendingVoid?.entries.reduce((sum, e) => sum + e.decrease, 0) ?? 0
+  const pendingValue =
+    pendingVoid?.entries.reduce((sum, e) => sum + e.decrease * e.line.unit_price, 0) ?? 0
+
+  /**
+   * Satu-satunya jalan menurunkan kuantitas dari layar ini.
+   *
+   * Baik tombol minus maupun tombol hapus melewatinya. Membiarkan tombol hapus
+   * memakai jalur lain akan membuat butir 5 tidak berguna: kasir cukup menekan
+   * hapus alih-alih menekan minus enam kali.
+   */
+  const requestDecrease = (line: CartLine, nextQuantity: number) => {
+    const attempt = useCartStore.getState().canDecrementTo(line.product_id, nextQuantity, threshold)
+
+    if (attempt.ok) {
+      useCartStore.getState().applyAudited(line.product_id, nextQuantity)
+      return
+    }
+
+    setPendingVoid({
+      kind: 'line',
+      entries: [{ line, nextQuantity, decrease: attempt.totalDecrease }],
+    })
+  }
+
+  /**
+   * "Kosongkan" tunduk pada ambang yang SAMA.
+   *
+   * Tanpa ini butir 5 punya pintu belakang selebar pintu depan: kasir yang
+   * ditahan tombol minus cukup menekan "Kosongkan" dan sepuluh unit lenyap
+   * tanpa satu pun baris audit. Yang diperiksa adalah penurunan gabungan
+   * seluruh keranjang, karena itulah yang benar-benar hilang.
+   */
+  const requestClear = () => {
+    const state = useCartStore.getState()
+    const entries = state.lines.map((line) => ({
+      line,
+      nextQuantity: 0,
+      decrease: (state.peakQuantity[line.product_id] ?? line.quantity),
+    }))
+
+    const totalDecrease = entries.reduce((sum, e) => sum + e.decrease, 0)
+    if (totalDecrease > threshold) {
+      setPendingVoid({ kind: 'clear', entries })
+      return
+    }
+
+    setConfirmClear(true)
+  }
+
+  const commitPendingVoid = async ({
+    reasonCode,
+    reasonNotes,
+  }: {
+    reasonCode: string
+    reasonNotes: string
+  }) => {
+    if (!pendingVoid || !staffId) return
+
+    setVoidBusy(true)
+    try {
+      const shift = await getOpenShift()
+      if (!shift) {
+        toast.error('Tidak ada shift aktif — pembatalan harus terikat pada satu shift.')
+        return
+      }
+
+      // Satu baris `void_logs` per baris keranjang: `scope = CART_LINE`
+      // mensyaratkan `product_id`, dan `ck_void_scope_ref` di PostgreSQL
+      // menolak baris tanpanya ([11 §3.2]). Satu log gabungan tidak dapat
+      // menyatakan produk mana yang lenyap.
+      for (const entry of pendingVoid.entries) {
+        if (entry.decrease <= 0) continue
+
+        await recordVoidLog({
+          scope: 'CART_LINE',
+          shiftId: shift.id,
+          staffId,
+          productId: entry.line.product_id,
+          // `quantity_before` adalah PUNCAK, bukan kuantitas saat ini: yang
+          // diaudit adalah seluruh penurunan sejak barang itu masuk keranjang,
+          // bukan hanya ketukan terakhir.
+          quantityBefore: entry.nextQuantity + entry.decrease,
+          quantityAfter: entry.nextQuantity,
+          valueAmountMinor: entry.decrease * entry.line.unit_price,
+          reasonCode,
+          reasonNotes,
+          cashierName: staffName ?? undefined,
+          itemsSnapshot: [
+            {
+              product_id: entry.line.product_id,
+              product_name: entry.line.product_name,
+              quantity: entry.decrease,
+              unit_price: entry.line.unit_price,
+            },
+          ],
+        })
+      }
+
+      if (pendingVoid.kind === 'clear') {
+        clear()
+      } else {
+        for (const entry of pendingVoid.entries) {
+          useCartStore.getState().applyAudited(entry.line.product_id, entry.nextQuantity)
+        }
+      }
+
+      toast.success('Pembatalan tercatat. Struk pembatalan sedang dicetak.')
+      setPendingVoid(null)
+    } finally {
+      setVoidBusy(false)
+    }
+  }
 
   const total = cartTotal(lines)
   const count = cartItemCount(lines)
@@ -44,7 +197,7 @@ export function CartPanel({
           size="sm"
           className="ml-auto text-danger"
           disabled={!lines.length}
-          onClick={() => (lines.length >= 1 ? setConfirmClear(true) : clear())}
+          onClick={requestClear}
         >
           <Trash2 className="size-4" aria-hidden="true" />
           Kosongkan
@@ -73,7 +226,7 @@ export function CartPanel({
                       line.quantity === 1 ? 'bg-danger-subtle text-danger border-danger/30 hover:bg-danger/20' : ''
                     }`}
                     aria-label={line.quantity === 1 ? `Hapus ${line.product_name}` : `Kurangi ${line.product_name}`}
-                    onClick={() => increment(line.product_id, -1)}
+                    onClick={() => requestDecrease(line, line.quantity - 1)}
                   >
                     {line.quantity === 1 ? (
                       <Trash2 className="size-5" strokeWidth={2.5} aria-hidden="true" />
@@ -101,7 +254,7 @@ export function CartPanel({
                     size="icon"
                     className="text-danger h-12 w-12 shrink-0"
                     aria-label={`Hapus ${line.product_name}`}
-                    onClick={() => removeLine(line.product_id)}
+                    onClick={() => requestDecrease(line, 0)}
                   >
                     <Trash2 className="size-5" aria-hidden="true" />
                   </Button>
@@ -136,6 +289,32 @@ export function CartPanel({
           </Button>
         </div>
       </div>
+
+      <VoidSheet
+        open={!!pendingVoid}
+        title="Penurunan besar memerlukan pembatalan"
+        description={
+          pendingVoid ? (
+            <>
+              <Num>{pendingDecrease}</Num> unit{' '}
+              {pendingVoid.kind === 'clear' ? (
+                <>dari <Num>{pendingVoid.entries.length}</Num> produk</>
+              ) : (
+                <strong>{pendingVoid.entries[0]?.line.product_name}</strong>
+              )}{' '}
+              akan lenyap dari keranjang ini — melewati ambang <Num>{threshold}</Num> unit.
+              Penurunan sebesar ini tidak dapat lewat tombol biasa; ia dicatat sebagai pembatalan
+              beserta alasannya.
+            </>
+          ) : null
+        }
+        valueMinor={pendingValue}
+        requiresAuth={requiresAuth}
+        busy={voidBusy}
+        submitLabel="Catat & turunkan"
+        onClose={() => setPendingVoid(null)}
+        onSubmit={commitPendingVoid}
+      />
 
       <ConfirmDialog
         open={confirmClear}

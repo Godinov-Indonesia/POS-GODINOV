@@ -24,6 +24,13 @@ class SyncBadgeChip extends StatelessWidget {
     final GodinovTokens t = context.tokens;
 
     final (IconData icon, String label, Color color) = switch (state.badge) {
+      // Menang atas segalanya: hanya kelompok ini yang tidak akan beres dengan
+      // sendirinya, dan kasir perlu tahu SEBELUM menutup shift ([11 §M12.3]).
+      SyncBadge.needsAttention => (
+          Icons.report_problem_outlined,
+          '${state.quarantinedCount} butuh tindakan',
+          t.danger,
+        ),
       SyncBadge.failed => (
           Icons.warning_amber_rounded,
           state.pendingCount > 0

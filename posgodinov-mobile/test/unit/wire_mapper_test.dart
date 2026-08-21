@@ -34,7 +34,7 @@ TransactionWithItems _tx() => TransactionWithItems(
         shiftId: '9f8e7d6c-1111-4222-8333-444455556666',
         customerName: 'Andi',
         totalAmountMinor: 4400000, // Rp 44.000
-        paymentMethod: PaymentMethod.cash,
+        paymentMethod: PaymentSummary.cash,
         status: TransactionStatus.completed,
         cancelNotes: '',
         clientCreatedAt: _createdAt,

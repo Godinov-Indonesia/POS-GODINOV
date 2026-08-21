@@ -29,7 +29,7 @@ class SaleTransaction extends Equatable {
   /// **INTEGER SEN.**
   final int totalAmountMinor;
 
-  final PaymentMethod paymentMethod;
+  final PaymentSummary paymentMethod;
   final TransactionStatus status;
   final DateTime clientCreatedAt;
   final String customerName;
@@ -39,7 +39,7 @@ class SaleTransaction extends Equatable {
   final int cashReceivedMinor;
 
   int get changeMinor =>
-      paymentMethod == PaymentMethod.cash
+      paymentMethod.isCash
           ? cashReceivedMinor - totalAmountMinor
           : 0;
 

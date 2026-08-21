@@ -13,6 +13,7 @@ import 'package:posgodinov_mobile/shared/theme/spacing.dart';
 import 'package:posgodinov_mobile/shared/widgets/money_text.dart';
 import 'package:posgodinov_mobile/shared/widgets/touch_button.dart';
 import 'package:uuid/uuid.dart';
+import 'package:posgodinov_mobile/core/kiosk/kiosk_guard.dart';
 
 /// **Mode Kiosk — K-01 … K-03.**
 ///
@@ -109,16 +110,38 @@ class _Welcome extends StatelessWidget {
     final KioskCubit cubit = context.read<KioskCubit>();
     if (!cubit.registerExitTap()) return;
 
+    // Jeda diperiksa SEBELUM dialog dibuka ([11 §M17.4]).
+    //
+    // Membuka dialog lalu menolak setiap PIN membuat staff mengira PIN-nya yang
+    // salah, dan ia akan mencoba PIN lain — memperpanjang jeda tanpa pernah
+    // tahu mengapa.
+    final Duration sisa = cubit.exitLockoutRemaining();
+    if (sisa > Duration.zero) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Terlalu banyak percobaan. Coba lagi dalam ${sisa.inSeconds} detik.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     final String? pin = await showDialog<String>(
       context: context,
       builder: (_) => const _ExitPinDialog(),
     );
     if (pin == null) return;
 
-    final bool ok = await cubit.attemptExit(pin);
-    if (!ok && context.mounted) {
+    final KioskExitVerdict verdict = await cubit.attemptExit(pin);
+    if (!verdict.ok && context.mounted) {
+      // Pesan datang dari putusan, bukan dirakit di sini: "PIN salah" dan "PIN
+      // tanpa izin" SENGAJA dijawab identik. Membedakannya memberi tahu penebak
+      // bahwa PIN-nya benar dan ia hanya perlu mencari orang lain.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PIN salah.')),
+        SnackBar(content: Text(verdict.message)),
       );
     }
   }
@@ -144,14 +167,29 @@ class _ExitPinDialogState extends State<_ExitPinDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text('Keluar dari mode Kiosk', style: PosText.buttonLg),
-      content: TextField(
-        controller: _pin,
-        autofocus: true,
-        obscureText: true,
-        keyboardType: TextInputType.number,
-        style: PosText.base,
-        decoration: const InputDecoration(hintText: 'PIN staff'),
-        onSubmitted: (String v) => Navigator.of(context).pop(v),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'PIN staff yang berwenang membuka Kiosk. Percobaan yang gagal '
+            'dilaporkan ke pemilik.',
+            style: PosText.sm.copyWith(color: context.tokens.fgMuted),
+          ),
+          const SizedBox(height: Gap.md),
+          TextField(
+            controller: _pin,
+            autofocus: true,
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            // ⛔ TIDAK ADA kolom ID staff, dan itu disengaja: layar Kiosk
+            // menghadap pelanggan, dan daftar siapa saja yang bekerja di outlet
+            // ini bukan informasi yang boleh dilihat siapa pun yang lewat.
+            style: PosText.base,
+            decoration: const InputDecoration(hintText: 'PIN staff berwenang'),
+            onSubmitted: (String v) => Navigator.of(context).pop(v),
+          ),
+        ],
       ),
       actions: <Widget>[
         TextButton(

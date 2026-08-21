@@ -6,16 +6,31 @@ import { toast } from '@/components/ui/toaster'
 import { usePosAuthStore } from '@/features/pos/auth/pos-auth-store'
 import { getBoundOutletLabel } from '@/lib/auth/device-session'
 import type { LocalTransaction } from '@/lib/db/models'
-import { renderReceipt } from '@/lib/printer/receipt-renderer'
-import { getPrinterColumns, resolvePrinter } from '@/lib/printer/registry'
+import { enqueueSaleReceipt } from '@/lib/printer/print-queue'
 import type { Receipt } from '@/lib/printer/types'
 
 /**
- * Mencetak struk dari transaksi lokal.
+ * Mencetak struk penjualan **lewat antrean** ([11 §M14.1]).
  *
- * ⚠️ **Kegagalan cetak tidak pernah menyentuh data transaksi** ([05 §1.6.5]).
- * Transaksi sudah tersimpan di Dexie sebelum fungsi ini dipanggil; yang terjadi
- * di sini paling buruk hanyalah toast galat dan tawaran mencetak ulang.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * MENGAPA TIDAK LAGI MENCETAK LANGSUNG
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Versi sebelumnya merender lalu mengirim di tempat, dan kegagalannya berakhir
+ * sebagai toast merah yang hilang dalam tiga detik. Konsekuensinya dua:
+ *
+ *  1. Struk yang gagal tercetak **tidak meninggalkan jejak apa pun** — tidak
+ *     ada yang dapat dicetak ulang, dan tidak ada yang memberi tahu kasir.
+ *  2. `receipt_printed_at` tidak pernah terisi, sehingga diskriminator Void vs
+ *     Retur (butir 15) tidak pernah berpindah dari `null`. Seluruh transaksi
+ *     tetap berada di wilayah Void selamanya — persis lubang yang v2 dibangun
+ *     untuk menutupnya.
+ *
+ * Antrean memperbaiki keduanya: payload tersimpan, percobaan diulang otomatis,
+ * dan baris sumbernya ditandai tepat saat kertas benar-benar terbit.
+ *
+ * ⚠️ **Kegagalan cetak tidak pernah menyentuh data transaksi** (aturan R6).
+ * Transaksi sudah tersimpan di Dexie sebelum fungsi ini dipanggil.
  */
 export function usePrintReceipt() {
   const cashierName = usePosAuthStore((s) => s.staffName)
@@ -25,11 +40,7 @@ export function usePrintReceipt() {
     async (transaction: LocalTransaction, options: { isReprint?: boolean } = {}) => {
       setPrinting(true)
       try {
-        const [outletName, columns, printer] = await Promise.all([
-          getBoundOutletLabel(),
-          getPrinterColumns(),
-          resolvePrinter(),
-        ])
+        const outletName = await getBoundOutletLabel()
 
         const receipt: Receipt = {
           outletName: outletName ?? 'POS Godinov',
@@ -48,22 +59,15 @@ export function usePrintReceipt() {
           cashReceived: transaction._cash_received,
           change: transaction._change,
           isReprint: options.isReprint ?? false,
-          isVoid: transaction.status === 'CANCELLED',
+          isVoid: transaction.status === 'VOIDED' || transaction.status === 'CANCELLED',
         }
 
-        const payload = renderReceipt(receipt, { columns })
+        const job = await enqueueSaleReceipt(transaction.id, receipt)
 
-        // Adapter yang memerlukan pemasangan (Web Bluetooth) menuntut gestur
-        // pengguna; fungsi ini memang selalu dipanggil dari handler klik.
-        await printer.connect()
-        await printer.print(payload)
-
-        toast.success('Struk dikirim ke printer')
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? `Gagal mencetak: ${error.message}`
-            : 'Gagal mencetak struk. Transaksi tetap tersimpan.',
+        toast[job ? 'success' : 'error'](
+          job
+            ? 'Struk dikirim ke printer'
+            : 'Struk gagal diantrekan. Transaksi tetap tersimpan.',
         )
       } finally {
         setPrinting(false)

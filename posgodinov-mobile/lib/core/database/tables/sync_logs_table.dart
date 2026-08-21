@@ -14,8 +14,10 @@ import 'package:drift/drift.dart';
 class SyncLogs extends Table {
   IntColumn get id => integer().autoIncrement()();
 
-  /// Nama `SyncTrigger` yang memulai upaya ini (online, periodic, shiftClose,
-  /// manual, startup, resume, background, transaction).
+  /// Nama `SyncTrigger` yang memulai upaya ini — lihat enum `SyncTrigger`.
+  ///
+  /// Disimpan sebagai nama enum, bukan angka: baris ini dibaca manusia saat
+  /// menelusuri insiden, dan `3` tidak memberi tahu siapa pun apa pun.
   TextColumn get trigger => text()();
 
   DateTimeColumn get startedAt => dateTime()();
@@ -38,6 +40,34 @@ class SyncLogs extends Table {
       integer().withDefault(const Constant(0))();
 
   IntColumn get wastesSynced => integer().withDefault(const Constant(0))();
+
+  // ── v2 — entitas audit ([11 §M12.3]) ──────────────────────────────────────
+  //
+  // Dicatat terpisah dari transaksi karena pertanyaan yang dijawabnya berbeda.
+  // "Berapa transaksi terkirim" menjawab keluhan kasir; "berapa log pembatalan
+  // terkirim" menjawab pertanyaan auditor — dan yang kedua justru paling sering
+  // ditanyakan setelah ada dugaan kecurangan.
+
+  IntColumn get returnsSent => integer().withDefault(const Constant(0))();
+
+  IntColumn get returnsSynced => integer().withDefault(const Constant(0))();
+
+  IntColumn get voidLogsSent => integer().withDefault(const Constant(0))();
+
+  IntColumn get voidLogsSynced => integer().withDefault(const Constant(0))();
+
+  IntColumn get securityEventsSent =>
+      integer().withDefault(const Constant(0))();
+
+  IntColumn get securityEventsSynced =>
+      integer().withDefault(const Constant(0))();
+
+  /// Baris yang dipindahkan ke KARANTINA pada putaran ini.
+  ///
+  /// Dicatat terpisah dari kegagalan biasa karena maknanya berbeda secara
+  /// operasional: kegagalan biasa akan hilang sendiri, karantina **tidak akan
+  /// pernah** hilang tanpa seseorang menanganinya.
+  IntColumn get quarantined => integer().withDefault(const Constant(0))();
 
   /// `failed_transactions` dari respons, dipisahkan koma. Kosong bila tidak ada.
   TextColumn get failedTransactionIds =>

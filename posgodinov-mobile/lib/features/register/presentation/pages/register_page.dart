@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:posgodinov_mobile/core/di/injection.dart';
@@ -11,7 +13,6 @@ import 'package:posgodinov_mobile/features/register/presentation/pages/held_cart
 import 'package:posgodinov_mobile/features/register/presentation/cubit/cart_cubit.dart';
 import 'package:posgodinov_mobile/features/register/presentation/cubit/catalog_cubit.dart';
 import 'package:posgodinov_mobile/features/register/presentation/cubit/transaction_cubit.dart';
-import 'package:posgodinov_mobile/features/register/presentation/pages/payment_page.dart';
 import 'package:posgodinov_mobile/features/register/presentation/pages/receipt_page.dart';
 import 'package:posgodinov_mobile/features/register/presentation/widgets/cart_panel.dart';
 import 'package:posgodinov_mobile/features/register/presentation/widgets/category_tabs.dart';
@@ -21,6 +22,8 @@ import 'package:posgodinov_mobile/features/history/domain/repositories/history_r
 import 'package:posgodinov_mobile/features/history/presentation/cubit/history_cubit.dart';
 import 'package:posgodinov_mobile/features/history/presentation/pages/history_page.dart';
 import 'package:posgodinov_mobile/features/printer/presentation/cubit/printer_cubit.dart';
+import 'package:posgodinov_mobile/features/printing/presentation/cubit/print_queue_cubit.dart';
+import 'package:posgodinov_mobile/features/printing/presentation/widgets/print_queue_banner.dart';
 import 'package:posgodinov_mobile/features/shift/presentation/cubit/shift_cubit.dart';
 import 'package:posgodinov_mobile/features/shift/presentation/pages/close_shift_page.dart';
 import 'package:posgodinov_mobile/features/sync/presentation/cubit/sync_cubit.dart';
@@ -35,6 +38,11 @@ import 'package:posgodinov_mobile/shared/theme/godinov_tokens.dart';
 import 'package:posgodinov_mobile/shared/theme/spacing.dart';
 import 'package:posgodinov_mobile/shared/widgets/money_text.dart';
 import 'package:posgodinov_mobile/shared/widgets/touch_button.dart';
+import 'package:posgodinov_mobile/shared/widgets/pos_bottom_bar.dart';
+import 'package:posgodinov_mobile/features/register/presentation/pages/payment/payment_flow.dart';
+import 'package:posgodinov_mobile/features/register/domain/entities/tender_draft.dart';
+import 'package:posgodinov_mobile/core/database/daos/sync_dao.dart';
+import 'package:posgodinov_mobile/features/register/presentation/cart_void_guard.dart';
 
 /// **P-05 — Kasir Utama.**
 ///
@@ -57,6 +65,17 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
+  /// Gerbang butir 5 — Strict Qty Audit ([11 §M13.4]).
+  ///
+  /// `late final` dan bukan dibuat di `build()`: identitas kasir serta shift
+  /// tidak berubah selama layar ini hidup, dan merakitnya ulang setiap render
+  /// hanya membuang objek pada layar yang digambar ulang setiap ketukan produk.
+  late final CartVoidGuard _voidGuard = CartVoidGuard(
+    shiftId: widget.shiftId,
+    staffId: widget.session.staffId,
+    cashierName: widget.session.name,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -65,38 +84,40 @@ class _RegisterPageState extends State<RegisterPage> {
     });
   }
 
+  /// Membuka alur pembayaran — **layar penuh**, butir 11 ([11 §M17.2]).
+  ///
+  /// ⛔ `showDialog` yang lama DIHAPUS. Pembayaran bukan lagi modal di atas
+  /// keranjang: setiap sub-langkah adalah rute Navigator tersendiri, sehingga
+  /// tombol back perangkat mundur SATU langkah alih-alih membatalkan seluruh
+  /// pembayaran.
+  ///
+  /// Keranjang dikosongkan HANYA setelah transaksi benar-benar tersimpan —
+  /// lihat `_showReceipt`.
   Future<void> _openPayment() async {
     final CartState cart = context.read<CartCubit>().state;
     if (cart.isEmpty) return;
 
     final TransactionCubit tx = context.read<TransactionCubit>();
-    tx.startPayment(cart.totalMinor);
 
-    await showDialog<void>(
-      context: context,
-      // Ketukan pada scrim TIDAK menutup: sentuhan tak sengaja saat memegang
-      // tablet akan membatalkan transaksi ([06 §4.6.1]).
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) => BlocProvider<TransactionCubit>
-          .value(
-        value: tx,
-        child: PaymentDialog(
-          onConfirm: () async {
-            Navigator.of(dialogContext).pop();
-            await tx.confirmPayment(
-              shiftId: widget.shiftId,
-              cashierName: widget.session.name,
-              lines: cart.lines,
-              customerName: cart.customerName,
-            );
-            if (mounted) await _showReceipt();
-          },
-        ),
-      ),
+    final bool saved = await PaymentFlow.open(
+      context,
+      cubit: tx,
+      totalMinor: cart.totalMinor,
+      onConfirm: (List<TenderDraft> tenders, int cashReceivedMinor) async {
+        await tx.confirmPayment(
+          shiftId: widget.shiftId,
+          cashierName: widget.session.name,
+          lines: cart.lines,
+          customerName: cart.customerName,
+          tenders: tenders,
+          cashReceivedMinor: cashReceivedMinor,
+        );
+      },
     );
+
+    if (saved && mounted) await _showReceipt();
   }
 
-  /// P-08 — menahan keranjang berjalan.
   Future<void> _holdCart() async {
     final CartState cart = context.read<CartCubit>().state;
     if (cart.isEmpty) return;
@@ -142,10 +163,17 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   /// P-09 — riwayat transaksi shift berjalan.
+  ///
+  /// `syncDao` disuntikkan supaya cubit dapat membaca `config.history_scope`
+  /// ([11 §M18.2]). Tanpanya, flag tidak pernah terbaca dan isolasi riwayat
+  /// selalu penuh — aman, tetapi flagnya menjadi mati.
   void _openHistory() {
     _push(
       BlocProvider<HistoryCubit>(
-        create: (_) => HistoryCubit(getIt<HistoryRepository>()),
+        create: (_) => HistoryCubit(
+          getIt<HistoryRepository>(),
+          syncDao: getIt<SyncDao>(),
+        ),
         child: HistoryPage(shiftId: widget.shiftId),
       ),
     );
@@ -156,7 +184,11 @@ class _RegisterPageState extends State<RegisterPage> {
     _push(
       BlocProvider<WasteCubit>.value(
         value: getIt<WasteCubit>(),
-        child: WastePage(staffId: widget.session.staffId),
+        child: WastePage(
+          staffId: widget.session.staffId,
+          staffName: widget.session.name,
+          shiftId: widget.shiftId,
+        ),
       ),
     );
   }
@@ -178,7 +210,17 @@ class _RegisterPageState extends State<RegisterPage> {
         value: getIt<PrinterCubit>(),
         child: SettingsPage(
           cashierName: widget.session.name,
-          onChangeCashier: () => getIt<CashierAuthCubit>().logout(),
+          // ── BUTIR 12 ([11 §M15.2]) ────────────────────────────────────
+          //
+          // `requestLogout`, bukan `logout` yang lama. P-14 sudah
+          // menyembunyikan tombolnya selama sesi terkunci, tetapi pemeriksaan
+          // tetap dilakukan di sini: yang menyembunyikan tombol adalah state
+          // sesaat, sedangkan yang memutuskan adalah basis data — dan shift
+          // dapat lahir di antara render dan ketukan.
+          onChangeCashier: () => unawaited(
+            getIt<CashierAuthCubit>()
+                .requestLogout(source: 'settings:ganti-kasir'),
+          ),
         ),
       ),
     );
@@ -202,39 +244,90 @@ class _RegisterPageState extends State<RegisterPage> {
     tx.finish();
   }
 
-  /// Aksi M7 yang dapat dijangkau dari layar kasir.
+  /// ═══════════════════════════════════════════════════════════════════════
+  /// `_menuActions()` DIHAPUS PADA M17.1 — JANGAN DIKEMBALIKAN
+  /// ═══════════════════════════════════════════════════════════════════════
   ///
-  /// "Tutup Shift" sengaja diletakkan paling kanan dan berwarna netral: ia
-  /// mengakhiri sesi kerja dan tidak boleh tertekan saat kasir bermaksud
-  /// membuka riwayat ([06 §2.2]).
-  List<Widget> _menuActions() => <Widget>[
-        IconButton(
-          onPressed: _openHeldList,
-          icon: const Icon(Icons.pause_circle_outline),
-          tooltip: 'Pesanan ditahan',
+  /// Metode itu mengembalikan lima `IconButton` untuk `AppBar.actions`. Kelima
+  /// -limanya kini hidup di [PosBottomBar], dan `AppBar` menjadi konteks murni
+  /// ([11 §M17.1], butir 18).
+  ///
+  /// Alasannya bukan estetika: `AppBar` berada di luar zona jempol pada
+  /// handheld 6" yang dipegang satu tangan, dan setiap ikon di sana memaksa
+  /// penyesuaian genggaman puluhan kali per jam.
+  ///
+  /// DoD M17 mengaudit hal ini lewat `grep`: tidak boleh ada `IconButton` di
+  /// dalam `AppBar` layar kasir.
+
+  /// Slot bottom bar — empat aksi utama + "Lainnya" ([11 §M17.1]).
+  ///
+  /// Urutan mengikuti frekuensi pakai dari kiri. Slot paling kanan berada di
+  /// jangkauan jempol paling nyaman untuk tangan kanan, dan itu diberikan
+  /// kepada "Lainnya" — aksi yang sering ditemukan otomatis, sedangkan yang
+  /// jarang perlu dicari.
+  List<PosBottomBarSlot> _bottomSlots(int heldCount) => <PosBottomBarSlot>[
+        PosBottomBarSlot(
+          icon: Icons.point_of_sale_outlined,
+          label: 'Kasir',
+          active: true,
+          onTap: () {},
         ),
-        IconButton(
-          onPressed: _openHistory,
-          icon: const Icon(Icons.receipt_long_outlined),
-          tooltip: 'Riwayat transaksi',
+        PosBottomBarSlot(
+          icon: Icons.pause_circle_outline,
+          label: 'Tahan',
+          badge: heldCount,
+          onTap: _openHeldList,
         ),
-        IconButton(
-          onPressed: _openWaste,
-          icon: const Icon(Icons.delete_outline),
-          tooltip: 'Lapor waste',
+        PosBottomBarSlot(
+          icon: Icons.receipt_long_outlined,
+          label: 'Riwayat',
+          onTap: _openHistory,
         ),
-        IconButton(
-          onPressed: _openSettings,
-          icon: const Icon(Icons.settings_outlined),
-          tooltip: 'Pengaturan',
+        PosBottomBarSlot(
+          icon: Icons.delete_outline,
+          label: 'Waste',
+          onTap: _openWaste,
         ),
-        const SizedBox(width: Gap.destructive),
-        IconButton(
-          onPressed: _openCloseShift,
-          icon: const Icon(Icons.lock_outline),
-          tooltip: 'Tutup shift',
+        PosBottomBarSlot(
+          icon: Icons.more_horiz,
+          label: 'Lainnya',
+          onTap: _openMore,
         ),
       ];
+
+  /// *Bottom sheet* "Lainnya" — BUKAN menu yang terbuka ke atas.
+  ///
+  /// Menu atas mengembalikan persis masalah yang bottom bar selesaikan: isinya
+  /// mendarat di luar zona jempol.
+  Future<void> _openMore() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (BuildContext sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.lock_outline),
+              title: const Text('Tutup Shift'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _openCloseShift();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Pengaturan'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _openSettings();
+              },
+            ),
+            const SizedBox(height: Gap.md),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -242,16 +335,16 @@ class _RegisterPageState extends State<RegisterPage> {
 
     if (context.isHandheld) {
       return _HandheldLayout(
+        session: widget.session,
         onPay: _openPayment,
-        onHeldList: _openHeldList,
-        menuActions: _menuActions(),
+        bottomSlots: _bottomSlots,
       );
     }
 
     return Scaffold(
       appBar: AppBar(
+        // KONTEKS saja — nol `IconButton` ([11 §M17.1]).
         title: Text('Kasir · ${widget.session.shortName}'),
-        actions: _menuActions(),
       ),
       body: SafeArea(
         child: Row(
@@ -261,18 +354,58 @@ class _RegisterPageState extends State<RegisterPage> {
               const Expanded(child: _ProductPanel()),
               SizedBox(
                 width: layout.cartFixedWidth,
-                child: _CartSide(onPay: _openPayment, onHold: _holdCart),
+                child: _CartSide(
+                  guard: _voidGuard,
+                  onPay: _openPayment,
+                  onHold: _holdCart,
+                ),
               ),
             ] else ...<Widget>[
               Expanded(flex: layout.productFlex, child: const _ProductPanel()),
               Expanded(
                 flex: layout.cartFlex,
-                child: _CartSide(onPay: _openPayment, onHold: _holdCart),
+                child: _CartSide(
+                  guard: _voidGuard,
+                  onPay: _openPayment,
+                  onHold: _holdCart,
+                ),
               ),
             ],
           ],
         ),
       ),
+      // Tablet landscape: bar tetap ada, TETAPI dibatasi lebarnya dan
+      // diratakan ke KANAN — sisi genggaman dominan ([11 §M17.1]). Bar selebar
+      // 1280 px memaksa jangkauan lengan penuh untuk mencapai slot kiri.
+      bottomNavigationBar: Align(
+        alignment: Alignment.centerRight,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 576),
+          child: _HeldCountBuilder(builder: _bottomSlots),
+        ),
+      ),
+    );
+  }
+}
+
+/// Membangun bottom bar dengan lencana jumlah pesanan tertahan.
+///
+/// Dipisah supaya hitungan yang berubah tidak menggambar ulang seluruh layar
+/// kasir — grid produk dan panel keranjang tidak peduli berapa pesanan yang
+/// sedang ditahan.
+class _HeldCountBuilder extends StatelessWidget {
+  const _HeldCountBuilder({required this.builder});
+
+  final List<PosBottomBarSlot> Function(int heldCount) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    // State `HeldCartCubit` ADALAH daftarnya — bukan objek pembungkus.
+    return BlocBuilder<HeldCartCubit, List<HeldCartSummary>>(
+      bloc: getIt<HeldCartCubit>(),
+      builder: (BuildContext context, List<HeldCartSummary> carts) {
+        return PosBottomBar(slots: builder(carts.length));
+      },
     );
   }
 }
@@ -295,6 +428,10 @@ class _ProductPanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               const _SyncStrip(),
+              // Tepat di bawah baris status, BUKAN di Bottom Bar — Bottom Bar
+              // adalah pekerjaan M17.1 dan belum ada. Menaruhnya di sini
+              // membuatnya terlihat sepanjang layar kasir terbuka.
+              const _PrintQueueStrip(),
               const SizedBox(height: Gap.sm),
               SizedBox(
                 height: Touch.frequent,
@@ -373,7 +510,14 @@ class _ProductGrid extends StatelessWidget {
 }
 
 class _CartSide extends StatelessWidget {
-  const _CartSide({required this.onPay, required this.onHold});
+  const _CartSide({
+    required this.guard,
+    required this.onPay,
+    required this.onHold,
+  });
+
+  /// Gerbang butir 5 ([11 §M13.4]).
+  final CartVoidGuard guard;
 
   final VoidCallback onPay;
   final VoidCallback onHold;
@@ -385,74 +529,124 @@ class _CartSide extends StatelessWidget {
         final CartCubit cart = context.read<CartCubit>();
         return CartPanel(
           state: state,
+          // Menaikkan kuantitas tidak pernah diaudit — tidak ada yang hilang.
           onIncrement: cart.increment,
-          onDecrement: cart.decrement,
-          onRemove: cart.removeLine,
-          onClear: cart.clear,
+
+          // ⛔ `cart.decrement`, `cart.removeLine`, dan `cart.clear` TIDAK
+          // dipanggil langsung lagi. Ketiganya melewati [CartVoidGuard], yang
+          // memutuskan apakah penurunan ini menuntut pembatalan tercatat
+          // (butir 5). `CartCubit` sudah melarangnya lewat dokumentasi sejak
+          // M13.4, tetapi larangan yang tidak ditegakkan tidak menahan apa pun.
+          onDecrement: (String id) => unawaited(
+            _guarded(context, state, id, guard.decrementOne),
+          ),
+          onRemove: (String id) => unawaited(
+            _guarded(context, state, id, guard.removeLine),
+          ),
+          onClear: () => unawaited(guard.clearCart(context)),
+
           onHold: onHold,
           onPay: onPay,
         );
       },
     );
   }
+
+  /// Menerjemahkan `lineId` dari widget menjadi [CartLine] untuk gerbang.
+  ///
+  /// Baris dicari dari state yang sedang dirender — bila ia sudah lenyap
+  /// (ketukan ganda pada baris terakhir), tidak ada yang perlu dikerjakan.
+  Future<void> _guarded(
+    BuildContext context,
+    CartState state,
+    String lineId,
+    Future<void> Function(BuildContext, CartLine) action,
+  ) async {
+    for (final CartLine l in state.lines) {
+      if (l.id == lineId) return action(context, l);
+    }
+  }
 }
 
 /// Tata letak handheld: grid penuh + bar ringkasan 72 dp yang menempel di bawah.
 class _HandheldLayout extends StatelessWidget {
   const _HandheldLayout({
+    required this.session,
     required this.onPay,
-    required this.onHeldList,
-    required this.menuActions,
+    required this.bottomSlots,
   });
 
+  final CashierSession session;
   final VoidCallback onPay;
-  final VoidCallback onHeldList;
-  final List<Widget> menuActions;
+  final List<PosBottomBarSlot> Function(int heldCount) bottomSlots;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Kasir'),
-        actions: <Widget>[
-          IconButton(
-            onPressed: onHeldList,
-            icon: const Icon(Icons.pause_circle_outline),
-            tooltip: 'Pesanan ditahan',
-          ),
-          ...menuActions,
-        ],
+        // ⛔ NOL `IconButton` ([11 §M17.1], butir 18).
+        //
+        // Kelima aksi yang dulu di sini pindah ke `PosBottomBar` di bawah —
+        // di dalam zona jempol. Judulnya kini memuat KONTEKS: siapa yang
+        // bertugas.
+        title: Text('Kasir · ${session.shortName}'),
       ),
       body: const SafeArea(child: _ProductPanel()),
-      bottomNavigationBar: BlocBuilder<CartCubit, CartState>(
-        builder: (BuildContext context, CartState state) {
-          if (state.isEmpty) return const SizedBox.shrink();
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          // Ringkasan keranjang DI ATAS bar navigasi, bukan menggantikannya.
+          //
+          // Menyembunyikan navigasi saat keranjang berisi — perilaku lama —
+          // membuat kasir yang ingin membuka Riwayat harus mengosongkan
+          // keranjangnya lebih dulu.
+          BlocBuilder<CartCubit, CartState>(
+            builder: (BuildContext context, CartState state) {
+              if (state.isEmpty) return const SizedBox.shrink();
 
-          return SafeArea(
-            child: Container(
-              height: Sizes.cartSummaryBar,
-              padding: const EdgeInsets.symmetric(horizontal: Gap.md),
-              color: context.tokens.surface,
-              child: Row(
-                children: <Widget>[
-                  Text('${state.itemCount} item', style: PosText.sm),
-                  const SizedBox(width: Gap.md),
-                  MoneyText(state.totalMinor, size: MoneySize.lg),
-                  const Spacer(),
-                  SizedBox(
-                    width: 160,
-                    child: TouchButton(
-                      label: 'BAYAR',
-                      variant: TouchVariant.success,
-                      onPressed: onPay,
+              return Container(
+                height: Sizes.cartSummaryBar,
+                padding: const EdgeInsets.symmetric(horizontal: Gap.md),
+                color: context.tokens.surface,
+                child: Row(
+                  children: <Widget>[
+                    Text('${state.itemCount} item', style: PosText.sm),
+                    const SizedBox(width: Gap.md),
+                    MoneyText(state.totalMinor, size: MoneySize.lg),
+                    const Spacer(),
+                    SizedBox(
+                      width: 160,
+                      child: TouchButton(
+                        label: 'BAYAR',
+                        variant: TouchVariant.success,
+                        onPressed: onPay,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+                  ],
+                ),
+              );
+            },
+          ),
+          _HeldCountBuilder(builder: bottomSlots),
+        ],
       ),
+    );
+  }
+}
+
+/// Banner "N struk belum tercetak" ([11 §M14.1]).
+///
+/// Menyusut menjadi nol tinggi saat antrean kosong, sehingga tidak memakan
+/// ruang pada hari-hari normal — dan justru karena itu, kemunculannya berarti
+/// sesuatu.
+class _PrintQueueStrip extends StatelessWidget {
+  const _PrintQueueStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider<PrintQueueCubit>.value(
+      value: getIt<PrintQueueCubit>(),
+      child: const PrintQueueBanner(),
     );
   }
 }

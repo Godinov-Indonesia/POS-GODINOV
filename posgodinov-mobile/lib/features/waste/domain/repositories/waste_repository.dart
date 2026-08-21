@@ -28,12 +28,20 @@ abstract interface class WasteRepository {
   ///
   /// Masuk antrean sinkronisasi dengan kunci payload **`wastes`**, bukan
   /// `product_wastes` ([03 §2.3]).
+  /// [reasonCode] berasal dari kamus beku `ReasonCodes.wasteReasons`
+  /// ([11 §3.5]); teks bebas saja tidak dapat dikelompokkan laporan pemilik.
+  ///
+  /// [staffName] hanya untuk DICETAK pada struk pembuangan (butir 7); yang
+  /// disimpan tetap [staffId].
   Future<void> report({
     required String staffId,
     required String productId,
     required String productName,
     required int quantity,
     required String reason,
+    String reasonCode,
+    String staffName,
+    String? shiftId,
   });
 
   Stream<List<WasteEntry>> watchRecent();
