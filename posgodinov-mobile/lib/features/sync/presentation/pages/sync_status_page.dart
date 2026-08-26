@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:posgodinov_mobile/core/network/clock_skew_monitor.dart';
 import 'package:posgodinov_mobile/features/sync/presentation/cubit/sync_cubit.dart';
 import 'package:posgodinov_mobile/features/sync/presentation/widgets/sync_badge_chip.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
@@ -48,7 +47,7 @@ class SyncStatusPage extends StatelessWidget {
               // kegagalan biasa: hanya inilah yang tidak akan beres sendiri.
               if (state.needsAttention) ...<Widget>[
                 const SizedBox(height: Gap.lg),
-                _Notice(
+                const _Notice(
                   tone: _Tone.danger,
                   icon: Icons.report_problem_outlined,
                   title: 'Baris ini tidak akan terkirim sendiri',
@@ -307,18 +306,18 @@ class _Limitations extends StatelessWidget {
           style: PosText.sm.copyWith(color: t.fgMuted, letterSpacing: 0.6),
         ),
         const SizedBox(height: Gap.sm),
-        _Bullet(
+        const _Bullet(
           // Batasan [05 §1.6.6] hilang sejak M8 — tetapi hanya bila sistem
           // mengizinkan proses latar berjalan.
           text: 'Sinkronisasi juga berjalan saat aplikasi tertutup, sekitar '
               'tiap 15 menit. Bila penghemat baterai aktif, sistem dapat '
               'menghentikannya — periksa Pengaturan → Sinkronisasi Latar.',
         ),
-        _Bullet(
+        const _Bullet(
           text: 'Percobaan ulang tidak pernah menyerah. Data keuangan tidak '
               'pernah dibuang, sebanyak apa pun kegagalannya.',
         ),
-        _Bullet(
+        const _Bullet(
           text: 'Laporan pemilik dikelompokkan berdasarkan waktu data tiba di '
               'server, bukan waktu transaksi di kasir. Penjualan offline yang '
               'baru tersinkron muncul pada tanggal sinkronisasi.',

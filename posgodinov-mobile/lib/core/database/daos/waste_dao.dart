@@ -15,7 +15,7 @@ class WasteDao extends DatabaseAccessor<AppDatabase> with _$WasteDaoMixin {
   Future<List<LocalWaste>> pending() {
     return (select(db.wastes)
           ..where(($WastesTable w) =>
-              w.synced.equals(false) & w.quarantined.equals(false))
+              w.synced.equals(false) & w.quarantined.equals(false),)
           ..orderBy(<OrderClauseGenerator<$WastesTable>>[
             ($WastesTable w) => OrderingTerm.asc(w.clientCreatedAt),
           ]))

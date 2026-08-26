@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
-import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/printer/receipt_printer.dart';
 import 'package:posgodinov_mobile/core/utils/money.dart';
 

@@ -45,7 +45,7 @@ class ReturnDao extends DatabaseAccessor<AppDatabase> with _$ReturnDaoMixin {
   }) async {
     final List<LocalReturn> rows = await (select(db.returns)
           ..where(($ReturnsTable r) =>
-              r.synced.equals(false) & r.quarantined.equals(false))
+              r.synced.equals(false) & r.quarantined.equals(false),)
           ..orderBy(<OrderClauseGenerator<$ReturnsTable>>[
             ($ReturnsTable r) => OrderingTerm.asc(r.clientCreatedAt),
           ])
@@ -64,7 +64,7 @@ class ReturnDao extends DatabaseAccessor<AppDatabase> with _$ReturnDaoMixin {
   Future<Map<String, int>> returnedQuantitiesOf(String transactionId) async {
     final List<LocalReturn> parents = await (select(db.returns)
           ..where(($ReturnsTable r) =>
-              r.originalTransactionId.equals(transactionId)))
+              r.originalTransactionId.equals(transactionId),))
         .get();
 
     if (parents.isEmpty) return const <String, int>{};

@@ -150,7 +150,7 @@ class SyncTriggers with WidgetsBindingObserver {
   void _fire(SyncTrigger trigger) {
     unawaited(_engine.syncUp(trigger).catchError((Object _) {
       return const SyncOutcome(ok: false);
-    }));
+    }),);
   }
 
   Future<void> dispose() async {

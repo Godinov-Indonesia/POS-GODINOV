@@ -8,8 +8,6 @@ import 'package:posgodinov_mobile/core/database/app_database.dart';
 import 'package:posgodinov_mobile/core/database/daos/print_job_dao.dart';
 import 'package:posgodinov_mobile/core/database/daos/security_event_dao.dart';
 import 'package:posgodinov_mobile/core/database/daos/sync_dao.dart';
-import 'package:posgodinov_mobile/core/database/tables/print_jobs_table.dart';
-import 'package:posgodinov_mobile/core/database/tables/security_events_table.dart';
 import 'package:posgodinov_mobile/core/printer/audit_receipt_data.dart';
 import 'package:posgodinov_mobile/core/printer/escpos_audit_builder.dart';
 import 'package:posgodinov_mobile/core/printer/receipt_printer.dart';

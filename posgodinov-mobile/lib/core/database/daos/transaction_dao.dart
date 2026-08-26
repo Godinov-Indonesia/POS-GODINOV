@@ -69,7 +69,7 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
   }) async {
     final List<LocalTransaction> rows = await (select(db.transactions)
           ..where(($TransactionsTable t) =>
-              t.synced.equals(false) & t.quarantined.equals(false))
+              t.synced.equals(false) & t.quarantined.equals(false),)
           ..orderBy(<OrderClauseGenerator<$TransactionsTable>>[
             ($TransactionsTable t) =>
                 OrderingTerm.asc(t.clientCreatedAt),
@@ -102,7 +102,7 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
         selectOnly(db.transactions)
           ..addColumns(<Expression<Object>>[count])
           ..where(db.transactions.synced.equals(false) &
-              db.transactions.quarantined.equals(false));
+              db.transactions.quarantined.equals(false),);
 
     return query.map((TypedResult row) => row.read(count) ?? 0).watchSingle();
   }
@@ -122,7 +122,7 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
 
     final LocalTransaction? row = await (select(db.transactions)
           ..where(($TransactionsTable t) =>
-              t.id.equals(needle) | t.shortCode.equals(needle.toUpperCase()))
+              t.id.equals(needle) | t.shortCode.equals(needle.toUpperCase()),)
           ..limit(1))
         .getSingleOrNull();
 

@@ -22,7 +22,7 @@ class VoidLogDao extends DatabaseAccessor<AppDatabase>
   }) {
     return (select(db.voidLogs)
           ..where(($VoidLogsTable v) =>
-              v.synced.equals(false) & v.quarantined.equals(false))
+              v.synced.equals(false) & v.quarantined.equals(false),)
           ..orderBy(<OrderClauseGenerator<$VoidLogsTable>>[
             ($VoidLogsTable v) => OrderingTerm.asc(v.clientCreatedAt),
           ])

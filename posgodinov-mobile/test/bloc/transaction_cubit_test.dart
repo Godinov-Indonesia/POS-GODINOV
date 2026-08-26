@@ -63,7 +63,10 @@ class _FakeRegisterRepository implements RegisterRepository {
     savedTenders = tenders;
 
     return SaleTransaction(
-      id: 'tx-uuid-1',
+      // UUID v4 penuh, bukan 'tx-uuid-1': `SaleTransaction.shortId` mengambil
+      // 8 karakter pertama setelah tanda hubung dibuang, dan id pendek buatan
+      // membuatnya melempar RangeError — kegagalan fixture, bukan kegagalan alur.
+      id: 'aaaa1111-2222-4333-8444-555566667777',
       shiftId: shiftId,
       lines: lines,
       totalAmountMinor: _total,
@@ -336,7 +339,7 @@ void main() {
         shiftId: 's1',
         lines: _lines,
         totalAmountMinor: _total,
-        paymentMethod: PaymentMethod.cash,
+        paymentMethod: PaymentSummary.cash,
         status: TransactionStatus.completed,
         clientCreatedAt: _fixedDate,
       );
@@ -350,7 +353,7 @@ void main() {
         shiftId: 's1',
         lines: _lines,
         totalAmountMinor: _total,
-        paymentMethod: PaymentMethod.qris,
+        paymentMethod: PaymentSummary.qris,
         status: TransactionStatus.completed,
         clientCreatedAt: _fixedDate,
         cashReceivedMinor: _total,

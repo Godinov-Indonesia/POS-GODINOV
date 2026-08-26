@@ -53,7 +53,7 @@ class SyncRemoteDataSource {
         ),
       );
 
-      return Envelope.data(response, SyncUpResponse.fromJson);
+      return await Envelope.data(response, SyncUpResponse.fromJson);
     } on DioException catch (e) {
       final Object? error = e.error;
       if (error is Failure) throw error;

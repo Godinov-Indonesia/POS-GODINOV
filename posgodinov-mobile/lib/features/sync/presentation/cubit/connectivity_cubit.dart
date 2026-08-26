@@ -120,7 +120,7 @@ class ConnectivityCubit extends Cubit<ConnectivityState> {
       status: state.consecutiveFailures > 0
           ? NetworkStatus.degraded
           : NetworkStatus.online,
-    ));
+    ),);
   }
 
   /// Dipanggil mesin sync setiap kali sebuah permintaan benar-benar berhasil.
@@ -149,7 +149,7 @@ class ConnectivityCubit extends Cubit<ConnectivityState> {
           : failures >= degradedThreshold
               ? NetworkStatus.degraded
               : state.status,
-    ));
+    ),);
   }
 
   @override

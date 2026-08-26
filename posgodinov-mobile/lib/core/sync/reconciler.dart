@@ -90,7 +90,7 @@ class Reconciler {
         if (blocker != null) {
           quarantined++;
           await _shiftDao.markQuarantined(
-              s.id, now, '${blocker.code}: ${blocker.message}');
+              s.id, now, '${blocker.code}: ${blocker.message}',);
         } else if (d.shiftSynced()) {
           await _shiftDao.markSynced(s.id);
         } else {
@@ -105,7 +105,7 @@ class Reconciler {
         if (blocker != null) {
           quarantined++;
           await _txDao.markQuarantined(
-              id, now, '${blocker.code}: ${blocker.message}');
+              id, now, '${blocker.code}: ${blocker.message}',);
         } else if (d.transactionSynced(id)) {
           await _txDao.markSynced(id);
         } else {
@@ -119,7 +119,7 @@ class Reconciler {
         if (blocker != null) {
           quarantined++;
           await _wasteDao.markQuarantined(
-              w.id, now, '${blocker.code}: ${blocker.message}');
+              w.id, now, '${blocker.code}: ${blocker.message}',);
         } else if (d.wasteSynced()) {
           await _wasteDao.markSynced(w.id);
         } else {
@@ -138,12 +138,12 @@ class Reconciler {
         if (blocker != null) {
           quarantined++;
           await _returnDao?.markQuarantined(
-              id, now, '${blocker.code}: ${blocker.message}');
+              id, now, '${blocker.code}: ${blocker.message}',);
         } else if (returnsOk) {
           await _returnDao?.markSynced(id);
         } else {
           await _returnDao?.markFailed(
-              id, now, 'Retur belum tersimpan di server.');
+              id, now, 'Retur belum tersimpan di server.',);
         }
       }
 
@@ -153,12 +153,12 @@ class Reconciler {
         if (blocker != null) {
           quarantined++;
           await _voidLogDao?.markQuarantined(
-              v.id, now, '${blocker.code}: ${blocker.message}');
+              v.id, now, '${blocker.code}: ${blocker.message}',);
         } else if (voidsOk) {
           await _voidLogDao?.markSynced(v.id);
         } else {
           await _voidLogDao?.markFailed(
-              v.id, now, 'Log pembatalan belum tersimpan di server.');
+              v.id, now, 'Log pembatalan belum tersimpan di server.',);
         }
       }
 
@@ -169,12 +169,12 @@ class Reconciler {
         if (blocker != null) {
           quarantined++;
           await _securityEventDao?.markQuarantined(
-              e.id, now, '${blocker.code}: ${blocker.message}');
+              e.id, now, '${blocker.code}: ${blocker.message}',);
         } else if (eventsOk) {
           await _securityEventDao?.markSynced(e.id);
         } else {
           await _securityEventDao?.markFailed(
-              e.id, now, 'Peristiwa keamanan belum tersimpan di server.');
+              e.id, now, 'Peristiwa keamanan belum tersimpan di server.',);
         }
       }
     });

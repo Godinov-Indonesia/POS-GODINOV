@@ -25,8 +25,8 @@ import 'package:posgodinov_mobile/core/database/tables/shifts_table.dart';
 ///
 /// `shortCode` diindeks terpisah: pencarian struk lampau menembaknya secara
 /// eksak, dan tanpa indeks itu berubah menjadi pemindaian tabel penuh.
-@TableIndex(name: 'idx_txn_shift_created', columns: <String>{#shiftId, #clientCreatedAt})
-@TableIndex(name: 'idx_txn_short_code', columns: <String>{#shortCode})
+@TableIndex(name: 'idx_txn_shift_created', columns: <Symbol>{#shiftId, #clientCreatedAt})
+@TableIndex(name: 'idx_txn_short_code', columns: <Symbol>{#shortCode})
 @DataClassName('LocalTransaction')
 class Transactions extends Table {
   /// UUID v4 dibuat KLIEN.

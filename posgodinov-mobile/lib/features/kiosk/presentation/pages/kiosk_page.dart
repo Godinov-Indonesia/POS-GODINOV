@@ -166,7 +166,7 @@ class _ExitPinDialogState extends State<_ExitPinDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('Keluar dari mode Kiosk', style: PosText.buttonLg),
+      title: const Text('Keluar dari mode Kiosk', style: PosText.buttonLg),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,7 +429,7 @@ class _Review extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
-                  Text('TOTAL', style: PosText.buttonLg),
+                  const Text('TOTAL', style: PosText.buttonLg),
                   MoneyText(state.totalMinor, size: MoneySize.xxl),
                 ],
               ),

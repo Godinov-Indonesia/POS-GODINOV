@@ -9,47 +9,47 @@ Aplikasi kasir **offline-first** untuk Tablet Android 10" (*landscape*) dan Hand
 
 ---
 
-## ⚠️ Status: M0 sebagian — folder native belum ada
+## Menjalankan
 
-Proyek ini **belum di-generate oleh `flutter create`**. Yang sudah ada baru sisi Dart:
-`pubspec.yaml`, konfigurasi analisis, dan seluruh pohon `lib/`.
+Folder native Android **sudah ter-generate** dan proyeknya build normal —
+`flutter create` tidak perlu dijalankan lagi. Kedua koreksi wajib pasca-scaffold
+juga sudah diterapkan dan diverifikasi:
 
-Flutter SDK tidak terpasang saat scaffold dibuat (`~/development/flutter` kosong, meski
-`.zshrc` sudah mengekspor path itu). Karena itu `flutter create`, `flutter pub get`, dan
-`flutter analyze` **belum pernah dijalankan** — tidak ada `android/`, `.metadata`, maupun
-`pubspec.lock`.
-
-### Melengkapi M0
+- `applicationId = "id.godinov.pos"` di `android/app/build.gradle.kts` — nilai
+  ini masuk ke perintah *provisioning* Device Owner yang dipakai teknisi di
+  lapangan ([09 §4.4]).
+- `android:allowBackup="false"` di `AndroidManifest.xml` — basis data lokal
+  memuat `pin_hash` bcrypt seluruh kasir outlet ([03 §2.2]); membiarkan Android
+  Auto Backup menyalinnya ke Google Drive memindahkan permukaan serangan ke luar
+  kendali outlet.
 
 ```bash
-# 1. Pasang Flutter SDK (sesuai PATH yang sudah ada di .zshrc)
-git clone -b stable --depth 1 https://github.com/flutter/flutter.git ~/development/flutter
-flutter --version          # verifikasi ≥ 3.24
-
-# 2. Generate folder platform Android KE DALAM proyek yang sudah ada.
-#    `--platforms=android` hanya MENAMBAH android/ — lib/ tidak disentuh.
-cd posgodinov-mobile
-flutter create --platforms=android --org id.godinov.pos --project-name posgodinov_mobile .
-
-# 3. Kunci dependensi & verifikasi
 flutter pub get
+flutter devices               # pastikan emulator atau tablet terbaca
+flutter run -d <device-id>
+```
+
+Bawaannya menunjuk `http://10.0.2.2:8080` (alias emulator Android untuk
+`localhost` mesin host). Untuk perangkat fisik, arahkan ke IP LAN:
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://192.168.1.10:8080
+```
+
+`API_BASE_URL` dibaca lewat `String.fromEnvironment` — **compile-time**, jadi
+hot reload tidak mengubahnya.
+
+Backend dan data seed harus sudah hidup lebih dulu; tanpa itu layar Pemasangan
+Perangkat tidak bisa dilewati. Langkah lengkapnya beserta kredensial, akses
+database, dan daftar bug yang diketahui ada di
+[README utama](../README.md#-menjalankan-di-lokal).
+
+### Verifikasi kualitas
+
+```bash
 flutter analyze            # harus 0 issue
 dart run import_lint       # harus 0 pelanggaran
 ```
-
-> Setelah langkah 2, periksa `lib/main.dart`. Bila tertimpa template *counter app*,
-> kembalikan ke placeholder — isinya hanya pemeriksa palet, aman ditulis ulang.
-
-### Dua koreksi wajib setelah `flutter create`
-
-1. **`applicationId`.** Perintah di atas menghasilkan `id.godinov.pos.posgodinov_mobile`,
-   sedangkan [09 §4.4] mensyaratkan **`id.godinov.pos`** — nilai itu masuk ke perintah
-   *provisioning* Device Owner yang dipakai teknisi di lapangan. Samakan di
-   `android/app/build.gradle.kts`, path paket Kotlin, dan dokumen 09.
-2. **`android:allowBackup="false"`** di `AndroidManifest.xml`. Basis data lokal memuat
-   `pin_hash` bcrypt seluruh kasir outlet ([03 §2.2]); membiarkan Android Auto Backup
-   menyalinnya ke Google Drive memindahkan permukaan serangan ke luar kendali outlet.
-
 ---
 
 ## Struktur

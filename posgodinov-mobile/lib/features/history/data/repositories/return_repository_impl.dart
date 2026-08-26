@@ -2,38 +2,11 @@ import 'package:drift/drift.dart' show Value;
 import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/database/app_database.dart';
 import 'package:posgodinov_mobile/core/database/daos/return_dao.dart';
-import 'package:posgodinov_mobile/core/database/tables/return_items_table.dart';
-import 'package:posgodinov_mobile/core/database/tables/returns_table.dart';
 import 'package:posgodinov_mobile/core/printer/audit_receipt_data.dart';
 import 'package:posgodinov_mobile/core/printer/print_queue_service.dart';
+import 'package:posgodinov_mobile/features/history/domain/repositories/return_repository.dart';
 import 'package:uuid/uuid.dart';
 
-/// Satu baris yang dipilih untuk diretur.
-class ReturnLineDraft {
-  const ReturnLineDraft({
-    required this.transactionItemId,
-    required this.productId,
-    required this.productName,
-    required this.quantity,
-    required this.unitPriceMinor,
-    required this.restock,
-    this.wasteReasonCode,
-  });
-
-  final String transactionItemId;
-  final String productId;
-  final String productName;
-  final int quantity;
-  final int unitPriceMinor;
-
-  /// `false` untuk barang rusak: uang kembali ke pelanggan, stok **tidak**.
-  final bool restock;
-
-  /// Wajib bila [restock] `false`.
-  final String? wasteReasonCode;
-
-  int get lineTotalMinor => unitPriceMinor * quantity;
-}
 
 /// Penulisan retur — **butir 15** ([11 §M13.3]).
 ///
@@ -41,7 +14,7 @@ class ReturnLineDraft {
 /// `returns` baru dengan waktunya sendiri dan shift-nya sendiri — yang boleh
 /// berbeda dari shift transaksi asal, karena pelanggan yang kembali besok
 /// adalah kasus ritel normal ([11 §2.1]).
-class ReturnRepositoryImpl {
+class ReturnRepositoryImpl implements ReturnRepository {
   const ReturnRepositoryImpl({
     required ReturnDao dao,
     required PrintQueueService printQueue,
@@ -60,6 +33,7 @@ class ReturnRepositoryImpl {
   /// lokal saja bersifat optimistis: retur dari perangkat lain baru terlihat
   /// setelah sinkronisasi. Server tetap penegak terakhir dengan
   /// `SELECT … FOR UPDATE` ([11 §3.4]).
+  @override
   Future<Map<String, int>> returnedQuantities(String transactionId) =>
       _dao.returnedQuantitiesOf(transactionId);
 
@@ -69,6 +43,7 @@ class ReturnRepositoryImpl {
   /// datang dari layar dapat menyimpang dari item yang benar-benar dipilih —
   /// mis. ketika kasir mengubah kuantitas setelah nominalnya terlanjur
   /// dihitung — dan selisihnya baru terlihat saat rekonsiliasi kas.
+  @override
   Future<String> saveReturn({
     required String originalTransactionId,
     required String shiftId,

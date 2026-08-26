@@ -93,7 +93,7 @@ class PosNumpad extends StatelessWidget {
                   borderRadius: BorderRadius.circular(Radii.md),
                 ),
               ),
-              child: Text('C  Hapus', style: PosText.base),
+              child: const Text('C  Hapus', style: PosText.base),
             ),
           ),
         ],

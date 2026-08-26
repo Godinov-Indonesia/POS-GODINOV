@@ -7,8 +7,8 @@ import 'package:posgodinov_mobile/core/di/injection.dart';
 import 'package:posgodinov_mobile/core/pos/cancellation_policy.dart';
 import 'package:posgodinov_mobile/core/sync/sync_triggers.dart';
 import 'package:posgodinov_mobile/features/auth/presentation/cubit/cashier_auth_cubit.dart';
-import 'package:posgodinov_mobile/features/history/data/repositories/return_repository_impl.dart';
 import 'package:posgodinov_mobile/features/history/domain/entities/history_entry.dart';
+import 'package:posgodinov_mobile/features/history/domain/repositories/return_repository.dart';
 import 'package:posgodinov_mobile/features/shift/presentation/cubit/shift_cubit.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
 import 'package:posgodinov_mobile/shared/theme/app_theme.dart';
@@ -66,10 +66,7 @@ class ReturnPage extends StatefulWidget {
 
 class _ReturnPageState extends State<ReturnPage> {
   final TextEditingController _notes = TextEditingController();
-  final ReturnRepositoryImpl _repo = ReturnRepositoryImpl(
-    dao: getIt.get(),
-    printQueue: getIt.get(),
-  );
+  final ReturnRepository _repo = getIt<ReturnRepository>();
 
   CancellationDecision? _decision;
   bool _loading = true;
@@ -295,7 +292,7 @@ class _ReturnPageState extends State<ReturnPage> {
               color: t.warningSubtle,
               borderRadius: BorderRadius.circular(Radii.lg),
             ),
-            child: Text(
+            child: const Text(
               'Retur menerbitkan catatan BARU; transaksi aslinya tetap '
               'tercatat sebagaimana adanya. Itulah yang membuat struk di tangan '
               'pelanggan tetap cocok dengan pembukuan.',
@@ -304,7 +301,7 @@ class _ReturnPageState extends State<ReturnPage> {
           ),
 
           const SizedBox(height: Gap.lg),
-          Text('Item yang diretur', style: PosText.buttonLg),
+          const Text('Item yang diretur', style: PosText.buttonLg),
           const SizedBox(height: Gap.sm),
 
           for (final ReturnableItem item in d.returnableItems)
@@ -486,7 +483,7 @@ class _ItemTile extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 value: restock,
                 onChanged: onRestock,
-                title: Text('Barang kembali ke stok', style: PosText.sm),
+                title: const Text('Barang kembali ke stok', style: PosText.sm),
               ),
               if (!restock)
                 DropdownButtonFormField<String>(

@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:drift/drift.dart' show Value;
 import 'package:posgodinov_mobile/core/config/constants.dart';
-import 'package:posgodinov_mobile/core/database/app_database.dart';
 import 'package:posgodinov_mobile/core/database/daos/security_event_dao.dart';
 import 'package:posgodinov_mobile/core/database/daos/sync_dao.dart';
+import 'package:posgodinov_mobile/core/printer/audit_receipt_data.dart';
 import 'package:posgodinov_mobile/core/printer/print_queue_service.dart';
 import 'package:posgodinov_mobile/core/sync/sync_engine.dart';
 import 'package:posgodinov_mobile/core/sync/sync_models.dart';
@@ -203,7 +202,7 @@ class CloseShiftSaga {
   }) async {
     final String trimmed = reason.trim();
     if (trimmed.length < ReasonCodes.otherNotesMinLength) {
-      return CloseShiftOutcome.failure(
+      return const CloseShiftOutcome.failure(
         'Alasan minimal ${ReasonCodes.otherNotesMinLength} karakter.',
       );
     }
@@ -267,30 +266,24 @@ class CloseShiftSaga {
     String reason,
   ) async {
     try {
-      await _events.record(
-        SecurityEventsCompanion.insert(
-          id: _uuid.v4(),
-          shiftId: Value<String?>(shift.id),
-          // Kasir PEMILIK shift, bukan yang menutupnya. Keduanya dicatat justru
-          // karena perbedaannya yang menjadi inti peristiwa ini.
-          staffId: Value<String?>(shift.staffId),
-          deviceId: Value<String>(
-            await _syncDao.readMeta(SyncMetaKeys.deviceId) ?? 'legacy',
-          ),
-          eventType: SecurityEventType.shiftForceClosed,
-          severity: SecuritySeverity.critical,
-          detailsJson: Value<String>(
-            jsonEncode(<String, dynamic>{
-              'shift_id': shift.id,
-              'shift_staff_id': shift.staffId,
-              'supervisor_id': supervisorId,
-              'supervisor_name': supervisorName,
-              'reason': reason,
-              'opened_at': shift.clientOpenedAt.toUtc().toIso8601String(),
-            }),
-          ),
-          clientCreatedAt: _now().toUtc(),
-        ),
+      await _events.recordEvent(
+        id: _uuid.v4(),
+        shiftId: shift.id,
+        // Kasir PEMILIK shift, bukan yang menutupnya. Keduanya dicatat justru
+        // karena perbedaannya yang menjadi inti peristiwa ini.
+        staffId: shift.staffId,
+        deviceId: await _syncDao.readMeta(SyncMetaKeys.deviceId) ?? 'legacy',
+        eventType: SecurityEventType.shiftForceClosed,
+        severity: SecuritySeverity.critical,
+        detailsJson: jsonEncode(<String, dynamic>{
+          'shift_id': shift.id,
+          'shift_staff_id': shift.staffId,
+          'supervisor_id': supervisorId,
+          'supervisor_name': supervisorName,
+          'reason': reason,
+          'opened_at': shift.clientOpenedAt.toUtc().toIso8601String(),
+        }),
+        clientCreatedAt: _now().toUtc(),
       );
     } on Object {
       // Pencatatan yang gagal tidak boleh menghentikan jalur darurat: perangkat

@@ -282,9 +282,9 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
 
-          _Section(
+          const _Section(
             title: 'PERANGKAT',
-            child: const _DeviceWarning(),
+            child: _DeviceWarning(),
           ),
         ],
       ),
@@ -329,7 +329,7 @@ class _KioskCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text(
+                      const Text(
                         'Perangkat ini BUKAN Device Owner',
                         style: PosText.base,
                       ),
@@ -451,7 +451,7 @@ class _BatteryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
+                    const Text(
                       'Sinkronisasi latar dapat dihentikan sistem',
                       style: PosText.base,
                     ),
@@ -520,7 +520,7 @@ class _DeviceWarning extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text('Perangkat tidak dapat dilepas', style: PosText.base),
+                const Text('Perangkat tidak dapat dilepas', style: PosText.base),
                 const SizedBox(height: Gap.xs),
                 Text(
                   // [03 §2.1] — tidak ada endpoint unbind, tidak ada daftar

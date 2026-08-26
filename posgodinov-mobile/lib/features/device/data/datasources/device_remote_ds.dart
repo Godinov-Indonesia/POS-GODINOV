@@ -65,7 +65,7 @@ class DeviceRemoteDataSource {
       final Response<dynamic> response =
           await _client.dio.get<dynamic>(_masterDataPath);
 
-      return Envelope.data(response, MasterDataDto.fromJson);
+      return await Envelope.data(response, MasterDataDto.fromJson);
     } on DioException catch (e) {
       throw _unwrap(e);
     }

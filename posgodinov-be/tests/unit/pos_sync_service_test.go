@@ -3,6 +3,7 @@ package unit
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"posgodinov-backend/internal/database"
@@ -47,6 +48,23 @@ func (m *MockPOSRepository) GetTransactionByID(ctx context.Context, id string) (
 	}
 	return nil, errors.New("not found")
 }
+func (m *MockPOSRepository) LookupTransaction(ctx context.Context, outletID, code string) (*domain.Transaction, error) {
+	trimmed := strings.TrimSpace(code)
+	if trimmed == "" {
+		return nil, errors.New("kode transaksi kosong")
+	}
+	upper := strings.ToUpper(trimmed)
+	for _, t := range m.transactions {
+		if t.OutletID != outletID {
+			continue
+		}
+		if t.ID == trimmed || (t.ShortCode != nil && *t.ShortCode == upper) {
+			return t, nil
+		}
+	}
+	return nil, errors.New("transaksi tidak ditemukan")
+}
+
 func (m *MockPOSRepository) GetTransactions(ctx context.Context, outletID string, limit, offset int) ([]*domain.Transaction, error) {
 	return nil, nil
 }

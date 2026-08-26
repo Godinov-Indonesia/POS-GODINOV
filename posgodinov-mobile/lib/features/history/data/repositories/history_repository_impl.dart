@@ -5,7 +5,6 @@ import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/database/app_database.dart';
 import 'package:posgodinov_mobile/core/database/daos/transaction_dao.dart';
 import 'package:posgodinov_mobile/core/database/daos/void_log_dao.dart';
-import 'package:posgodinov_mobile/core/database/tables/void_logs_table.dart';
 import 'package:posgodinov_mobile/features/history/data/datasources/history_remote_ds.dart';
 import 'package:posgodinov_mobile/features/history/domain/entities/history_entry.dart';
 import 'package:posgodinov_mobile/core/printer/audit_receipt_data.dart';

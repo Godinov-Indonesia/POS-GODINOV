@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:posgodinov_mobile/features/auth/domain/entities/cashier_session.dart';
 import 'package:posgodinov_mobile/features/auth/domain/repositories/auth_repository.dart';
+import 'package:posgodinov_mobile/features/shift/domain/session_lock_guard.dart';
 
 sealed class CashierAuthState extends Equatable {
   const CashierAuthState();

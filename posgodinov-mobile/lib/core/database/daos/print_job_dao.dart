@@ -65,7 +65,7 @@ class PrintJobDao extends DatabaseAccessor<AppDatabase>
   Future<List<LocalPrintJob>> pending({int limit = 20}) {
     return (select(db.printJobs)
           ..where(($PrintJobsTable j) =>
-              j.status.equalsValue(PrintJobStatus.pending))
+              j.status.equalsValue(PrintJobStatus.pending),)
           ..orderBy(<OrderClauseGenerator<$PrintJobsTable>>[
             ($PrintJobsTable j) => OrderingTerm.asc(j.createdAt),
           ])
@@ -88,7 +88,7 @@ class PrintJobDao extends DatabaseAccessor<AppDatabase>
     final List<LocalPrintJob> rows = await (select(db.printJobs)
           ..where(($PrintJobsTable j) =>
               j.status.equalsValue(PrintJobStatus.pending) |
-              j.status.equalsValue(PrintJobStatus.failed))
+              j.status.equalsValue(PrintJobStatus.failed),)
           ..orderBy(<OrderClauseGenerator<$PrintJobsTable>>[
             ($PrintJobsTable j) => OrderingTerm.asc(j.createdAt),
           ]))
@@ -107,7 +107,7 @@ class PrintJobDao extends DatabaseAccessor<AppDatabase>
   Future<Duration?> untilNextDue() async {
     final List<LocalPrintJob> rows = await (select(db.printJobs)
           ..where(($PrintJobsTable j) =>
-              j.status.equalsValue(PrintJobStatus.failed)))
+              j.status.equalsValue(PrintJobStatus.failed),))
         .get();
 
     DateTime? soonest;
@@ -165,7 +165,7 @@ class PrintJobDao extends DatabaseAccessor<AppDatabase>
   Future<List<LocalPrintJob>> byRef(String refType, String refId) {
     return (select(db.printJobs)
           ..where(($PrintJobsTable j) =>
-              j.refType.equals(refType) & j.refId.equals(refId))
+              j.refType.equals(refType) & j.refId.equals(refId),)
           ..orderBy(<OrderClauseGenerator<$PrintJobsTable>>[
             ($PrintJobsTable j) => OrderingTerm.asc(j.createdAt),
           ]))

@@ -55,11 +55,11 @@ class DesignSystemPreviewPage extends StatelessWidget {
 
           // Deretan nominal dengan panjang digit berbeda. Bila `tabularFigures`
           // aktif, seluruh angka rata sempurna di kanan.
-          _Section(
+          const _Section(
             title: 'Nominal — monospace & tabular',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: const <Widget>[
+              children: <Widget>[
                 MoneyText(800000, size: MoneySize.md),
                 MoneyText(2200000, size: MoneySize.md),
                 MoneyText(4700000, size: MoneySize.lg),

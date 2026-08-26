@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:posgodinov_mobile/core/config/constants.dart';
@@ -13,7 +12,6 @@ import 'package:posgodinov_mobile/core/sync/sync_models.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/cart_line.dart';
 import 'package:posgodinov_mobile/features/register/domain/repositories/register_repository.dart';
 import 'package:posgodinov_mobile/features/shift/domain/repositories/shift_repository.dart';
-import 'package:posgodinov_mobile/features/shift/domain/shift_math.dart';
 import 'package:uuid/uuid.dart';
 
 /// Uji integrasi alur offline penuh — **berjalan di perangkat/emulator nyata**
@@ -68,6 +66,10 @@ void main() {
       final shift = await shifts.open(
         staffId: 'staff-1',
         openingBalanceMinor: 20000000,
+        // Wajib sejak M15.1/M15.2 (butir 10 & 12) — diteruskan pemanggil,
+        // bukan dibaca sendiri oleh repositori.
+        masterDataVersion: 1,
+        deviceId: 'dev-test-1',
       );
 
       await register.completeSale(
@@ -86,7 +88,12 @@ void main() {
     });
 
     testWidgets('transaksi + item ditulis ATOMIK', (WidgetTester _) async {
-      final shift = await shifts.open(staffId: 's', openingBalanceMinor: 0);
+      final shift = await shifts.open(
+        staffId: 's',
+        openingBalanceMinor: 0,
+        masterDataVersion: 1,
+        deviceId: 'dev-test-1',
+      );
 
       // Item dengan transactionId yang salah harus menggagalkan seluruh
       // penulisan lewat foreign key — tidak boleh menyisakan transaksi yatim.
@@ -107,7 +114,12 @@ void main() {
 
   group('Skenario matriks #8 — batch > 200', () {
     testWidgets('antrean terpecah kronologis', (WidgetTester _) async {
-      final shift = await shifts.open(staffId: 's', openingBalanceMinor: 0);
+      final shift = await shifts.open(
+        staffId: 's',
+        openingBalanceMinor: 0,
+        masterDataVersion: 1,
+        deviceId: 'dev-test-1',
+      );
 
       for (int i = 0; i < 205; i++) {
         await register.completeSale(
@@ -138,7 +150,12 @@ void main() {
   group('Skenario matriks #6/#7 — void', () {
     testWidgets('void mempertahankan UUID dan kembali ke antrean',
         (WidgetTester _) async {
-      final shift = await shifts.open(staffId: 's', openingBalanceMinor: 0);
+      final shift = await shifts.open(
+        staffId: 's',
+        openingBalanceMinor: 0,
+        masterDataVersion: 1,
+        deviceId: 'dev-test-1',
+      );
       final tx = await register.completeSale(
         shiftId: shift.id,
         lines: lines(),
@@ -149,7 +166,12 @@ void main() {
       await txDao.markSynced(tx.id);
       expect(await txDao.pendingTransactions(), isEmpty);
 
-      await txDao.voidTransaction(tx.id, 'pelanggan membatalkan');
+      await txDao.voidTransaction(
+        tx.id,
+        reasonCode: 'CUSTOMER_CANCEL',
+        reasonNotes: 'pelanggan membatalkan',
+        at: DateTime.now().toUtc(),
+      );
 
       final pending = await txDao.pendingTransactions();
       expect(pending, hasLength(1));
@@ -166,8 +188,8 @@ void main() {
   group('Waste', () {
     testWidgets('masuk antrean dengan UUID klien', (WidgetTester _) async {
       await getIt<AppDatabase>().customStatement(
-        "INSERT INTO wastes (id, staff_id, product_id, product_name, quantity, "
-        "reason, client_created_at, synced, sync_attempts) "
+        'INSERT INTO wastes (id, staff_id, product_id, product_name, quantity, '
+        'reason, client_created_at, synced, sync_attempts) '
         "VALUES ('w-1','s','p','Kopi',1,'Tumpah',0,0,0)",
       );
 
@@ -178,7 +200,12 @@ void main() {
   group('Rekonsiliasi dengan basis data sungguhan', () {
     testWidgets('shift gagal menahan SELURUH transaksinya',
         (WidgetTester _) async {
-      final shift = await shifts.open(staffId: 's', openingBalanceMinor: 0);
+      final shift = await shifts.open(
+        staffId: 's',
+        openingBalanceMinor: 0,
+        masterDataVersion: 1,
+        deviceId: 'dev-test-1',
+      );
       final tx = await register.completeSale(
         shiftId: shift.id,
         lines: lines(),
@@ -210,11 +237,13 @@ void main() {
   });
 
   group('Tutup shift', () {
-    testWidgets('expected & discrepancy dihitung dari transaksi nyata',
+    testWidgets('close() merekam setoran deklarasi, bukan menghitung selisih',
         (WidgetTester _) async {
       final shift = await shifts.open(
         staffId: 's',
         openingBalanceMinor: 20000000, // Rp 200.000
+        masterDataVersion: 1,
+        deviceId: 'dev-test-1',
       );
 
       await register.completeSale(
@@ -230,18 +259,34 @@ void main() {
         cashReceivedMinor: 4400000,
       );
 
-      final cashLines = await shifts.cashLinesOf(shift.id);
-      expect(ShiftMath.nonCashSales(cashLines), 4400000);
-
-      // Uang fisik Rp 240.000; seharusnya 200.000 + 44.000 = Rp 244.000.
+      // Kasir MENGHITUNG UANG FISIK dan mendeklarasikannya. Ia tidak diberi
+      // tahu berapa yang seharusnya ada — itulah Blind Closing (butir 9,
+      // [11 §M15.3]). `cashLinesOf` dihapus pada M15.3 justru supaya layar
+      // tutup shift tidak punya bahan untuk menghitung sendiri.
       final closed = await shifts.close(
         shiftId: shift.id,
-        closingBalanceMinor: 24000000,
+        declaredCashMinor: 24000000, // Rp 240.000 di laci
+        declaredEdcMinor: 0,
+        declaredQrisMinor: 4400000, // Rp 44.000 lewat QRIS
       );
 
-      expect(closed.expectedBalanceMinor, 24400000);
-      expect(closed.discrepancyMinor, -400000); // kurang Rp 4.000
       expect(closed.status, ShiftStatus.closed);
+      expect(closed.blindClose, isTrue);
+
+      // Yang diketik kasir tersimpan apa adanya.
+      expect(closed.declaredCashMinor, 24000000);
+      expect(closed.declaredEdcTotalMinor, 0);
+      expect(closed.declaredQrisTotalMinor, 4400000);
+
+      // INTI BUTIR 9: klien TIDAK menghitung selisih. Keduanya tetap nol
+      // sampai `ShiftReconcileService` di server mengisinya saat sinkronisasi.
+      // Bila salah satu berubah menjadi bukan nol di sini, berarti ada yang
+      // mengembalikan perhitungan itu ke perangkat.
+      expect(closed.expectedBalanceMinor, 0);
+      expect(closed.discrepancyMinor, 0);
+
+      // Shift yang ditutup tidak lagi menjadi shift berjalan.
+      expect(await shifts.currentOpenShift(), isNull);
     });
   });
 

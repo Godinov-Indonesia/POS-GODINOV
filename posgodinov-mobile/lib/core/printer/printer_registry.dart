@@ -54,13 +54,13 @@ class PrinterRegistry {
       final String vendor = info.manufacturer.toLowerCase();
 
       final bool cocok =
-          _handheldVendors.any((String v) => vendor.contains(v));
+          _handheldVendors.any(vendor.contains);
       if (!cocok) return false;
 
       // Nama vendor saja tidak cukup: sebagian model Sunmi adalah tablet meja
       // tanpa printer internal. Service AIDL yang menjawab adalah bukti
       // sesungguhnya.
-      return adapterFor(PrinterKind.sunmiInner).isAvailable();
+      return await adapterFor(PrinterKind.sunmiInner).isAvailable();
     } on Object {
       return false;
     }

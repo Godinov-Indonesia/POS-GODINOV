@@ -24,7 +24,7 @@ class ShiftRepositoryImpl implements ShiftRepository {
 
   @override
   Stream<Shift?> watchOpenShift() =>
-      _dao.watchOpenShift().map((LocalShift? row) => _toEntity(row));
+      _dao.watchOpenShift().map(_toEntity);
 
   @override
   Future<Shift> open({

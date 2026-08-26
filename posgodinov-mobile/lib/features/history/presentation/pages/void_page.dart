@@ -175,7 +175,7 @@ class _VoidPageState extends State<VoidPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: <Widget>[
-                          Text('TOTAL', style: PosText.sm),
+                          const Text('TOTAL', style: PosText.sm),
                           MoneyText(
                             widget.entry.totalMinor,
                             size: MoneySize.lg,
@@ -197,7 +197,7 @@ class _VoidPageState extends State<VoidPage> {
                       color: t.warningSubtle,
                       borderRadius: BorderRadius.circular(Radii.lg),
                     ),
-                    child: Text(
+                    child: const Text(
                       'Struk transaksi ini SUDAH tercetak dan sudah berpindah '
                       'ke pelanggan. Mengubah transaksi aslinya berarti '
                       'menerbitkan versi kedua yang bertentangan dengan kertas '

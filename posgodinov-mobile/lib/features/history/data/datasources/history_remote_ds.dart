@@ -42,7 +42,7 @@ class HistoryRemoteDataSource {
         '$_path/lookup',
         queryParameters: <String, dynamic>{'code': code},
       );
-      return Envelope.data(response, _fromJson);
+      return await Envelope.data(response, _fromJson);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
       final Object? error = e.error;

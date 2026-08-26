@@ -11,7 +11,6 @@ import 'package:posgodinov_mobile/features/register/domain/entities/tender_draft
 import 'package:posgodinov_mobile/core/utils/money.dart';
 import 'package:posgodinov_mobile/core/printer/print_queue_service.dart';
 import 'package:posgodinov_mobile/core/printer/audit_receipt_data.dart';
-import 'package:posgodinov_mobile/core/database/tables/void_logs_table.dart';
 import 'package:posgodinov_mobile/core/database/daos/void_log_dao.dart';
 import 'dart:convert';
 
@@ -86,8 +85,8 @@ class RegisterRepositoryImpl implements RegisterRepository {
 
     // `SPLIT` HANYA sah bila benar-benar ada dua tender atau lebih untuk
     // menjelaskannya ([11 §3.2]).
-    final PaymentMethod summary = effective.length > 1
-        ? PaymentMethod.split
+    final PaymentSummary summary = effective.length > 1
+        ? PaymentSummary.split
         : _asPayment(effective.first.method);
 
     await _dao.insertWithItems(
@@ -144,7 +143,7 @@ class RegisterRepositoryImpl implements RegisterRepository {
       shiftId: shiftId,
       lines: lines,
       totalAmountMinor: totalMinor,
-      paymentMethod: paymentMethod,
+      paymentMethod: summary,
       status: TransactionStatus.completed,
       clientCreatedAt: createdAt,
       customerName: customerName,

@@ -35,7 +35,7 @@ class HeldCartsSheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Text('PESANAN DITAHAN', style: PosText.buttonLg),
+              const Text('PESANAN DITAHAN', style: PosText.buttonLg),
               const SizedBox(height: Gap.xs),
               Text(
                 'Tersimpan hanya di perangkat ini.',
@@ -167,7 +167,7 @@ class _HoldLabelDialogState extends State<HoldLabelDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('Tahan Pesanan', style: PosText.buttonLg),
+      title: const Text('Tahan Pesanan', style: PosText.buttonLg),
       content: TextField(
         controller: _controller,
         autofocus: true,

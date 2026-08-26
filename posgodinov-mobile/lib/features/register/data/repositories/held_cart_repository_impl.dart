@@ -5,7 +5,6 @@ import 'package:posgodinov_mobile/core/database/app_database.dart';
 import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/database/daos/held_cart_dao.dart';
 import 'package:posgodinov_mobile/core/database/daos/void_log_dao.dart';
-import 'package:posgodinov_mobile/core/database/tables/void_logs_table.dart';
 import 'package:posgodinov_mobile/core/printer/audit_receipt_data.dart';
 import 'package:posgodinov_mobile/core/printer/print_queue_service.dart';
 import 'package:posgodinov_mobile/core/utils/money.dart';

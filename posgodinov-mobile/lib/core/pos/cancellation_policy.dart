@@ -1,6 +1,3 @@
-import 'package:equatable/equatable.dart';
-import 'package:posgodinov_mobile/core/config/constants.dart';
-
 /// **Mesin keputusan pembatalan — satu-satunya tempat butir 15 diputuskan.**
 ///
 /// ═══════════════════════════════════════════════════════════════════════════
@@ -36,6 +33,9 @@ import 'package:posgodinov_mobile/core/config/constants.dart';
 /// waktu. Kasus ujinya identik dengan sisi Web —
 /// `fixtures/cancellation-decision.json` di akar repositori.
 library;
+
+import 'package:equatable/equatable.dart';
+import 'package:posgodinov_mobile/core/config/constants.dart';
 
 /// Jenis keputusan.
 enum CancellationKind { voidTransaction, returnTransaction, forbidden }

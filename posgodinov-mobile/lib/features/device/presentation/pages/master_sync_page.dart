@@ -121,7 +121,7 @@ class _Downloading extends StatelessWidget {
       children: <Widget>[
         const CircularProgressIndicator(),
         const SizedBox(height: Gap.xl),
-        Text('Mengunduh data outlet…', style: PosText.base),
+        const Text('Mengunduh data outlet…', style: PosText.base),
         const SizedBox(height: Gap.sm),
         Text(
           // Endpoint tidak berpaginasi dan tidak inkremental ([03 §2.2]).
@@ -151,7 +151,7 @@ class _Done extends StatelessWidget {
       children: <Widget>[
         Icon(Icons.check_circle_outline, size: 56, color: t.success),
         const SizedBox(height: Gap.lg),
-        Text(
+        const Text(
           'Data berhasil disinkronkan',
           textAlign: TextAlign.center,
           style: PosText.buttonLg,
@@ -165,7 +165,7 @@ class _Done extends StatelessWidget {
         // untuk dibandingkan, sehingga kasir tidak akan bisa login sama sekali.
         if (snapshot.hasNoStaff) ...<Widget>[
           const SizedBox(height: Gap.lg),
-          _Notice(
+          const _Notice(
             tone: _NoticeTone.danger,
             icon: Icons.person_off_outlined,
             message: 'Outlet ini belum memiliki kasir. Minta pemilik menambah '
@@ -173,7 +173,7 @@ class _Done extends StatelessWidget {
           ),
         ] else if (snapshot.hasNoProducts) ...<Widget>[
           const SizedBox(height: Gap.lg),
-          _Notice(
+          const _Notice(
             tone: _NoticeTone.warning,
             icon: Icons.inventory_2_outlined,
             message: 'Belum ada produk di outlet ini. Layar kasir akan tampil '

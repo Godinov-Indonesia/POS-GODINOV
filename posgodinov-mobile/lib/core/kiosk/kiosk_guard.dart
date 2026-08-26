@@ -239,7 +239,7 @@ class KioskGuard {
         },
       );
 
-      return KioskExitVerdict(
+      return const KioskExitVerdict(
         outcome: KioskExitOutcome.lockedOut,
         retryAfter: lockoutDuration,
       );

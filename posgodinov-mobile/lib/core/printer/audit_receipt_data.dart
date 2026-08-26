@@ -1,5 +1,3 @@
-import 'package:posgodinov_mobile/core/config/constants.dart';
-
 /// Data struk audit — **bebas dari Drift, Flutter, dan ESC/POS**.
 ///
 /// Tiga dokumen yang tidak pernah dipegang pelanggan, melainkan disimpan
@@ -16,6 +14,8 @@ import 'package:posgodinov_mobile/core/config/constants.dart';
 /// dari peristiwa yang hanya diketahui pelakunya menjadi peristiwa yang
 /// meninggalkan benda fisik di laci.
 library;
+
+import 'package:posgodinov_mobile/core/config/constants.dart';
 
 /// Satu baris item pada struk audit.
 class AuditReceiptLine {

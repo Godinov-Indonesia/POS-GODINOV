@@ -14,6 +14,36 @@ class SecurityEventDao extends DatabaseAccessor<AppDatabase>
   Future<void> record(SecurityEventsCompanion event) =>
       into(db.securityEvents).insert(event);
 
+  /// Varian ber-argumen Dart biasa dari [record].
+  ///
+  /// Ada supaya pemanggil di lapisan **domain** dapat mencatat peristiwa tanpa
+  /// mengimpor `package:drift` hanya demi membungkus argumen dalam `Value` —
+  /// impor yang ditolak gerbang `domain_no_drift` ([09 §2.2]). Merakit
+  /// companion adalah urusan lapisan data, dan di sinilah lapisan itu.
+  Future<void> recordEvent({
+    required String id,
+    required String eventType,
+    required SecuritySeverity severity,
+    required DateTime clientCreatedAt,
+    String? shiftId,
+    String? staffId,
+    String deviceId = 'legacy',
+    String detailsJson = '{}',
+  }) {
+    return record(
+      SecurityEventsCompanion.insert(
+        id: id,
+        shiftId: Value<String?>(shiftId),
+        staffId: Value<String?>(staffId),
+        deviceId: Value<String>(deviceId),
+        eventType: eventType,
+        severity: severity,
+        detailsJson: Value<String>(detailsJson),
+        clientCreatedAt: clientCreatedAt,
+      ),
+    );
+  }
+
   /// Antrean sinkronisasi, urut kronologis.
   ///
   /// Batasnya lebih besar dari batas transaksi: peristiwa keamanan berukuran
@@ -22,7 +52,7 @@ class SecurityEventDao extends DatabaseAccessor<AppDatabase>
   Future<List<LocalSecurityEvent>> pending({int limit = 500}) {
     return (select(db.securityEvents)
           ..where(($SecurityEventsTable e) =>
-              e.synced.equals(false) & e.quarantined.equals(false))
+              e.synced.equals(false) & e.quarantined.equals(false),)
           ..orderBy(<OrderClauseGenerator<$SecurityEventsTable>>[
             ($SecurityEventsTable e) => OrderingTerm.asc(e.clientCreatedAt),
           ])

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/tender_draft.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
 import 'package:posgodinov_mobile/shared/theme/app_theme.dart';
@@ -137,7 +136,7 @@ class PaymentSplitPage extends StatelessWidget {
               label: 'SELESAIKAN TRANSAKSI',
               variant: TouchVariant.success,
               height: Touch.critical,
-              onPressed: _balanced ? () => onSubmit() : null,
+              onPressed: _balanced ? onSubmit : null,
             ),
           ],
         ),

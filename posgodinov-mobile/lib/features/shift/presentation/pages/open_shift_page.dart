@@ -113,7 +113,7 @@ class _OpenShiftPageState extends State<OpenShiftPage> {
     } on Object catch (e) {
       if (mounted) {
         setState(() => _pullError =
-            'Tidak dapat menghubungi server. Periksa jaringan outlet lalu coba lagi. ($e)');
+            'Tidak dapat menghubungi server. Periksa jaringan outlet lalu coba lagi. ($e)',);
       }
     } finally {
       if (mounted) setState(() => _pulling = false);
@@ -338,7 +338,7 @@ class _MasterDataBlocker extends StatelessWidget {
               children: <Widget>[
                 Icon(Icons.lock_outline, size: 56, color: t.danger),
                 const SizedBox(height: Gap.lg),
-                Text(
+                const Text(
                   'SHIFT BELUM DAPAT DIBUKA',
                   textAlign: TextAlign.center,
                   style: PosText.buttonLg,

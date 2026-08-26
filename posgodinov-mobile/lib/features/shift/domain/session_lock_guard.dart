@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:drift/drift.dart' show Value;
 import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/database/app_database.dart';
 import 'package:posgodinov_mobile/core/database/daos/security_event_dao.dart';
@@ -65,25 +64,19 @@ class SessionLockGuard {
 
   Future<void> _record(LocalShift shift, String source) async {
     try {
-      await _events.record(
-        SecurityEventsCompanion.insert(
-          id: _uuid.v4(),
-          shiftId: Value<String?>(shift.id),
-          staffId: Value<String?>(shift.staffId),
-          deviceId: Value<String>(
-            await _syncDao.readMeta(SyncMetaKeys.deviceId) ?? 'legacy',
-          ),
-          eventType: SecurityEventType.logoutBlockedActiveShift,
-          severity: SecuritySeverity.warn,
-          detailsJson: Value<String>(
-            jsonEncode(<String, dynamic>{
-              'source': source,
-              'shift_id': shift.id,
-              'opened_at': shift.clientOpenedAt.toUtc().toIso8601String(),
-            }),
-          ),
-          clientCreatedAt: _now().toUtc(),
-        ),
+      await _events.recordEvent(
+        id: _uuid.v4(),
+        shiftId: shift.id,
+        staffId: shift.staffId,
+        deviceId: await _syncDao.readMeta(SyncMetaKeys.deviceId) ?? 'legacy',
+        eventType: SecurityEventType.logoutBlockedActiveShift,
+        severity: SecuritySeverity.warn,
+        detailsJson: jsonEncode(<String, dynamic>{
+          'source': source,
+          'shift_id': shift.id,
+          'opened_at': shift.clientOpenedAt.toUtc().toIso8601String(),
+        }),
+        clientCreatedAt: _now().toUtc(),
       );
     } on Object {
       // Pencatatan yang gagal TIDAK boleh membuka kuncinya. Penguncian adalah

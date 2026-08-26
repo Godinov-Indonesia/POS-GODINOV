@@ -116,7 +116,7 @@ class _Header extends StatelessWidget {
                 foregroundColor: t.danger,
                 minimumSize: const Size(Touch.standard, Touch.standard),
               ),
-              child: Text('Kosongkan', style: PosText.sm),
+              child: const Text('Kosongkan', style: PosText.sm),
             ),
         ],
       ),
@@ -306,7 +306,7 @@ class CartLineTile extends StatelessWidget {
           Row(
             children: <Widget>[
               MoneyText(line.unitPriceMinor, size: MoneySize.sm,
-                  tone: MoneyTone.muted),
+                  tone: MoneyTone.muted,),
               Text(
                 ' × ${line.quantity}',
                 style: PosText.xsMono.copyWith(color: t.fgMuted),

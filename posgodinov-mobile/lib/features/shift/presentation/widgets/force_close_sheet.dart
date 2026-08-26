@@ -137,7 +137,7 @@ class _ForceCloseSheetState extends State<ForceCloseSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Text('Tutup Paksa Shift', style: PosText.buttonLg),
+            const Text('Tutup Paksa Shift', style: PosText.buttonLg),
             const SizedBox(height: Gap.md),
 
             Container(

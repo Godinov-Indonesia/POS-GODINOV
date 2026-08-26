@@ -329,7 +329,7 @@ class _EntryTile extends StatelessWidget {
                 TextButton.icon(
                   onPressed: () => onReprint!(entry),
                   icon: const Icon(Icons.print_outlined, size: 18),
-                  label: Text('Cetak Ulang', style: PosText.sm),
+                  label: const Text('Cetak Ulang', style: PosText.sm),
                   style: TextButton.styleFrom(
                     minimumSize: const Size(Touch.standard, Touch.standard),
                   ),
@@ -422,7 +422,7 @@ class _Badge extends StatelessWidget {
 }
 
 class _Empty extends StatelessWidget {
-  const _Empty({required this.message, this.icon = Icons.receipt_long_outlined});
+  const _Empty({required this.message}) : icon = Icons.receipt_long_outlined;
 
   final String message;
   final IconData icon;

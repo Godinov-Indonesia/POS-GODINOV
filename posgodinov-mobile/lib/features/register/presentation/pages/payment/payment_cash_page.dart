@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/tender_draft.dart';
 import 'package:posgodinov_mobile/features/register/domain/fast_cash.dart';
-import 'package:posgodinov_mobile/features/register/presentation/cubit/transaction_cubit.dart';
 import 'package:posgodinov_mobile/features/register/presentation/widgets/pos_numpad.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
 import 'package:posgodinov_mobile/shared/theme/app_theme.dart';

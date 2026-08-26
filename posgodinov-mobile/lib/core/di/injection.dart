@@ -29,8 +29,9 @@ import 'package:posgodinov_mobile/features/register/domain/repositories/catalog_
 import 'package:posgodinov_mobile/features/register/domain/repositories/register_repository.dart';
 import 'package:posgodinov_mobile/features/history/data/datasources/history_remote_ds.dart';
 import 'package:posgodinov_mobile/features/history/data/repositories/history_repository_impl.dart';
+import 'package:posgodinov_mobile/features/history/data/repositories/return_repository_impl.dart';
 import 'package:posgodinov_mobile/features/history/domain/repositories/history_repository.dart';
-import 'package:posgodinov_mobile/features/history/presentation/cubit/history_cubit.dart';
+import 'package:posgodinov_mobile/features/history/domain/repositories/return_repository.dart';
 import 'package:posgodinov_mobile/features/register/presentation/cubit/held_cart_cubit.dart';
 import 'package:posgodinov_mobile/features/waste/data/repositories/waste_repository_impl.dart';
 import 'package:posgodinov_mobile/features/waste/domain/repositories/waste_repository.dart';
@@ -166,6 +167,17 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<PrintQueueService>(printQueue);
 
   // ── Repository — kontrak milik domain, implementasi milik data ─────────────
+  //
+  // Didaftarkan lewat kontrak `ReturnRepository`, bukan tipe konkretnya:
+  // layar retur mengambilnya dari sini dan karenanya tidak perlu menyentuh
+  // lapisan data ([09 §2.2] `presentation_no_data`).
+  getIt.registerSingleton<ReturnRepository>(
+    ReturnRepositoryImpl(
+      dao: getIt<ReturnDao>(),
+      printQueue: printQueue,
+    ),
+  );
+
   getIt.registerSingleton<DeviceRepository>(
     DeviceRepositoryImpl(
       remote: DeviceRemoteDataSource(apiClient),

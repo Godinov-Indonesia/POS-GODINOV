@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"posgodinov-backend/internal/database"
@@ -60,6 +61,23 @@ func (m *MockPOSSyncRepository) GetTransactionByID(ctx context.Context, id strin
 func (m *MockPOSSyncRepository) UpdateTransactionStatus(ctx context.Context, id, status, cancelNotes string) error {
 	return nil
 }
+func (m *MockPOSSyncRepository) LookupTransaction(ctx context.Context, outletID, code string) (*domain.Transaction, error) {
+	trimmed := strings.TrimSpace(code)
+	if trimmed == "" {
+		return nil, errors.New("kode transaksi kosong")
+	}
+	upper := strings.ToUpper(trimmed)
+	for _, t := range m.transactions {
+		if t.OutletID != outletID {
+			continue
+		}
+		if t.ID == trimmed || (t.ShortCode != nil && *t.ShortCode == upper) {
+			return t, nil
+		}
+	}
+	return nil, errors.New("transaksi tidak ditemukan")
+}
+
 func (m *MockPOSSyncRepository) GetTransactions(ctx context.Context, outletID string, limit, offset int) ([]*domain.Transaction, error) {
 	return nil, nil
 }

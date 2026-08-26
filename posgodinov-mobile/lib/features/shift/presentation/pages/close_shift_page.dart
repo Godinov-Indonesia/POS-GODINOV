@@ -228,8 +228,8 @@ class _BlindCloseFormState extends State<_BlindCloseForm> {
     final bool? lanjut = await showDialog<bool>(
       context: context,
       builder: (BuildContext ctx) => AlertDialog(
-        title: Text('Tutup shift sekarang?', style: PosText.buttonLg),
-        content: Text(
+        title: const Text('Tutup shift sekarang?', style: PosText.buttonLg),
+        content: const Text(
           'Setelah shift ditutup, Anda akan kembali ke layar Login dan tidak '
           'dapat mengubah angka yang sudah diisi.',
           style: PosText.base,
@@ -366,7 +366,7 @@ class _Done extends StatelessWidget {
           children: <Widget>[
             Icon(Icons.check_circle_outline, size: 56, color: t.successText),
             const SizedBox(height: Gap.lg),
-            Text('Shift ditutup', style: PosText.buttonLg),
+            const Text('Shift ditutup', style: PosText.buttonLg),
             const SizedBox(height: Gap.sm),
             Text(
               'Data tersimpan dan akan terkirim otomatis.\n'

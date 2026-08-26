@@ -31,6 +31,16 @@ void main() {
     test('setiap nilai punya label Bahasa Indonesia', () {
       for (final PaymentMethod m in PaymentMethod.values) {
         expect(m.label, isNotEmpty, reason: m.name);
+
+        // `qris` DIKECUALIKAN, dan itu bukan kelonggaran.
+        //
+        // QRIS adalah akronim resmi Bank Indonesia (Quick Response Code
+        // Indonesian Standard) — label Bahasa Indonesianya memang 'QRIS'.
+        // Memaksanya berbeda dari wireValue hanya akan melahirkan terjemahan
+        // karangan yang tidak dikenal kasir mana pun. Enum TenderMethod dan
+        // PaymentSummary memakai pasangan yang sama persis.
+        if (m == PaymentMethod.qris) continue;
+
         expect(m.label, isNot(equals(m.wireValue)), reason: m.name);
       }
     });
@@ -139,7 +149,7 @@ void main() {
       expect(
         PaymentSummary.values.map((PaymentSummary m) => m.wireValue).toList(),
         <String>[...TenderMethod.values.map((TenderMethod m) => m.wireValue),
-          'SPLIT'],
+          'SPLIT',],
       );
     });
 
@@ -258,7 +268,7 @@ void main() {
       ]) {
         expect(dictionary, contains(ReasonCodes.other));
         expect(dictionary.toSet().length, dictionary.length,
-            reason: 'kamus memuat duplikat');
+            reason: 'kamus memuat duplikat',);
       }
     });
   });
