@@ -120,12 +120,22 @@ export function PosBottomBar() {
           // 64 dp tinggi bar itu sendiri; `pb-safe` menambahkan area aman iOS
           // DI BAWAHNYA, bukan memakannya. Menghitung safe-area ke dalam 64 dp
           // akan menyusutkan target sentuh menjadi ±30 dp pada iPhone berponi.
-          'flex h-touch-lg shrink-0 items-stretch border-t border-border bg-surface',
+          'flex h-touch-lg w-full shrink-0 items-stretch border-t border-border bg-surface',
           'pb-[env(safe-area-inset-bottom)]',
-          // Tablet 10" landscape: bar tetap ada, tetapi diberi lebar maksimum
-          // dan diratakan ke KANAN — sisi genggaman dominan. Bar selebar
-          // 1280 px memaksa jangkauan lengan penuh untuk mencapai slot kiri.
-          'lg:ml-auto lg:max-w-[36rem] lg:rounded-tl-2xl lg:border-l',
+          // `w-full` di atas WAJIB berpasangan dengan `lg:mx-auto` di bawah.
+          // Bar ini anak dari flex column (`PosApp`), dan pada flex item yang
+          // punya margin `auto` di sumbu silang, `align-items: stretch` TIDAK
+          // berlaku — kotak menyusut ke lebar kontennya dan margin auto
+          // menyerap sisanya. Tanpa `w-full`, margin auto membuat bar mengkerut
+          // ke ±170 px dengan label saling menempel, bukan melebar sampai
+          // batas maksimumnya.
+          //
+          // Tablet 10" landscape: bar dibatasi lebarnya dan DITENGAHKAN. Bar
+          // selebar 1280 px memaksa jangkauan lengan penuh untuk mencapai slot
+          // terjauh; bar yang dirapatkan ke satu sisi membuat separuh layar
+          // mati bagi kasir yang berdiri di sisi lain mesin. Tengah adalah
+          // jarak terpendek terburuk untuk kedua tangan.
+          'lg:mx-auto lg:h-[4.5rem] lg:max-w-[48rem] lg:rounded-t-2xl lg:border-x',
         )}
       >
         {PRIMARY_SLOTS.map((slot) => (
@@ -197,7 +207,10 @@ function BarButton({
       className={cn(
         // `flex-1` membagi lebar rata; tinggi penuh membuat SELURUH kolom
         // menjadi target sentuh, bukan hanya ikonnya.
-        'relative flex flex-1 flex-col items-center justify-center gap-0.5',
+        // `min-w-0` menahan lebar minimum intrinsik teks: tanpa itu label
+        // terpanjang ("Riwayat") memaksa kolom melebar dan mendorong tetangga
+        // keluar bar pada lebar sempit.
+        'relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 lg:gap-1',
         'transition-colors',
         active ? 'text-accent' : 'text-fg-muted',
       )}
@@ -212,7 +225,7 @@ function BarButton({
       ) : null}
 
       <span className="relative">
-        <Icon className="size-6" aria-hidden="true" />
+        <Icon className="size-6 lg:size-7" aria-hidden="true" />
         {badge > 0 ? (
           <span className="absolute -right-2 -top-1 flex min-w-4 items-center justify-center rounded-full bg-warning px-1 text-fg">
             <Num className="text-pos-xs font-semibold">{badge > 9 ? '9+' : badge}</Num>
@@ -220,7 +233,11 @@ function BarButton({
         ) : null}
       </span>
 
-      <span className={cn('text-pos-xs', active && 'font-semibold')}>{slot.label}</span>
+      <span
+        className={cn('max-w-full truncate text-pos-xs lg:text-pos-sm', active && 'font-semibold')}
+      >
+        {slot.label}
+      </span>
     </button>
   )
 }
