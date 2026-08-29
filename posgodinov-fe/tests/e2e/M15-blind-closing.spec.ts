@@ -1,3 +1,5 @@
+import path from 'node:path'
+
 import { expect, test, type Page } from '@playwright/test'
 
 import { goOffline, loginCashierWithOpenShift, UAT_SHIFT } from './support/pos-bootstrap'
@@ -231,6 +233,48 @@ async function typeDeclaration(page: Page, label: string, rupiah: string): Promi
  * Skenario
  * ════════════════════════════════════════════════════════════════════════════ */
 
+/**
+ * Menyimpan tangkapan layar untuk **Manual Book** ke `docs/manuals/assets/`.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * MENGAPA ASET MANUAL LAHIR DARI SUITE UJI, BUKAN DARI TANGKAPAN LAYAR MANUAL
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Gambar di manual yang diambil dengan tangan membusuk diam-diam: layarnya
+ * berubah, gambarnya tidak, dan tidak ada yang memberi tahu siapa pun. Diambil
+ * dari sini, gambarnya ikut diperbarui setiap kali suite dijalankan — dan
+ * **hanya** diperbarui bila skenarionya lulus.
+ *
+ * Pemanggilan diletakkan di baris TERAKHIR tesnya dengan sengaja: gambar yang
+ * masuk manual adalah gambar layar yang baru saja lolos pemeriksaan kebocoran.
+ * Manual pemilik karena itu tidak akan pernah memuat layar yang bocor.
+ *
+ * ⚠️ Path diturunkan dari `project.testDir` (absolut, ditetapkan Playwright),
+ * BUKAN dari `process.cwd()`. `qa_runner_web.sh`, `pnpm exec playwright`, dan
+ * `build_manuals.sh` memanggil Playwright dari direktori kerja yang
+ * berbeda-beda; path relatif terhadap cwd akan mendarat di tempat yang
+ * berpindah-pindah, dan manualnya diam-diam memakai gambar lama.
+ *
+ *     <testDir>            = posgodinov-fe/tests/e2e
+ *     <testDir>/../../..   = akar workspace
+ */
+async function captureManualAsset(page: Page, fileName: string): Promise<void> {
+  const target = path.resolve(
+    test.info().project.testDir,
+    '../../../docs/manuals/assets',
+    fileName,
+  )
+
+  // `fullPage: false` — yang dipakai manual adalah layar sebagaimana dilihat
+  // kasir pada viewport tablet 1280×800, bukan gulungan panjang yang tidak
+  // pernah tampil sekaligus di perangkat mana pun.
+  await page.screenshot({ path: target, fullPage: false })
+
+  // Dilampirkan juga ke laporan Playwright, supaya perubahan visualnya terlihat
+  // pada laporan HTML tanpa harus membuka folder manual.
+  await test.info().attach(fileName, { path: target, contentType: 'image/png' })
+}
+
 test.describe('M15 · Blind Closing — layar Tutup Shift (P-12)', () => {
   test.beforeEach(async ({ page }) => {
     // `UAT-V2-01` bermodus Offline: layar ini tidak boleh bergantung pada
@@ -280,6 +324,8 @@ test.describe('M15 · Blind Closing — layar Tutup Shift (P-12)', () => {
     // Mengisi ketiganya tidak memunculkan nominal keempat — mis. total
     // deklarasi, yang sudah merupakan agregat.
     expect(await findSystemNumberLeaks(page)).toEqual([])
+
+    await captureManualAsset(page, 'blind-closing-web.png')
   })
 
   test('tombol TUTUP SHIFT terkunci sampai uang fisik laci diisi', async ({ page }) => {

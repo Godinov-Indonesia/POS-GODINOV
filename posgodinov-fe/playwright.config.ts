@@ -47,6 +47,20 @@ export default defineConfig({
   testDir: './tests/e2e',
 
   /**
+   * Pemanen gambar Manual Book DIKECUALIKAN dari eksekusi bawaan.
+   *
+   * `manual-screenshots.spec.ts` bukan UAT — ia tidak membuktikan satu pun
+   * aturan bisnis, hanya memotret layar. Membiarkannya ikut pada `playwright
+   * test` polos membuat jumlah skenario melompat dari **8** menjadi 13, dan
+   * angka 8 itu tertulis di [08 §MODUL I-A] serta [19 §1] sebagai hasil suite
+   * M15. Laporan QA yang angkanya tidak lagi cocok dengan runner-nya adalah
+   * laporan yang berhenti dipercaya orang.
+   *
+   * `build_manuals.sh` menyalakan `PW_INCLUDE_MANUAL=1` untuk menjalankannya.
+   */
+  testIgnore: process.env.PW_INCLUDE_MANUAL ? [] : ['**/manual-screenshots.spec.ts'],
+
+  /**
    * Setiap spec memakai `browserContext` sendiri — IndexedDB, localStorage, dan
    * cookie tidak pernah bocor antar berkas. Itu prasyarat paralelisme di sini:
    * seluruh state POS tinggal di IndexedDB, dan dua tes yang berbagi database

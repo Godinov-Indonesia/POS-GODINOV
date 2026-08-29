@@ -252,6 +252,31 @@ env:
 
 - takeScreenshot: build/maestro/m13-01-void-sheet
 
+# ── Aset Manual Book ─────────────────────────────────────────────────────────
+#
+# Dipakai `docs/manuals/cashier-manual-mobile.md`. Diambil DI SINI — sesudah
+# ketujuh asersi di atas — supaya gambar yang masuk manual adalah gambar sheet
+# yang isinya baru saja diperiksa, bukan sembarang layar yang kebetulan terbuka.
+#
+# ⚠️ JANGAN menulis path ke luar folder keluaran Maestro di sini.
+#
+#    Maestro 2.9.0 menolaknya secara tegas, dan penolakannya MENGGAGALKAN
+#    seluruh alur:
+#
+#      Take screenshot ../../docs/manuals/assets/void-sheet-mobile... FAILED
+#      Invalid path "../../docs/manuals/assets/void-sheet-mobile.png" for
+#      takeScreenshot: it resolves outside this run's takeScreenshot output folder.
+#
+#    Jadi bukan sekadar "mendarat di tempat lain" — UAT M13 ikut merah, dan
+#    yang hilang bukan gambarnya saja melainkan bukti butir 5-nya.
+#
+#    Berkas ditulis ke sub-folder `manual/` di dalam direktori run
+#    (`~/.maestro/tests/<stempel-waktu>/…/takeScreenshot/manual/`), lalu
+#    `build_manuals.sh` memanennya ke `docs/manuals/assets/void-sheet-mobile.png`.
+#    Nama sub-foldernya sengaja dibedakan dari `build/maestro/` di atas supaya
+#    aset manual dan bukti UAT tidak pernah tertukar.
+- takeScreenshot: manual/void-sheet-mobile
+
 # Kuantitas belum boleh berubah selama sheet terbuka: gerbangnya memutuskan
 # lebih dulu, `CartCubit.applyAudited` menyusul setelah alasan tercatat.
 - assertNotVisible: "(?s).*× 4.*"
