@@ -13,6 +13,13 @@
 # testing
 /coverage
 
+# Playwright (E2E / otomasi UAT) — artefak lari, bukan sumber.
+# Browser-nya sendiri tinggal di luar repo (~/AppData/Local/ms-playwright).
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # next.js
 /.next/
 /out/

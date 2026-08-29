@@ -1,6 +1,30 @@
 # 11 — POSGODINOV v2: Rancangan Arsitektur & Rencana Eksekusi
 
-> **Status dokumen:** RANCANGAN — belum satu butir pun dieksekusi.
+> # ✅ V2 SELESAI
+>
+> **Rekayasa dan QA v2 selesai seluruhnya — M11 s.d. M18.4 (cakupan repositori).**
+> Ditutup 29 Agustus 2026 pada branch `dev-v2`.
+>
+> | | |
+> |---|---|
+> | UAT Web (Playwright · M15 Blind Closing) | **8 lulus / 0 gagal** |
+> | UAT Mobile (Maestro · M13 Void Threshold) | **37 perintah / 0 gagal**, nol `FATAL EXCEPTION` |
+> | Temuan penghambat rilis | **0 terbuka** — BLOCK-01, BLOCK-02, NOTE-01 seluruhnya tertutup |
+> | Bukti | [19 · Laporan Eksekusi QA](19-v2-qa-execution-report.md) |
+>
+> ⚠️ **Yang BELUM selesai, dan sengaja tidak dicentang: 10 butir M18 yang
+> menuntut lingkungan produksi nyata** — latihan migrasi pada salinan produksi,
+> rollback yang benar-benar diuji, dashboard pemantauan, tiga panduan operasional,
+> runbook cetak, dan pembersihan `decodeV1` yang gerbangnya 30 hari pasca-rilis.
+> Rinciannya di [Fase M18](#fase-m18--migrasi-data-hardening--rilis).
+>
+> Butir-butir itu tidak dapat dikerjakan dari repositori ini, dan mencentangnya
+> berarti menaruh klaim verifikasi palsu pada dokumen rilis — khususnya
+> *"rollback telah diuji"*, yang justru dibaca orang saat keadaan sedang buruk.
+> "V2 SELESAI" di atas karena itu bermakna **cakupan rekayasa**, bukan
+> "operasi rilis sudah dijalankan".
+
+> **Status dokumen:** SELESAI DIEKSEKUSI — lihat banner di atas.
 > **Lingkup:** lintas-repositori — `posgodinov-be` (Go), `posgodinov-fe` (Next.js/PWA, Web Owner + Web POS),
 > `posgodinov-mobile` (Flutter), dan satu modul baru `posgodinov-opname`.
 > **Sumber kebenaran teknis v1:** [01](01-architecture-overview.md) · [02](02-database-schema.md) ·
@@ -2183,9 +2207,30 @@ dapat dipakai untuk hal lain. Karena itu Kiosk **tidak** menyederhanakan UI kasi
 
 ## Fase M18 — Migrasi Data, Hardening & Rilis
 
-**Prasyarat:** M12–M17 selesai.
+**Prasyarat:** M12–M17 selesai. ✅ Terpenuhi 29 Agustus 2026.
 
-### M18.1 Migrasi data produksi 🐹
+> ### Status M18 — dipisah antara REKAYASA dan OPERASI RILIS
+>
+> **Selesai (cakupan repositori):**
+> M18.2 *feature flag* ✅ · M18.3 pembaruan 52 skenario UAT ✅ · M18.4 migrasi
+> `000025` ditulis & dikunci ✅ · seluruh suite UAT otomatis hijau ✅
+> ([19 · Laporan Eksekusi QA](19-v2-qa-execution-report.md)).
+>
+> **Belum selesai — 10 butir `[ ]` di bawah menunggu lingkungan produksi nyata.**
+> Ketiganya tidak dapat dibuktikan dari repositori ini:
+>
+> | Butir | Mengapa tidak dapat dicentang sekarang |
+> |---|---|
+> | M18.1 (4 butir) | Menuntut salinan produksi penuh dan jendela pemeliharaan. Termasuk *"rollback tertulis dan **diuji**"* — mencentangnya tanpa pengujian nyata adalah klaim yang akan dibaca orang justru ketika keadaan sedang buruk. |
+> | M18.2 dashboard (1 butir) | Dashboard pemantauan belum dibangun. |
+> | M18.3 panduan & runbook (4 butir) | Tiga panduan operasional dan runbook cetak belum ditulis. |
+> | M18.4 `decodeV1` (1 butir) | Gerbangnya **waktu**: 100 % outlet di v2 selama 30 hari. Hari ini adalah H-0. Migrasi `000025_DO_NOT_RUN_YET_…` sengaja dikunci untuk alasan yang sama. |
+>
+> Kotak-kotak itu dibiarkan kosong **dengan sengaja**. Rencana rilis yang
+> seluruh kotaknya tercentang tetapi separuhnya tidak pernah dikerjakan lebih
+> berbahaya daripada rencana yang jujur menunjukkan sisanya.
+
+### M18.1 Migrasi data produksi 🐹 — ⏳ menunggu jendela pemeliharaan produksi
 
 - [ ] Latihan migrasi pada salinan produksi penuh; catat durasi tiap migrasi
 - [ ] Migrasi `000024_backfill_v2` dijalankan **berbatch** (10.000 baris/batch) agar tidak mengunci

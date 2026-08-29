@@ -82,3 +82,97 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BLOCK-01 — melepas plugin printer dari registrasi otomatis
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// `flutter_pos_printer_platform_image_3` meledak saat engine TANPA Activity
+// dibongkar (`lateinit property bluetoothService has not been initialized`).
+// Duduk perkaranya, dan mengapa pendaftaran manual di MainActivity aman untuk
+// pencetakan foreground, ditulis lengkap di MainActivity.kt — di sini hanya
+// mekanismenya.
+//
+// GeneratedPluginRegistrant.java DIBANGKITKAN Flutter tool dan ter-gitignore,
+// jadi menyuntingnya langsung tidak bertahan semenit pun. Ia ditulis ulang
+// SEBELUM Gradle jalan (Flutter Gradle Plugin sendiri tidak pernah
+// menyentuhnya — sudah diperiksa pada Flutter 3.47.1), sehingga menyunting
+// berkasnya pada `preBuild` selalu mengenai berkas yang baru dibangkitkan.
+//
+// Konsekuensi bila plugin ini nanti diperbaiki upstream: hapus tugas ini
+// BESERTA `flutterEngine.plugins.add(...)` di MainActivity — meninggalkan salah
+// satunya saja membuat printer hilang dari aplikasi utama.
+val printerPluginClass =
+    "com.sersoluciones.flutter_pos_printer_platform.FlutterPosPrinterPlatformPlugin"
+
+val stripPrinterPluginAutoRegistration by tasks.registering {
+    group = "posgodinov"
+    description =
+        "BLOCK-01: melepas $printerPluginClass dari GeneratedPluginRegistrant " +
+            "agar engine headless workmanager tidak memuatnya."
+
+    val registrant =
+        file("src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java")
+
+    // Berkasnya ditulis ulang oleh Flutter tool di luar sepengetahuan Gradle,
+    // jadi cap UP-TO-DATE apa pun akan berbohong.
+    outputs.upToDateWhen { false }
+
+    doLast {
+        if (!registrant.exists()) return@doLast
+
+        val lines = registrant.readLines()
+        val addIndex = lines.indexOfFirst { it.contains(".add(new $printerPluginClass(") }
+
+        // Tidak ada = sudah dilepas pada build ini, atau dependensinya memang
+        // sudah tidak dipakai. Keduanya bukan kesalahan.
+        if (addIndex < 0) return@doLast
+
+        // Bentuk yang dibangkitkan Flutter selalu blok lima baris:
+        //     try {
+        //       flutterEngine.getPlugins().add(new <FQN>());
+        //     } catch (Exception e) {
+        //       Log.e(TAG, "Error registering plugin ...", e);
+        //     }
+        var start = addIndex
+        while (start > 0 && lines[start].trim() != "try {") start--
+        var end = addIndex
+        while (end < lines.size && lines[end].trim() != "}") end++
+
+        // Gagal NYARING, bukan diam. Bila templat Flutter berubah bentuk dan
+        // tugas ini melewatkannya tanpa suara, plugin kembali terdaftar otomatis
+        // dan BLOCK-01 hidup lagi — kali ini tanpa satu baris pun yang terlihat
+        // salah di repositori.
+        if (lines[start].trim() != "try {" || end >= lines.size) {
+            throw GradleException(
+                "BLOCK-01: bentuk GeneratedPluginRegistrant.java tidak dikenali " +
+                    "di sekitar baris ${addIndex + 1}. Templat Flutter kemungkinan " +
+                    "berubah — sesuaikan tugas stripPrinterPluginAutoRegistration " +
+                    "di android/app/build.gradle.kts.",
+            )
+        }
+
+        val patched =
+            lines.subList(0, start) +
+                listOf(
+                    "    // [POSGODINOV/BLOCK-01] Registrasi otomatis " +
+                        "flutter_pos_printer_platform_image_3 dilepas oleh",
+                    "    // stripPrinterPluginAutoRegistration " +
+                        "(android/app/build.gradle.kts).",
+                    "    // Plugin didaftarkan manual di " +
+                        "MainActivity.configureFlutterEngine(), sehingga hanya",
+                    "    // engine yang punya Activity yang memuatnya.",
+                ) +
+                lines.subList(end + 1, lines.size)
+
+        registrant.writeText(patched.joinToString("\n") + "\n")
+        logger.lifecycle(
+            "[BLOCK-01] flutter_pos_printer_platform_image_3 dilepas dari " +
+                "registrasi otomatis (baris ${start + 1}–${end + 1}).",
+        )
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn(stripPrinterPluginAutoRegistration)
+}

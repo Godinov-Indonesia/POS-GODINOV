@@ -122,20 +122,24 @@ export function PosBottomBar() {
           // akan menyusutkan target sentuh menjadi ±30 dp pada iPhone berponi.
           'flex h-touch-lg w-full shrink-0 items-stretch border-t border-border bg-surface',
           'pb-[env(safe-area-inset-bottom)]',
-          // `w-full` di atas WAJIB berpasangan dengan `lg:mx-auto` di bawah.
-          // Bar ini anak dari flex column (`PosApp`), dan pada flex item yang
-          // punya margin `auto` di sumbu silang, `align-items: stretch` TIDAK
-          // berlaku — kotak menyusut ke lebar kontennya dan margin auto
-          // menyerap sisanya. Tanpa `w-full`, margin auto membuat bar mengkerut
-          // ke ±170 px dengan label saling menempel, bukan melebar sampai
-          // batas maksimumnya.
+          // BAR MEMBENTANG PENUH, DARI TEPI KIRI KE TEPI KANAN.
           //
-          // Tablet 10" landscape: bar dibatasi lebarnya dan DITENGAHKAN. Bar
-          // selebar 1280 px memaksa jangkauan lengan penuh untuk mencapai slot
-          // terjauh; bar yang dirapatkan ke satu sisi membuat separuh layar
-          // mati bagi kasir yang berdiri di sisi lain mesin. Tengah adalah
-          // jarak terpendek terburuk untuk kedua tangan.
-          'lg:mx-auto lg:h-[4.5rem] lg:max-w-[48rem] lg:rounded-t-2xl lg:border-x',
+          // Versi sebelumnya membatasi lebar lalu meratakannya ke satu sisi demi
+          // memperpendek jangkauan lengan. Yang dibayar untuk itu adalah target
+          // sentuh: lima slot di dalam 768 px hanya ±154 px masing-masing, dan
+          // sisa lebar layar di sebelahnya menjadi zona mati yang menelan
+          // ketukan. Penuh-lebar membalik pertukaran itu — pada 1280 px tiap
+          // slot menjadi ±256 px, dan tepi kiri serta kanan layar ikut menjadi
+          // target (hukum Fitts: tepi layar punya lebar efektif tak hingga).
+          //
+          // `w-full` sekaligus menutup jebakan lamanya: margin `auto` di sumbu
+          // silang MEMBATALKAN `align-items: stretch` pada flex item, sehingga
+          // bar pernah mengkerut ke ±170 px dengan label saling menempel. Tanpa
+          // `mx-auto`/`ml-auto` sama sekali, jebakan itu tidak bisa kambuh.
+          //
+          // Tablet 10" landscape hanya menambah TINGGI — 72 dp (`touch-xl`),
+          // karena layarnya dipandang dari jarak meja, bukan dari genggaman.
+          'lg:h-touch-xl',
         )}
       >
         {PRIMARY_SLOTS.map((slot) => (

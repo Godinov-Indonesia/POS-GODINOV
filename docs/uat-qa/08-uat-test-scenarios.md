@@ -160,7 +160,7 @@ Nilai HPP dan Margin di bawah ini dihitung menggunakan satuan integer sen secara
 
 | ID Skenario | Fitur / Layar | Langkah Pengujian (Steps) | Data Uji (Input) | Ekspektasi Hasil (Expected Result) | Modus | Status |
 |---|---|---|---|---|:---:|:---:|
-| `UAT-V2-01` | Blind Closing — layar bersih dari angka sistem (butir 9, P-12) | 1. Buka shift dengan modal `Rp 500.000`, lakukan 3 transaksi tunai<br>2. Buka Tutup Shift lewat Bottom Bar → "Lainnya"<br>3. Amati SELURUH isi layar<br>4. DevTools → Elements → `Ctrl+F`, cari `expected`, `selisih`, `discrepancy` | Modal `Rp 500.000`<br>Tunai `Rp 44.000` | Layar HANYA memuat tiga isian: Uang Fisik Laci, Total Settle EDC, Total Settle QRIS. **Nol** kemunculan total penjualan sistem, jumlah transaksi, saldo ekspektasi, selisih, ringkasan per metode bayar, maupun modal awal. Pencarian DOM ketiga kata kunci tidak menemukan satu pun elemen nilai. | Offline | `[ ] PASS` |
+| `UAT-V2-01` | Blind Closing — layar bersih dari angka sistem (butir 9, P-12) | 1. Buka shift dengan modal `Rp 500.000`, lakukan 3 transaksi tunai<br>2. Buka Tutup Shift lewat Bottom Bar → "Lainnya"<br>3. Amati SELURUH isi layar<br>4. DevTools → Elements → `Ctrl+F`, cari `expected`, `selisih`, `discrepancy` | Modal `Rp 500.000`<br>Tunai `Rp 44.000` | Layar HANYA memuat tiga isian: Uang Fisik Laci, Total Settle EDC, Total Settle QRIS. **Nol** kemunculan total penjualan sistem, jumlah transaksi, saldo ekspektasi, selisih, ringkasan per metode bayar, maupun modal awal. Pencarian DOM ketiga kata kunci tidak menemukan satu pun elemen nilai.<br><br>🤖 **Diotomasi penuh** oleh 8 tes Playwright — lihat **MODUL I-A** di bawah. | Offline | `[x] LULUS` |
 | `UAT-V2-02` | Blind Closing — deklarasi tersimpan & terkirim apa adanya (butir 9) | 1. Isi Laci `Rp 544.000`, EDC `Rp 0`, QRIS `Rp 8.000`<br>2. Tutup shift<br>3. DevTools → Network, buka body `POST /v1/pos/sync`<br>4. DevTools → IndexedDB → `posgodinov` → `shifts` | Laci `544000`, EDC `0`, QRIS `8000` | Payload memuat `declared_cash: 5440.00`, `declared_edc_total: 0`, `declared_qris_total: 80.00`, `blind_close: true`. Body respons **tidak memuat** substring `expected_` maupun `variance`. Baris Dexie menyimpan `expected_balance: 0` dan `discrepancy: 0` — klien tidak pernah menghitungnya. | Online | `[ ] PASS` |
 | `UAT-V2-03` | Rekonsiliasi milik PEMILIK, bukan kasir (butir 9, R3) | 1. Login Admin Dashboard sebagai pemilik<br>2. Buka Laporan → **Rekonsiliasi Shift**<br>3. Bandingkan dengan shift dari `UAT-V2-02` | Rentang: hari ini | Layar pemilik menampilkan angka LENGKAP: deklarasi, ekspektasi sistem, dan selisih per kelompok tender. Shift yang selisihnya melewati ambang `Rp 5.000` diberi penanda "Perlu ditinjau" — dan ditandai untuk selisih ke **dua arah**, kelebihan maupun kekurangan. | Online | `[ ] PASS` |
 | `UAT-V2-04` | Klien dimodifikasi tidak dapat menentukan selisihnya sendiri (R4) | 1. Cegat `POST /v1/pos/sync` (DevTools → Override / proxy)<br>2. Sisipkan `"expected_cash": 1` dan `"expected_balance": 1` pada objek shift<br>3. Kirim, lalu periksa nilai tersimpan di server | `expected_cash: 1` | Server **mengabaikan** kiriman itu sepenuhnya. Nilai tersimpan tetap hasil hitung `ShiftReconcileService`. Baris `shifts` tidak pernah memuat angka `1`. | Online | `[ ] PASS` |
@@ -189,6 +189,42 @@ Nilai HPP dan Margin di bawah ini dihitung menggunakan satuan integer sen secara
 | `UAT-V2-27` | Perangkat opname ditolak jalur kasir (butir 4) | 1. Bind perangkat dengan `scope: OPNAME`<br>2. Panggil `POST /v1/pos/sync` memakai token tersebut (curl / Postman) | Device token ber-scope OPNAME | Server menjawab `403` dengan `code: SCOPE_FORBIDDEN`. Pemisahan tugas ditegakkan di lapisan transport, bukan hanya dengan menyembunyikan tombol. | Online | `[ ] PASS` |
 | `UAT-V2-28` | *Feature flag* `history_scope: ALL` mengembalikan perilaku v1 (M18.2) | 1. Setel `history_scope: "ALL"` pada `config` outlet<br>2. Tarik master data di perangkat<br>3. Buka Riwayat | `history_scope: ALL` | Riwayat menampilkan transaksi seluruh shift, DAN spanduk peringatan menyatakan bahwa isolasi riwayat sedang dimatikan. Mengembalikan flag ke `ACTIVE_SHIFT` memulihkan isolasi tanpa perlu memasang ulang aplikasi. | Online | `[ ] PASS` |
 | `UAT-V2-29` | *Feature flag* aman saat `config` belum pernah turun (M18.2) | 1. Pasang perangkat baru, **jangan** tarik master data<br>2. Periksa perilaku Blind Closing, ambang Void, dan isolasi riwayat | Perangkat baru, `config` kosong | Seluruh perilaku memakai bawaan KETAT: Blind Closing aktif, supervisor tetap diwajibkan untuk Void, riwayat terbatas shift berjalan, ambang Qty = 5. Tidak ada satu pun pengendalian yang longgar hanya karena `config` belum tiba. | Offline | `[ ] PASS` |
+
+---
+
+#### MODUL I-A: Suite Otomatis Playwright — M15 Blind Closing
+
+Berkas: [`posgodinov-fe/tests/e2e/M15-blind-closing.spec.ts`](../posgodinov-fe/tests/e2e/M15-blind-closing.spec.ts)
+· Runner: `./qa_runner_web.sh` · Modus: **Offline** (`goOffline()` pada `beforeEach`)
+
+Kedelapan tes di bawah adalah pelaksanaan otomatis dari `UAT-V2-01`. Empat yang pertama menguji
+layar Tutup Shift; **empat yang terakhir menguji detektornya sendiri**, dan itu bukan tes
+basa-basi:
+
+> Seluruh nilai suite ini bergantung pada satu hal — `findSystemNumberLeaks()` benar-benar
+> memerah ketika ada kebocoran. Detektor yang rusak (locator `.pos-root` berganti nama,
+> `innerText` mengembalikan string kosong) akan **meluluskan setiap skenario di atasnya**, dan
+> suite ini berubah menjadi stempel hijau yang tidak memeriksa apa pun. Kegagalan seperti itu
+> tidak pernah terlihat, karena bentuknya adalah tes yang lulus. Karena itu kebocoran
+> disuntikkan ke DOM **saat tes berjalan** — bukan ke berkas sumber — lalu detektor dituntut
+> memerah.
+
+Ketiga lapis diserang terpisah karena satu kasus hanya membuktikan satu lapis hidup dan
+menyembunyikan dua yang mati.
+
+| # | Nama tes (persis seperti di berkas spec) | Lapis / Sasaran | Yang dibuktikan | Status |
+|:---:|---|---|---|:---:|
+| 1 | `UAT-V2-01 · tidak membocorkan satu pun angka sistem` | Layar Tutup Shift | Nol kebocoran; tepat tiga baris bernominal, semuanya masih `Rp —`; tidak ada baris keempat. | `[x] LULUS` |
+| 2 | `UAT-V2-01 · memuat tepat tiga isian deklarasi yang dapat diisi` | Layar Tutup Shift | Ketiga isian hadir dan dapat diisi (Laci `544.000`, EDC `0`, QRIS `8.000`); mengisinya tidak memunculkan nominal agregat keempat. | `[x] LULUS` |
+| 3 | `tombol TUTUP SHIFT terkunci sampai uang fisik laci diisi` | Layar Tutup Shift | Laci wajib; QRIS saja tidak membuka tombol — sesuai [11 §M15.3]. | `[x] LULUS` |
+| 4 | `dialog konfirmasi tidak membisikkan angka sistem` | Dialog konfirmasi | Kesempatan terakhir sistem membisikkan angka ("selisih Rp 4.000, lanjutkan?") tertutup: nol istilah terlarang, nol substring `rp`. | `[x] LULUS` |
+| 5 | `detektor memerah pada kebocoran — Lapis 1 — nominal berlabel baru` | **Lapis 1** | Angka ekspektasi yang kembali dengan judul di luar daftar kata mana pun tetap tertangkap. | `[x] LULUS` |
+| 6 | `detektor memerah pada kebocoran — Lapis 2 — istilah terlarang` | **Lapis 2** | Istilah `Expected Balance` tertangkap. | `[x] LULUS` |
+| 7 | `detektor memerah pada kebocoran — Lapis 3 — prosa bersanding dengan angka` | **Lapis 3** | Prosa bernominal (`Selisih kas terdeteksi: 4.000`) tertangkap. | `[x] LULUS` |
+| 8 | `detektor memerah pada kebocoran — Lapis 1 — nominal disembunyikan CSS` | **Lapis 1** (kasus tersulit) | Nilai yang ADA di DOM tetapi disembunyikan `display:none` tetap tertangkap — `innerText` tidak melihatnya sama sekali, dan kasus inilah yang menjaga detektor tidak diam-diam dikembalikan ke sana. | `[x] LULUS` |
+
+**Hasil eksekusi terakhir: 8 lulus / 0 gagal.** Rincian dan durasi per tes ada di
+[19 · Laporan Eksekusi QA](19-v2-qa-execution-report.md) §2.
 
 ---
 

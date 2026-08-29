@@ -374,15 +374,27 @@ class _RegisterPageState extends State<RegisterPage> {
           ],
         ),
       ),
-      // Tablet landscape: bar tetap ada, TETAPI dibatasi lebarnya dan
-      // diratakan ke KANAN — sisi genggaman dominan ([11 §M17.1]). Bar selebar
-      // 1280 px memaksa jangkauan lengan penuh untuk mencapai slot kiri.
-      bottomNavigationBar: Align(
-        alignment: Alignment.centerRight,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 576),
-          child: _HeldCountBuilder(builder: _bottomSlots),
-        ),
+      // BAR MEMBENTANG PENUH, DARI TEPI KIRI KE TEPI KANAN ([11 §M17.1]).
+      //
+      // Versi sebelumnya membungkusnya dengan `Align` + `ConstrainedBox` untuk
+      // memperpendek jangkauan lengan. Yang dibayar untuk itu adalah target
+      // sentuh: lima slot di dalam 768 px hanya ±154 px masing-masing, dan sisa
+      // lebar layar di sebelahnya menjadi zona mati yang menelan ketukan.
+      // Penuh-lebar membalik pertukaran itu — pada 1280 px tiap slot menjadi
+      // ±256 px, dan tepi kiri serta kanan layar ikut menjadi target (hukum
+      // Fitts: tepi layar punya lebar efektif tak hingga).
+      //
+      // Membuang `Align` sekaligus membuang jebakannya: tanpa `heightFactor: 1`
+      // ia memuai setinggi LAYAR, mengklaim ~1000 px untuk bar 72 dp dan
+      // menyisakan beberapa ratus piksel untuk `body`. Gejalanya menipu karena
+      // tidak ada yang gagal — nol exception, pohon semantik utuh — sehingga
+      // UAT melaporkan "Element not found: Espresso" seolah selectornya salah.
+      // `Scaffold` mengukur `bottomNavigationBar` dari tinggi intrinsiknya,
+      // dan bar sudah menetapkan tingginya sendiri; tidak ada yang perlu
+      // dibungkus.
+      bottomNavigationBar: _HeldCountBuilder(
+        builder: _bottomSlots,
+        roomy: true,
       ),
     );
   }
@@ -394,9 +406,12 @@ class _RegisterPageState extends State<RegisterPage> {
 /// kasir — grid produk dan panel keranjang tidak peduli berapa pesanan yang
 /// sedang ditahan.
 class _HeldCountBuilder extends StatelessWidget {
-  const _HeldCountBuilder({required this.builder});
+  const _HeldCountBuilder({required this.builder, this.roomy = false});
 
   final List<PosBottomBarSlot> Function(int heldCount) builder;
+
+  /// Diteruskan apa adanya ke [PosBottomBar] — lihat alasannya di sana.
+  final bool roomy;
 
   @override
   Widget build(BuildContext context) {
@@ -404,7 +419,7 @@ class _HeldCountBuilder extends StatelessWidget {
     return BlocBuilder<HeldCartCubit, List<HeldCartSummary>>(
       bloc: getIt<HeldCartCubit>(),
       builder: (BuildContext context, List<HeldCartSummary> carts) {
-        return PosBottomBar(slots: builder(carts.length));
+        return PosBottomBar(slots: builder(carts.length), roomy: roomy);
       },
     );
   }

@@ -51,13 +51,26 @@ class PosBottomBarSlot {
 /// enam slot menghasilkan target 60 dp — lebih sempit dari lebar jempol dewasa
 /// (±45–57 dp), dan ketukan mulai mendarat di tetangganya.
 class PosBottomBar extends StatelessWidget {
-  const PosBottomBar({super.key, required this.slots});
+  const PosBottomBar({super.key, required this.slots, this.roomy = false});
 
   /// Maksimal LIMA. Slot ke-6 dan seterusnya diabaikan — lihat catatan kelas.
   final List<PosBottomBarSlot> slots;
 
+  /// Varian tablet: bar lebih tinggi, ikon dan label lebih besar.
+  ///
+  /// Pada handheld 6" setiap dp vertikal diperebutkan grid produk, sehingga
+  /// bar ditahan di 64 dp. Tablet 10" tidak punya keterbatasan itu — dan
+  /// dilihat dari jarak lebih jauh, di atas meja, bukan digenggam. Ukuran
+  /// adalah SATU-SATUNYA pembeda kedua varian: susunan, urutan, dan perilaku
+  /// slot identik, supaya kasir yang pindah perangkat tidak perlu belajar
+  /// ulang.
+  final bool roomy;
+
   /// Tinggi bar itu sendiri, di luar area aman perangkat.
   static const double height = 64;
+
+  /// Tinggi varian [roomy].
+  static const double heightRoomy = 72;
 
   /// Batas keras jumlah slot.
   static const int maxSlots = 5;
@@ -80,7 +93,7 @@ class PosBottomBar extends StatelessWidget {
       // Area aman DITAMBAHKAN di bawah 64 dp, bukan memakannya. Menghitungnya
       // ke dalam tinggi bar akan menyusutkan target sentuh menjadi ±30 dp pada
       // perangkat berponi.
-      height: height + safeBottom,
+      height: (roomy ? heightRoomy : height) + safeBottom,
       padding: EdgeInsets.only(bottom: safeBottom),
       decoration: BoxDecoration(
         color: t.surface,
@@ -89,7 +102,7 @@ class PosBottomBar extends StatelessWidget {
       child: Row(
         children: <Widget>[
           for (final PosBottomBarSlot slot in visible)
-            Expanded(child: _BarButton(slot: slot)),
+            Expanded(child: _BarButton(slot: slot, roomy: roomy)),
         ],
       ),
     );
@@ -97,9 +110,10 @@ class PosBottomBar extends StatelessWidget {
 }
 
 class _BarButton extends StatelessWidget {
-  const _BarButton({required this.slot});
+  const _BarButton({required this.slot, required this.roomy});
 
   final PosBottomBarSlot slot;
+  final bool roomy;
 
   @override
   Widget build(BuildContext context) {
@@ -138,15 +152,22 @@ class _BarButton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                _IconWithBadge(icon: slot.icon, badge: slot.badge, color: color),
-                const SizedBox(height: 2),
+                _IconWithBadge(
+                  icon: slot.icon,
+                  badge: slot.badge,
+                  color: color,
+                  size: roomy ? 28 : 24,
+                ),
+                SizedBox(height: roomy ? 4 : 2),
                 // Label teks SELALU ditampilkan, tidak pernah hanya ikon.
                 // Ikon tanpa label menuntut kasir menghafal, dan kasir baru
                 // pada shift pertamanya adalah orang yang paling sering
                 // menekan tombol yang salah.
                 Text(
                   slot.label,
-                  style: PosText.xs.copyWith(
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: (roomy ? PosText.sm : PosText.xs).copyWith(
                     color: color,
                     fontWeight: slot.active ? FontWeight.w700 : FontWeight.w500,
                   ),
@@ -165,22 +186,24 @@ class _IconWithBadge extends StatelessWidget {
     required this.icon,
     required this.badge,
     required this.color,
+    required this.size,
   });
 
   final IconData icon;
   final int badge;
   final Color color;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     final GodinovTokens t = context.tokens;
 
-    if (badge <= 0) return Icon(icon, size: 24, color: color);
+    if (badge <= 0) return Icon(icon, size: size, color: color);
 
     return Stack(
       clipBehavior: Clip.none,
       children: <Widget>[
-        Icon(icon, size: 24, color: color),
+        Icon(icon, size: size, color: color),
         Positioned(
           right: -6,
           top: -4,
