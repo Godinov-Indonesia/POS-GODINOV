@@ -1,4 +1,3 @@
-ALTER TABLE businesses ADD COLUMN is_deleted BOOLEAN DEFAULT false;
 ALTER TABLE outlets ADD COLUMN is_deleted BOOLEAN DEFAULT false;
 ALTER TABLE users ADD COLUMN is_deleted BOOLEAN DEFAULT false;
 ALTER TABLE raw_materials ADD COLUMN is_deleted BOOLEAN DEFAULT false;
