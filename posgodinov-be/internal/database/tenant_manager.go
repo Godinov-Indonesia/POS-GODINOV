@@ -122,16 +122,18 @@ func (tm *TenantManager) CreateNewTenantDatabase(tenantID string) error {
 	// Now run migrations on the newly created tenant DB
 	tenantDB, err := tm.createTenantConnection(tenantID)
 	if err != nil {
+		tm.landlordDB.Exec(fmt.Sprintf("DROP DATABASE %s", dbName))
 		return fmt.Errorf("database created but failed to connect for migration: %w", err)
 	}
-
-	// NOTE: You will need to move your schema definitions here or use golang-migrate
-	// For GORM auto-migration example:
-	// err = tenantDB.AutoMigrate(&domain.Product{}, &domain.RawMaterial{}, ...)
 	
-	// If using golang-migrate, you would extract sql.DB and run it against the tenant migrations folder
 	err = tm.runTenantMigrations(tenantDB)
 	if err != nil {
+		// Tutup koneksi gorm agar PostgreSQL mengizinkan DROP DATABASE
+		if sqlDB, dbErr := tenantDB.DB(); dbErr == nil {
+			sqlDB.Close()
+		}
+		// Hapus database karena gagal migrasi
+		tm.landlordDB.Exec(fmt.Sprintf("DROP DATABASE %s", dbName))
 		return fmt.Errorf("failed to migrate tenant db: %w", err)
 	}
 
