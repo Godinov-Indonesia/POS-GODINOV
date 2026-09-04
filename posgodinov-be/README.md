@@ -58,6 +58,23 @@ Sistem migrasi sudah terintegrasi penuh menggunakan library `golang-migrate` dan
 - Folder migrasi ada di: `db/migrations/`
 - Jika ingin menambah tabel atau struktur baru, cukup tambahkan file berakhiran `.up.sql` dan `.down.sql` di folder tersebut. Aplikasi akan menerapkannya saat *restart* berikutnya.
 
+> **⚠️ PERHATIAN PENTING: PostgreSQL Row-Level Security (RLS)**
+> 
+> Sistem ini menggunakan RLS untuk mengisolasi data antar outlet/cabang secara ketat di dalam *Business DB*.
+> Migrasi `000025_enable_rls.up.sql` akan otomatis memindai dan mengamankan seluruh tabel yang memiliki kolom `outlet_id`.
+> 
+> **Aturan untuk pengembangan ke depan:**
+> Jika Anda membuat tabel baru yang memiliki kolom `outlet_id` di atas urutan `000025` (misal `000026_create_table_x.up.sql`), **Anda WAJIB** mengaktifkan RLS secara manual di dalam file migrasi tersebut dengan sintaks berikut:
+> ```sql
+> ALTER TABLE nama_tabel_baru ENABLE ROW LEVEL SECURITY;
+> ALTER TABLE nama_tabel_baru FORCE ROW LEVEL SECURITY;
+> CREATE POLICY rls_outlet_isolation ON nama_tabel_baru FOR ALL USING (
+>     current_setting('app.current_outlet_id', true) IS NULL 
+>     OR current_setting('app.current_outlet_id', true) = '' 
+>     OR outlet_id = current_setting('app.current_outlet_id', true)
+> );
+> ```
+
 ---
 
 ## 📡 API Endpoints 
