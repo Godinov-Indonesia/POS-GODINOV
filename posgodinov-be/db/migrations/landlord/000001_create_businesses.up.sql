@@ -5,5 +5,6 @@ CREATE TABLE businesses (
     password        VARCHAR(255) NOT NULL,
     name            VARCHAR(150) NOT NULL,
     owner_name      VARCHAR(100),
+    is_deleted      BOOLEAN DEFAULT FALSE,
     created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
