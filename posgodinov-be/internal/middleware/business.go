@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"strings"
 
+	"gorm.io/gorm"
 	"posgodinov-backend/internal/database"
 	"posgodinov-backend/pkg/response"
+	"posgodinov-backend/pkg/token"
 )
-
-
 
 // BusinessMiddleware extracts the Tenant ID from the HTTP Header (X-Business-ID)
 // or from the Auth Payload (if auth middleware was already run),
@@ -20,13 +20,16 @@ func BusinessMiddleware(businessManager *database.BusinessDBManager) func(http.H
 		return func(w http.ResponseWriter, r *http.Request) {
 			businessID := r.Header.Get("X-Business-ID")
 
+			// Coba ambil payload dari context jika ada
+			var payload *token.Payload
+			if p := r.Context().Value(AuthPayloadKey); p != nil {
+				payload, _ = p.(*token.Payload)
+			}
+
 			// Fallback to JWT/PASETO Payload if header is empty and user is authenticated
-			if businessID == "" {
-				if payload := r.Context().Value(AuthPayloadKey); payload != nil {
-					// Since payload is an interface{}, we need to assert it or we can't read BusinessID.
-					// We'd have to import token package, which creates an import cycle if token imports something else, 
-					// but let's assume we can cast it. Wait, auth.go does this.
-					// Let's stick to X-Business-ID for explicit routing to avoid import cycles here if any.
+			if businessID == "" && payload != nil {
+				if payload.Type == "device" {
+					businessID = payload.Email // For device, businessID is in Email field
 				}
 			}
 
@@ -41,6 +44,18 @@ func BusinessMiddleware(businessManager *database.BusinessDBManager) func(http.H
 			businessDB, err := businessManager.GetBusinessDB(r.Context(), businessID)
 			if err != nil {
 				response.Error(w, http.StatusInternalServerError, "Failed to connect to business database", nil)
+				return
+			}
+
+			// Terapkan RLS (Row-Level Security) jika request berasal dari device (POS/Gudang)
+			if payload != nil && payload.Type == "device" {
+				// Gunakan Transaction agar SET LOCAL aman dan tidak bocor ke koneksi lain di pool
+				businessDB.Transaction(func(tx *gorm.DB) error {
+					tx.Exec("SET LOCAL app.current_outlet_id = ?", payload.ID)
+					ctx := context.WithValue(r.Context(), database.BusinessDBKey, tx)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return nil
+				})
 				return
 			}
 
