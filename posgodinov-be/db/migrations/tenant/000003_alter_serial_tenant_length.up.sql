@@ -1,0 +1,1 @@
+ALTER TABLE outlets ALTER COLUMN serial_tenant TYPE VARCHAR(100);

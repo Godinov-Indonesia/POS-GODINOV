@@ -7,6 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	migrate_postgres "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -19,15 +22,17 @@ type TenantManager struct {
 	mu         sync.RWMutex
 	tenantPool map[string]*gorm.DB
 	cfg        *config.Config
+	landlordDB *gorm.DB
 }
 
 var validTenantName = regexp.MustCompile(`^[a-z0-9_]+$`)
 
 // NewTenantManager creates a new instance of TenantManager.
-func NewTenantManager(cfg *config.Config) *TenantManager {
+func NewTenantManager(cfg *config.Config, landlordDB *gorm.DB) *TenantManager {
 	return &TenantManager{
 		tenantPool: make(map[string]*gorm.DB),
 		cfg:        cfg,
+		landlordDB: landlordDB,
 	}
 }
 
@@ -95,18 +100,17 @@ func (tm *TenantManager) createTenantConnection(tenantID string) (*gorm.DB, erro
 
 // CreateNewTenantDatabase creates the physical database for a new tenant and runs migrations.
 // This should be called by the Landlord DB connection when registering a new business.
-func (tm *TenantManager) CreateNewTenantDatabase(landlordDB *gorm.DB, tenantID string) error {
+func (tm *TenantManager) CreateNewTenantDatabase(tenantID string) error {
 	if !validTenantName.MatchString(tenantID) {
 		return fmt.Errorf("invalid tenant ID format")
 	}
 
-	dbName := "tenant_" + tenantID
+	dbName := fmt.Sprintf("tenant_%s", tenantID)
 
-	// SQL Injection Prevention: We validated the tenantID via Regex above, so it is safe to use in string formatting for DDL
-	// GORM / database/sql does not support parameters in CREATE DATABASE
-	createDBQuery := fmt.Sprintf("CREATE DATABASE %s", dbName)
-	
-	err := landlordDB.Exec(createDBQuery).Error
+	// Create database if it doesn't exist.
+	// In PostgreSQL, CREATE DATABASE cannot be executed within a transaction block.
+	// So we execute it directly on the landlordDB instance.
+	err := tm.landlordDB.Exec(fmt.Sprintf("CREATE DATABASE %s", dbName)).Error
 	if err != nil {
 		return fmt.Errorf("failed to create database %s: %w", dbName, err)
 	}
@@ -136,7 +140,26 @@ func (tm *TenantManager) CreateNewTenantDatabase(landlordDB *gorm.DB, tenantID s
 }
 
 func (tm *TenantManager) runTenantMigrations(tenantDB *gorm.DB) error {
-	// Implement tenant-specific golang-migrate logic here
-	// This will point to file://db/migrations/tenant
+	sqlDB, err := tenantDB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get sql.DB for tenant migration: %w", err)
+	}
+
+	driver, err := migrate_postgres.WithInstance(sqlDB, &migrate_postgres.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to create migrate driver: %w", err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://db/migrations/tenant",
+		"postgres", driver)
+	if err != nil {
+		return fmt.Errorf("failed to init migrate for tenant: %w", err)
+	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("failed to run migrate up for tenant: %w", err)
+	}
+
 	return nil
 }

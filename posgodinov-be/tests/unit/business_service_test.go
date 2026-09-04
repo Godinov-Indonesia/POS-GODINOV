@@ -57,7 +57,7 @@ func TestRegisterBusiness(t *testing.T) {
 	tokenMaker, _ := token.NewPasetoMaker("01234567890123456789012345678901")
 	txManager := database.NewMockTransactionManager()
 
-	svc := service.NewBusinessService(mockRepo, tokenMaker, txManager)
+	svc := service.NewBusinessService(mockRepo, tokenMaker, txManager, nil)
 
 	req := &domain.RegisterBusinessRequest{
 		Name:                 "Warteg Bahari",
@@ -108,7 +108,7 @@ func TestLoginBusiness(t *testing.T) {
 	mockRepo := &MockBusinessRepository{}
 	tokenMaker, _ := token.NewPasetoMaker("01234567890123456789012345678901")
 	txManager := database.NewMockTransactionManager()
-	svc := service.NewBusinessService(mockRepo, tokenMaker, txManager)
+	svc := service.NewBusinessService(mockRepo, tokenMaker, txManager, nil)
 
 	// Setup a user
 	hashedPass, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)

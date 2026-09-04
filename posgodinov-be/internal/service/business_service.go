@@ -16,16 +16,18 @@ import (
 )
 
 type businessService struct {
-	repo       domain.BusinessRepository
-	tokenMaker token.TokenMaker
-	txManager  database.TransactionManager
+	repo          domain.BusinessRepository
+	tokenMaker    token.TokenMaker
+	txManager     database.TransactionManager
+	tenantManager *database.TenantManager
 }
 
-func NewBusinessService(repo domain.BusinessRepository, tokenMaker token.TokenMaker, txManager database.TransactionManager) domain.BusinessService {
+func NewBusinessService(repo domain.BusinessRepository, tokenMaker token.TokenMaker, txManager database.TransactionManager, tenantManager *database.TenantManager) domain.BusinessService {
 	return &businessService{
-		repo:       repo,
-		tokenMaker: tokenMaker,
-		txManager:  txManager,
+		repo:          repo,
+		tokenMaker:    tokenMaker,
+		txManager:     txManager,
+		tenantManager: tenantManager,
 	}
 }
 
@@ -78,6 +80,13 @@ func (s *businessService) Register(ctx context.Context, req *domain.RegisterBusi
 		// TODO: Nantinya di dalam transaksi ini, kita juga bisa otomatis 
 		// membuatkan data Outlet Pusat (Default Outlet) atau Default Role
 		
+		// Setup database untuk tenant baru
+		if s.tenantManager != nil {
+			if err := s.tenantManager.CreateNewTenantDatabase(business.ID); err != nil {
+				return fmt.Errorf("gagal membuat database tenant: %w", err)
+			}
+		}
+
 		return nil
 	})
 

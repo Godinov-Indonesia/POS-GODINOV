@@ -50,7 +50,7 @@ func main() {
 		os.Exit(1)
 	}
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://db/migrations",
+		"file://db/migrations/landlord",
 		"postgres", driver)
 	if err != nil {
 		logger.Error("failed to init migrate", "error", err)
@@ -81,7 +81,7 @@ func main() {
 	categoryRepo := repository.NewProductCategoryRepository(db)
 	auditRepo := repository.NewAuditRepository(db)
 	txManager := database.NewTransactionManager(db)
-	tenantManager := database.NewTenantManager(cfg)
+	tenantManager := database.NewTenantManager(cfg, db)
 
 	posRepo := repository.NewPOSRepository(db)
 	reportRepo := repository.NewReportRepository(db)
@@ -100,7 +100,7 @@ func main() {
 	opnameSessionRepo := repository.NewOpnameSessionRepository(db)
 
 	// Setup Services
-	businessSvc := service.NewBusinessService(businessRepo, tokenMaker, txManager)
+	businessSvc := service.NewBusinessService(businessRepo, tokenMaker, txManager, tenantManager)
 	outletSvc := service.NewOutletService(outletRepo, businessRepo, txManager)
 	staffSvc := service.NewStaffService(staffRepo, outletRepo,
 		service.WithStaffMasterVersion(txManager, masterVersionRepo))
