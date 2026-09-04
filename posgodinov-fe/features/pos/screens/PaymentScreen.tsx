@@ -1,196 +1,134 @@
 'use client'
 
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Banknote, CreditCard, QrCode, Split, Landmark } from 'lucide-react'
 import * as React from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Money } from '@/components/ui/money'
-import { toastApiError } from '@/components/ui/toaster'
-import { usePosAuthStore } from '@/features/pos/auth/pos-auth-store'
-import { calculateChange, cartTotal, fastCashPresets } from '@/features/pos/cart/cart-math'
+import { cartTotal } from '@/features/pos/cart/cart-math'
 import { useCartStore } from '@/features/pos/cart/cart-store'
-import { Keypad, digitsToMinor, useDigitInput } from '@/features/pos/components/Keypad'
+import { usePaymentDraftStore } from '@/features/pos/payment/payment-draft-store'
 import { posNavigate } from '@/features/pos/router/usePosRouter'
-import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, type PaymentMethod } from '@/lib/constants/payment'
-import { removeHeldCart } from '@/lib/db/repositories/held-cart.repo'
-import { getOpenShift } from '@/lib/db/repositories/shift.repo'
-import { saveTransaction } from '@/lib/db/repositories/transaction.repo'
-import { cn } from '@/lib/utils/cn'
+import type { PosScreen } from '@/features/pos/router/screens'
+import { PAYMENT_METHOD_LABELS, type PaymentMethod } from '@/lib/constants/payment'
 
 /**
- * P-06 Pembayaran — docs/06 §3.5 & §4.6.
+ * P-06 Pembayaran — **pemilih metode**, butir 11 ([11 §M17.2]).
  *
- * Metode pembayaran **hanya** dirender dari `PAYMENT_METHODS.map(...)`
- * ([05 §3.3 butir 3]). Tidak ada input teks bebas dan tidak ada opsi
- * "Lainnya": kolom `payment_method` adalah VARCHAR bebas tanpa enum di
- * database, dan satu salah ketik memecah pengelompokan laporan **secara
- * permanen** — tidak ada endpoint untuk memperbaiki data lama.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * LAYAR PENUH, BUKAN MODAL — DAN SUB-LANGKAHNYA JUGA
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `payment` sudah berupa rute sejak v1. Yang berubah pada M17.2 adalah
+ * SUB-LANGKAHNYA: input tunai, form kartu, dan penyusunan split dulu berupa
+ * cabang `if` di dalam layar ini. Konsekuensinya, tombol back perangkat
+ * menutup seluruh pembayaran — kasir yang salah pilih metode kehilangan
+ * langkahnya dan mengulang dari keranjang.
+ *
+ * Kini masing-masing punya rute sendiri beserta entri `history.pushState`-nya,
+ * sehingga back mundur SATU langkah.
+ *
+ * ⚠️ Kembali dari sub-layar **tidak pernah menghapus keranjang**. Keranjang
+ * hanya dibersihkan oleh `commitPayment()`, setelah transaksi benar-benar
+ * tertulis.
  */
+
+/** Metode → rute penanganannya. */
+const ROUTE_FOR: Record<PaymentMethod, PosScreen> = {
+  CASH: 'payment-cash',
+  QRIS: 'payment-card',
+  DEBIT: 'payment-card',
+  CREDIT: 'payment-card',
+  TRANSFER: 'payment-card',
+}
+
+const ICON_FOR: Record<PaymentMethod, typeof Banknote> = {
+  CASH: Banknote,
+  QRIS: QrCode,
+  DEBIT: CreditCard,
+  CREDIT: CreditCard,
+  TRANSFER: Landmark,
+}
+
+/**
+ * Metode yang ditawarkan kasir.
+ *
+ * `CREDIT` kini ikut ditampilkan — form kartunya lahir bersama fase ini. Sampai
+ * M17.2, menambahkannya berarti memunculkan tombol yang alur pembayarannya
+ * belum ada ([05 §3.3]).
+ */
+const OFFERED: readonly PaymentMethod[] = ['CASH', 'QRIS', 'DEBIT', 'CREDIT', 'TRANSFER']
+
 export function PaymentScreen() {
   const lines = useCartStore((s) => s.lines)
   const customerName = useCartStore((s) => s.customerName)
   const setCustomerName = useCartStore((s) => s.setCustomerName)
-  const fromHeldCartId = useCartStore((s) => s.fromHeldCartId)
-  const clearCart = useCartStore((s) => s.clear)
-  const staffId = usePosAuthStore((s) => s.staffId)
-
-  const [method, setMethod] = React.useState<PaymentMethod>('CASH')
-  const { digits, setDigits, append, backspace, clear } = useDigitInput(9)
-  const [saving, setSaving] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const resetTenders = usePaymentDraftStore((s) => s.reset)
 
   const total = cartTotal(lines)
-  const isCash = method === 'CASH'
-  const cashReceived = isCash ? digitsToMinor(digits) : total
-  const change = calculateChange(cashReceived, total)
-  const insufficient = isCash && change < 0
 
-  const presets = React.useMemo(() => fastCashPresets(total), [total])
-
-  const submit = async () => {
-    if (!staffId || insufficient || !lines.length) return
-
-    setSaving(true)
-    setError(null)
-
-    try {
-      const shift = await getOpenShift()
-      if (!shift) {
-        setError('Tidak ada shift terbuka. Buka shift terlebih dahulu.')
-        return
-      }
-
-      // Transaksi ditulis ke Dexie SEBELUM perintah cetak ([05 §1.6.5]).
-      // Printer mati adalah masalah operasional, bukan alasan menghilangkan
-      // penjualan yang uangnya sudah diterima.
-      const transaction = await saveTransaction({
-        shiftId: shift.id,
-        customerName: customerName.trim(),
-        totalAmountMinor: total,
-        paymentMethod: method,
-        items: lines.map((line) => ({
-          product_id: line.product_id,
-          quantity: line.quantity,
-          unit_price: line.unit_price,
-          _product_name: line.product_name,
-        })),
-        cashReceivedMinor: isCash ? cashReceived : undefined,
-        changeMinor: isCash ? change : undefined,
-      })
-
-      if (fromHeldCartId) await removeHeldCart(fromHeldCartId)
-
-      clearCart()
-      posNavigate('receipt', { transactionId: transaction.id })
-    } catch (e) {
-      toastApiError(e, 'Gagal menyimpan transaksi')
-    } finally {
-      setSaving(false)
-    }
-  }
+  // Draf tender dibersihkan setiap kali kasir kembali ke pemilih metode.
+  //
+  // Tanpa ini, tender dari percobaan sebelumnya — mis. split yang dibatalkan —
+  // ikut terbawa ke pembayaran berikutnya, dan totalnya tidak akan pernah
+  // seimbang tanpa kasir tahu mengapa.
+  React.useEffect(() => {
+    resetTenders()
+  }, [resetTenders])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:flex-row">
-      <div className="flex flex-col gap-3 lg:w-[24rem]">
-        <Button variant="ghost" className="self-start" onClick={() => posNavigate('register')}>
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" onClick={() => posNavigate('register')}>
           <ArrowLeft className="size-4" aria-hidden="true" />
-          Kembali ke keranjang
+          Keranjang
         </Button>
-
-        <div className="flex items-center justify-between rounded-xl border border-border bg-surface p-4">
-          <span className="text-pos-base text-fg-muted">Total</span>
-          <Money minor={total} size="2xl" />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <span className="text-pos-sm font-medium text-fg">Metode pembayaran</span>
-          <div className="grid grid-cols-2 gap-2">
-            {PAYMENT_METHODS.map((value) => (
-              <Button
-                key={value}
-                variant={method === value ? 'primary' : 'neutral'}
-                size="lg"
-                onClick={() => setMethod(value)}
-                aria-pressed={method === value}
-              >
-                {PAYMENT_METHOD_LABELS[value]}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <label className="flex flex-col gap-1.5">
-          <span className="text-pos-sm font-medium text-fg">Nama pelanggan (opsional)</span>
-          <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-        </label>
+        <h1 className="text-pos-lg font-bold text-fg">Pembayaran</h1>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3">
-        {isCash ? (
-          <>
-            <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-pos-base text-fg-muted">Uang diterima</span>
-                <Money minor={cashReceived} size="2xl" />
-              </div>
-              <div className="flex items-center justify-between border-t border-border pt-2">
-                <span className="text-pos-base text-fg-muted">Kembalian</span>
-                <Money
-                  minor={change}
-                  size="2xl"
-                  tone={insufficient ? 'danger' : change > 0 ? 'success' : 'default'}
-                />
-              </div>
-              {insufficient ? (
-                <p role="alert" className="text-pos-sm text-danger">
-                  ⚠ Uang yang diterima belum menutupi total.
-                </p>
-              ) : null}
-            </div>
+      <div className="flex items-center justify-between rounded-xl border border-border bg-surface p-4">
+        <span className="text-pos-base text-fg-muted">Total</span>
+        <Money minor={total} size="2xl" />
+      </div>
 
-            {/* Fast-Cash 72px — kelas "Kritis": salah tekan di sini membuat
-                uang fisik keluar salah ([06 §2.1]). */}
-            <div className="flex flex-wrap gap-2">
-              {presets.map((preset) => (
-                <Button
-                  key={preset}
-                  variant="neutral"
-                  size="cash"
-                  onClick={() => setDigits(String(preset / 100))}
-                >
-                  <Money minor={preset} size="lg" />
-                </Button>
-              ))}
-            </div>
+      <label className="flex flex-col gap-1.5">
+        <span className="text-pos-sm font-medium text-fg">Nama pelanggan (opsional)</span>
+        <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+      </label>
 
-            <div className="max-w-xs">
-              <Keypad onDigit={append} onClear={clear} onBackspace={backspace} disabled={saving} />
-            </div>
-          </>
-        ) : (
-          <div className="rounded-xl border border-border bg-surface p-4 text-pos-sm text-fg-muted">
-            Metode {PAYMENT_METHOD_LABELS[method]} dicatat sebagai lunas sebesar total transaksi.
-            Sistem ini tidak terhubung ke payment gateway mana pun — konfirmasi pembayaran dilakukan
-            kasir secara manual.
-          </div>
-        )}
+      <span className="mt-2 text-pos-sm font-medium text-fg">Metode pembayaran</span>
 
-        {error ? (
-          <p role="alert" className="text-pos-sm text-danger">
-            ⚠ {error}
-          </p>
-        ) : null}
+      {/* Satu kolom, target 64 dp. Grid dua kolom memuat lebih banyak metode di
+          layar, tetapi memaksa jempol bergerak mendatar — dan salah tekan di
+          sini memilih metode yang salah untuk uang yang sudah diterima. */}
+      <div className="flex flex-col gap-2">
+        {OFFERED.map((method) => {
+          const Icon = ICON_FOR[method]
+          return (
+            <Button
+              key={method}
+              variant="neutral"
+              size="xl"
+              block
+              className="justify-start"
+              onClick={() => posNavigate(ROUTE_FOR[method], { method })}
+            >
+              <Icon className="size-5 shrink-0" aria-hidden="true" />
+              {PAYMENT_METHOD_LABELS[method]}
+            </Button>
+          )
+        })}
 
         <Button
-          variant="cash"
-          size="cash"
+          variant="neutral"
+          size="xl"
           block
-          className={cn('mt-auto')}
-          disabled={saving || insufficient || !lines.length}
-          onClick={submit}
+          className="justify-start"
+          onClick={() => posNavigate('payment-split')}
         >
-          {saving ? 'MENYIMPAN…' : 'SELESAIKAN TRANSAKSI'}
+          <Split className="size-5 shrink-0" aria-hidden="true" />
+          Bayar Terpisah (Split)
         </Button>
       </div>
     </div>

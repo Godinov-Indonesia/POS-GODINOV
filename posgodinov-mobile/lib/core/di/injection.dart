@@ -29,8 +29,9 @@ import 'package:posgodinov_mobile/features/register/domain/repositories/catalog_
 import 'package:posgodinov_mobile/features/register/domain/repositories/register_repository.dart';
 import 'package:posgodinov_mobile/features/history/data/datasources/history_remote_ds.dart';
 import 'package:posgodinov_mobile/features/history/data/repositories/history_repository_impl.dart';
+import 'package:posgodinov_mobile/features/history/data/repositories/return_repository_impl.dart';
 import 'package:posgodinov_mobile/features/history/domain/repositories/history_repository.dart';
-import 'package:posgodinov_mobile/features/history/presentation/cubit/history_cubit.dart';
+import 'package:posgodinov_mobile/features/history/domain/repositories/return_repository.dart';
 import 'package:posgodinov_mobile/features/register/presentation/cubit/held_cart_cubit.dart';
 import 'package:posgodinov_mobile/features/waste/data/repositories/waste_repository_impl.dart';
 import 'package:posgodinov_mobile/features/waste/domain/repositories/waste_repository.dart';
@@ -49,6 +50,17 @@ import 'package:posgodinov_mobile/features/shift/presentation/cubit/shift_cubit.
 import 'package:posgodinov_mobile/features/kiosk/presentation/cubit/kiosk_cubit.dart';
 import 'package:posgodinov_mobile/features/printer/presentation/cubit/printer_cubit.dart';
 import 'package:posgodinov_mobile/features/sync/presentation/cubit/sync_cubit.dart';
+import 'package:posgodinov_mobile/core/database/daos/print_job_dao.dart';
+import 'package:posgodinov_mobile/core/database/daos/return_dao.dart';
+import 'package:posgodinov_mobile/core/database/daos/security_event_dao.dart';
+import 'package:posgodinov_mobile/core/database/daos/void_log_dao.dart';
+import 'package:posgodinov_mobile/features/sync/presentation/cubit/connectivity_cubit.dart';
+import 'package:posgodinov_mobile/features/printing/presentation/cubit/print_queue_cubit.dart';
+import 'package:posgodinov_mobile/core/printer/print_queue_service.dart';
+import 'package:posgodinov_mobile/features/shift/domain/close_shift_saga.dart';
+import 'package:posgodinov_mobile/features/shift/domain/supervisor_authorizer.dart';
+import 'package:posgodinov_mobile/features/shift/domain/session_lock_guard.dart';
+import 'package:posgodinov_mobile/features/shift/domain/master_gate.dart';
 
 /// Kontainer dependensi aplikasi.
 final GetIt getIt = GetIt.instance;
@@ -100,7 +112,12 @@ Future<void> configureDependencies() async {
     ..registerSingleton<TransactionDao>(database.transactionDao)
     ..registerSingleton<WasteDao>(database.wasteDao)
     ..registerSingleton<HeldCartDao>(database.heldCartDao)
-    ..registerSingleton<SyncDao>(database.syncDao);
+    ..registerSingleton<SyncDao>(database.syncDao)
+    // ── DAO v2 (M11.5) ──────────────────────────────────────────────────────
+    ..registerSingleton<ReturnDao>(database.returnDao)
+    ..registerSingleton<VoidLogDao>(database.voidLogDao)
+    ..registerSingleton<SecurityEventDao>(database.securityEventDao)
+    ..registerSingleton<PrintJobDao>(database.printJobDao);
 
   // ── Jaringan ───────────────────────────────────────────────────────────────
   final ClockSkewMonitor clockSkew = ClockSkewMonitor();
@@ -118,51 +135,11 @@ Future<void> configureDependencies() async {
   // ── Kriptografi ────────────────────────────────────────────────────────────
   getIt.registerSingleton<PinVerifier>(const PinVerifier());
 
-  // ── Repository — kontrak milik domain, implementasi milik data ─────────────
-  getIt.registerSingleton<DeviceRepository>(
-    DeviceRepositoryImpl(
-      remote: DeviceRemoteDataSource(apiClient),
-      local: MasterLocalDataSource(getIt<MasterDao>(), getIt<SyncDao>()),
-      storage: storage,
-    ),
-  );
-
-  getIt.registerSingleton<AuthRepository>(
-    AuthRepositoryImpl(
-      masterDao: getIt<MasterDao>(),
-      verifier: getIt<PinVerifier>(),
-    ),
-  );
-
-  getIt.registerSingleton<ShiftRepository>(
-    ShiftRepositoryImpl(
-      dao: getIt<ShiftDao>(),
-      transactionDao: getIt<TransactionDao>(),
-    ),
-  );
-
-  getIt
-    ..registerSingleton<HistoryRepository>(
-      HistoryRepositoryImpl(
-        dao: getIt<TransactionDao>(),
-        remote: HistoryRemoteDataSource(apiClient),
-      ),
-    )
-    ..registerSingleton<WasteRepository>(
-      WasteRepositoryImpl(dao: getIt<WasteDao>()),
-    );
-
-  getIt
-    ..registerSingleton<CatalogRepository>(
-      CatalogRepositoryImpl(getIt<MasterDao>()),
-    )
-    ..registerSingleton<RegisterRepository>(
-      RegisterRepositoryImpl(dao: getIt<TransactionDao>()),
-    )
-    ..registerSingleton<HeldCartRepository>(
-      HeldCartRepositoryImpl(dao: getIt<HeldCartDao>()),
-    );
-
+  // ⚠️ Blok printer WAJIB berada SEBELUM blok repositori.
+  //
+  // Empat repositori yang menulis peristiwa beraudit — void, retur, pesanan
+  // tertahan, dan waste — menyuntikkan `PrintQueueService` ([11 §M14.1]).
+  // Menaruhnya di bawah membuat variabelnya dipakai sebelum dideklarasikan.
   // ── Printer ────────────────────────────────────────────────────────────────
   //
   // `PrinterManager` mengimplementasikan `ReceiptPrinter`, sehingga
@@ -176,6 +153,108 @@ Future<void> configureDependencies() async {
     ..registerSingleton<PrinterManager>(printerManager)
     ..registerSingleton<ReceiptPrinter>(printerManager);
 
+  // ── Antrean cetak (M14.1) ─────────────────────────────────────────────────
+  //
+  // Didaftarkan SEBELUM repositori: keempat repositori yang menulis peristiwa
+  // beraudit — void, retur, pesanan tertahan, waste — menyuntikkannya.
+  final PrintQueueService printQueue = PrintQueueService(
+    database: database,
+    dao: getIt<PrintJobDao>(),
+    securityEventDao: getIt<SecurityEventDao>(),
+    syncDao: getIt<SyncDao>(),
+    printer: printerManager,
+  );
+  getIt.registerSingleton<PrintQueueService>(printQueue);
+
+  // ── Repository — kontrak milik domain, implementasi milik data ─────────────
+  //
+  // Didaftarkan lewat kontrak `ReturnRepository`, bukan tipe konkretnya:
+  // layar retur mengambilnya dari sini dan karenanya tidak perlu menyentuh
+  // lapisan data ([09 §2.2] `presentation_no_data`).
+  getIt.registerSingleton<ReturnRepository>(
+    ReturnRepositoryImpl(
+      dao: getIt<ReturnDao>(),
+      printQueue: printQueue,
+    ),
+  );
+
+  getIt.registerSingleton<DeviceRepository>(
+    DeviceRepositoryImpl(
+      remote: DeviceRemoteDataSource(apiClient),
+      local: MasterLocalDataSource(getIt<MasterDao>(), getIt<SyncDao>()),
+      storage: storage,
+      syncDao: getIt<SyncDao>(),
+    ),
+  );
+
+  getIt.registerSingleton<AuthRepository>(
+    AuthRepositoryImpl(
+      masterDao: getIt<MasterDao>(),
+      verifier: getIt<PinVerifier>(),
+    ),
+  );
+
+  getIt.registerSingleton<ShiftRepository>(
+    // `TransactionDao` dilepas pada M15.3 bersama `cashLinesOf`: Blind Closing
+    // berarti klien tidak lagi punya alasan membaca transaksi untuk menghitung
+    // kas ([11 §M15.3]).
+    ShiftRepositoryImpl(dao: getIt<ShiftDao>()),
+  );
+
+  // ── Fase M15 — gerbang, penguncian sesi, dan saga tutup shift ─────────────
+  getIt
+    ..registerSingleton<MasterGate>(MasterGate(syncDao: getIt<SyncDao>()))
+    ..registerSingleton<SessionLockGuard>(
+      SessionLockGuard(
+        shiftDao: getIt<ShiftDao>(),
+        securityEventDao: getIt<SecurityEventDao>(),
+        syncDao: getIt<SyncDao>(),
+      ),
+    )
+    ..registerSingleton<SupervisorAuthorizer>(
+      SupervisorAuthorizer(
+        masterDao: getIt<MasterDao>(),
+        verifier: getIt<PinVerifier>(),
+      ),
+    );
+
+  getIt
+    ..registerSingleton<HistoryRepository>(
+      HistoryRepositoryImpl(
+        database: database,
+        dao: getIt<TransactionDao>(),
+        remote: HistoryRemoteDataSource(apiClient),
+        voidLogDao: getIt<VoidLogDao>(),
+        printQueue: printQueue,
+      ),
+    )
+    ..registerSingleton<WasteRepository>(
+      WasteRepositoryImpl(dao: getIt<WasteDao>(), printQueue: printQueue),
+    );
+
+  getIt
+    ..registerSingleton<CatalogRepository>(
+      CatalogRepositoryImpl(getIt<MasterDao>()),
+    )
+    ..registerSingleton<RegisterRepository>(
+      // `voidLogDao` + `printQueue` WAJIB sejak butir 5 ditutup di Flutter:
+      // penurunan kuantitas di atas ambang menulis `void_logs` dan mengantrekan
+      // struk pembatalan ([11 §M13.4], [11 §M14.2]).
+      RegisterRepositoryImpl(
+        dao: getIt<TransactionDao>(),
+        voidLogDao: getIt<VoidLogDao>(),
+        printQueue: printQueue,
+      ),
+    )
+    ..registerSingleton<HeldCartRepository>(
+      HeldCartRepositoryImpl(
+        database: database,
+        dao: getIt<HeldCartDao>(),
+        voidLogDao: getIt<VoidLogDao>(),
+        printQueue: printQueue,
+      ),
+    );
+
   // ── Mesin sinkronisasi ─────────────────────────────────────────────────────
   final SyncEngine syncEngine = SyncEngine(
     remote: SyncRemoteDataSource(apiClient),
@@ -184,6 +263,9 @@ Future<void> configureDependencies() async {
       shiftDao: getIt<ShiftDao>(),
       transactionDao: getIt<TransactionDao>(),
       wasteDao: getIt<WasteDao>(),
+      returnDao: getIt<ReturnDao>(),
+      voidLogDao: getIt<VoidLogDao>(),
+      securityEventDao: getIt<SecurityEventDao>(),
     ),
     shiftDao: getIt<ShiftDao>(),
     transactionDao: getIt<TransactionDao>(),
@@ -191,6 +273,9 @@ Future<void> configureDependencies() async {
     syncDao: getIt<SyncDao>(),
     connectivity: getIt<ConnectivityMonitor>(),
     storage: storage,
+    returnDao: getIt<ReturnDao>(),
+    voidLogDao: getIt<VoidLogDao>(),
+    securityEventDao: getIt<SecurityEventDao>(),
   );
   getIt
     ..registerSingleton<SyncEngine>(syncEngine)
@@ -198,6 +283,26 @@ Future<void> configureDependencies() async {
       SyncTriggers(
         engine: syncEngine,
         connectivity: getIt<ConnectivityMonitor>(),
+      ),
+    )
+    // Satu-satunya muara status jaringan di sisi UI ([11 §M12.1]).
+    // Berumur panjang karena dibaca StatusBar, P-13, dan layar Pengaturan.
+    ..registerSingleton<ConnectivityCubit>(
+      ConnectivityCubit(monitor: getIt<ConnectivityMonitor>()),
+    )
+    // Berumur panjang: banner cetak harus tetap terlihat lintas layar, dan
+    // hitungannya berasal dari stream Drift yang tidak boleh diputus setiap
+    // kali kasir berpindah halaman.
+    ..registerSingleton<PrintQueueCubit>(PrintQueueCubit(service: printQueue))
+    // Saga tutup shift (butir 17). Didaftarkan di sini karena membutuhkan
+    // `SyncEngine` yang baru saja lahir di atas.
+    ..registerSingleton<CloseShiftSaga>(
+      CloseShiftSaga(
+        repository: getIt<ShiftRepository>(),
+        printQueue: printQueue,
+        syncEngine: syncEngine,
+        securityEventDao: getIt<SecurityEventDao>(),
+        syncDao: getIt<SyncDao>(),
       ),
     );
 
@@ -213,7 +318,12 @@ Future<void> configureDependencies() async {
       MasterSyncCubit(getIt<DeviceRepository>()),
     )
     ..registerSingleton<CashierAuthCubit>(
-      CashierAuthCubit(getIt<AuthRepository>()),
+      // `lockGuard` adalah butir 12 ([11 §M15.2]): tanpanya, `requestLogout`
+      // selalu meloloskan, dan Identity Lock tidak pernah menyala.
+      CashierAuthCubit(
+        getIt<AuthRepository>(),
+        lockGuard: getIt<SessionLockGuard>(),
+      ),
     )
     ..registerSingleton<ShiftCubit>(ShiftCubit(getIt<ShiftRepository>()))
     ..registerSingleton<HeldCartCubit>(
@@ -224,7 +334,14 @@ Future<void> configureDependencies() async {
     ..registerSingleton<KioskCubit>(
       KioskCubit(
         service: KioskService(),
-        guard: KioskGuard(masterDao: getIt<MasterDao>()),
+        // `securityEventDao` + `syncDao` WAJIB sejak M17.4: gerbang keluar
+        // Kiosk kini memeriksa IZIN (dari `config`) dan MENCATAT setiap
+        // percobaan ([11 §M17.4]).
+        guard: KioskGuard(
+          masterDao: getIt<MasterDao>(),
+          securityEventDao: getIt<SecurityEventDao>(),
+          syncDao: getIt<SyncDao>(),
+        ),
         heldCarts: getIt<HeldCartRepository>(),
       ),
     )

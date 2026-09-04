@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/database/app_database.dart';
@@ -29,6 +31,8 @@ class MasterLocalDataSource {
               staffIdentifier: s.staffIdentifier,
               name: s.name,
               pinHash: s.pinHash,
+              role: Value<String>(s.role),
+              permissionsJson: Value<String>(jsonEncode(s.permissions)),
               syncedAt: syncedAt,
             ),
           )
@@ -63,6 +67,29 @@ class MasterLocalDataSource {
       syncedAt.millisecondsSinceEpoch.toString(),
       syncedAt,
     );
+
+    // ── BUTIR 10 — versi yang DIPEGANG perangkat ([11 §M15.1]) ────────────
+    //
+    // `version` absen pada server pra-v2. Nilai lama sengaja TIDAK ditimpa
+    // dalam kasus itu: menimpanya akan menghapus versi sah yang sudah dipegang
+    // perangkat hanya karena satu penarikan menemui backend lama, dan gerbang
+    // Buka Shift akan memblokir outlet yang sebenarnya baik-baik saja.
+    if (data.version != null) {
+      await _syncDao.writeMeta(
+        SyncMetaKeys.masterDataVersion,
+        data.version.toString(),
+        syncedAt,
+      );
+    }
+
+    // Blok kebijakan ([11 §4.4]).
+    if (data.config != null) {
+      await _syncDao.writeMeta(
+        SyncMetaKeys.remoteConfig,
+        jsonEncode(data.config),
+        syncedAt,
+      );
+    }
   }
 
   Future<DateTime?> lastSyncedAt() => _syncDao.masterDataSyncedAt();

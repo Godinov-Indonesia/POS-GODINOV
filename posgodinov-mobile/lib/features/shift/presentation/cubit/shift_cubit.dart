@@ -4,7 +4,6 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:posgodinov_mobile/features/shift/domain/entities/shift.dart';
 import 'package:posgodinov_mobile/features/shift/domain/repositories/shift_repository.dart';
-import 'package:posgodinov_mobile/features/shift/domain/shift_math.dart';
 
 sealed class ShiftState extends Equatable {
   const ShiftState();
@@ -35,42 +34,28 @@ final class ShiftActive extends ShiftState {
   List<Object?> get props => <Object?>[shift];
 }
 
-/// Pratinjau penutupan — kasir melihat angka sebelum memutuskan.
+/// Layar tutup shift sedang terbuka — **Blind Closing**, butir 9
+/// ([11 §M15.3]).
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// STATE INI SENGAJA HAMPIR KOSONG
+/// ═══════════════════════════════════════════════════════════════════════════
+///
+/// Versi sebelumnya bernama "pratinjau penutupan" dan membawa
+/// `expectedBalanceMinor`, `cashSalesMinor`, `nonCashSalesMinor`,
+/// `completedCount`, serta `discrepancyFor()`. Kelimanya **dihapus**, bukan
+/// disembunyikan dari UI — state yang masih menyimpannya akan dibaca lagi oleh
+/// orang berikutnya yang ingin "membantu kasir mencocokkan".
+///
+/// Yang tersisa hanyalah shift yang sedang ditutup, karena layar hanya perlu
+/// tahu milik siapa dan sejak jam berapa.
 final class ShiftClosing extends ShiftState {
-  const ShiftClosing({
-    required this.shift,
-    required this.expectedBalanceMinor,
-    required this.cashSalesMinor,
-    required this.nonCashSalesMinor,
-    required this.completedCount,
-  });
+  const ShiftClosing({required this.shift});
 
   final Shift shift;
 
-  /// `opening + penjualan tunai` — yang seharusnya ada di laci.
-  final int expectedBalanceMinor;
-
-  final int cashSalesMinor;
-
-  /// Informasi saja; **tidak** memengaruhi laci.
-  final int nonCashSalesMinor;
-
-  final int completedCount;
-
-  /// Selisih bila kasir memasukkan [closingMinor].
-  int discrepancyFor(int closingMinor) => ShiftMath.discrepancy(
-        closingBalanceMinor: closingMinor,
-        expectedBalanceMinor: expectedBalanceMinor,
-      );
-
   @override
-  List<Object?> get props => <Object?>[
-        shift,
-        expectedBalanceMinor,
-        cashSalesMinor,
-        nonCashSalesMinor,
-        completedCount,
-      ];
+  List<Object?> get props => <Object?>[shift];
 }
 
 final class ShiftClosed extends ShiftState {
@@ -119,9 +104,16 @@ class ShiftCubit extends Cubit<ShiftState> {
     );
   }
 
+  /// Membuka shift.
+  ///
+  /// [masterDataVersion] dan [deviceId] datang dari gerbang butir 10/12 —
+  /// lihat `ShiftRepository.open`.
   Future<void> openShift({
     required String staffId,
     required int openingBalanceMinor,
+    required int? masterDataVersion,
+    required String deviceId,
+    bool blindClose = true,
   }) async {
     if (state is ShiftOpening) return;
 
@@ -136,6 +128,9 @@ class ShiftCubit extends Cubit<ShiftState> {
       final Shift shift = await _repository.open(
         staffId: staffId,
         openingBalanceMinor: openingBalanceMinor,
+        masterDataVersion: masterDataVersion,
+        deviceId: deviceId,
+        blindClose: blindClose,
       );
       emit(ShiftActive(shift));
     } on Object catch (e) {
@@ -151,30 +146,18 @@ class ShiftCubit extends Cubit<ShiftState> {
     return super.close();
   }
 
-  /// Menyiapkan pratinjau P-12: menghitung apa yang **seharusnya** ada di laci
-  /// sebelum kasir menghitung uang fisiknya.
-  Future<void> prepareClose() async {
+  /// Membuka layar tutup shift.
+  ///
+  /// ⚠️ **Tidak menghitung apa pun.** Namanya pun berubah dari `prepareClose`:
+  /// "prepare" menyiratkan ada yang disiapkan, dan yang dulu disiapkan adalah
+  /// persis angka yang butir 9 larang dilihat kasir.
+  ///
+  /// Yang tersisa hanyalah perpindahan state, dan itu tidak dapat gagal —
+  /// karena itu tidak ada lagi jalur `ShiftFailure` di sini.
+  void beginClose() {
     final ShiftState s = state;
     if (s is! ShiftActive) return;
-
-    try {
-      final List<CashLine> lines = await _repository.cashLinesOf(s.shift.id);
-
-      emit(
-        ShiftClosing(
-          shift: s.shift,
-          expectedBalanceMinor: ShiftMath.expectedBalance(
-            openingBalanceMinor: s.shift.openingBalanceMinor,
-            lines: lines,
-          ),
-          cashSalesMinor: ShiftMath.cashSales(lines),
-          nonCashSalesMinor: ShiftMath.nonCashSales(lines),
-          completedCount: ShiftMath.completedCount(lines),
-        ),
-      );
-    } on Object catch (e) {
-      emit(ShiftFailure('Gagal menghitung kas shift: $e'));
-    }
+    emit(ShiftClosing(shift: s.shift));
   }
 
   /// Membatalkan pratinjau dan kembali ke shift berjalan.
@@ -183,27 +166,55 @@ class ShiftCubit extends Cubit<ShiftState> {
     if (s is ShiftClosing) emit(ShiftActive(s.shift));
   }
 
-  /// Menutup shift.
+  /// Menandai shift tertutup **setelah** `CloseShiftSaga` menyelesaikan
+  /// penulisannya ([11 §M15.4]).
+  ///
+  /// Ada karena saga hidup di lapisan domain dan tidak boleh menyentuh Cubit
+  /// presentasi, sementara layar tetap perlu berpindah ke tampilan konfirmasi.
+  /// Namanya sengaja panjang dan spesifik: siapa pun yang tergoda memanggilnya
+  /// dari tempat lain akan lebih dulu membaca bahwa ia HANYA sah setelah saga.
+  ///
+  /// ⚠️ Tidak menulis apa pun ke basis data. Memanggilnya tanpa saga akan
+  /// membuat UI mengaku shift tertutup padahal barisnya masih `OPEN`.
+  void markClosedAfterSaga() {
+    final ShiftState s = state;
+    if (s is! ShiftClosing) return;
+    emit(ShiftClosed(s.shift));
+  }
+
+  /// Menutup shift — **Blind Closing**, butir 9.
+  ///
+  /// Tiga angka deklarasi masuk; nol angka dihitung. Nol adalah nilai yang SAH
+  /// untuk EDC dan QRIS: outlet yang tidak menerima keduanya sepanjang shift
+  /// memang tidak punya angka untuk dideklarasikan.
   ///
   /// [onClosed] dipanggil setelah penulisan berhasil — dipakai memicu
   /// sinkronisasi, momen paling penting karena laci sudah dihitung
   /// ([09 §6.4]).
   Future<void> closeShift({
-    required int closingBalanceMinor,
+    required int declaredCashMinor,
+    required int declaredEdcMinor,
+    required int declaredQrisMinor,
+    bool blindClose = true,
+    String? closedBy,
     Future<void> Function()? onClosed,
   }) async {
     final ShiftState s = state;
     if (s is! ShiftClosing) return;
 
-    if (closingBalanceMinor < 0) {
-      emit(const ShiftFailure('Uang fisik tidak boleh negatif.'));
+    if (declaredCashMinor < 0 || declaredEdcMinor < 0 || declaredQrisMinor < 0) {
+      emit(const ShiftFailure('Nilai deklarasi tidak boleh negatif.'));
       return;
     }
 
     try {
       final Shift closed = await _repository.close(
         shiftId: s.shift.id,
-        closingBalanceMinor: closingBalanceMinor,
+        declaredCashMinor: declaredCashMinor,
+        declaredEdcMinor: declaredEdcMinor,
+        declaredQrisMinor: declaredQrisMinor,
+        blindClose: blindClose,
+        closedBy: closedBy,
       );
       emit(ShiftClosed(closed));
       await onClosed?.call();

@@ -15,7 +15,7 @@
  *    field turunan atau field lokal berprefiks `_` ke dalamnya.
  */
 
-import type { PaymentMethod } from '@/lib/constants/payment'
+import type { PaymentMethod, PaymentSummaryMethod } from '@/lib/constants/payment'
 
 /* ═══════════════════════ 0. Konvensi global ([03 §0]) ═══════════════════════ */
 
@@ -118,6 +118,18 @@ export type MasterStaff = {
   staff_identifier: string
   name: string
   pin_hash: string
+  /**
+   * Peran dan izin granular — v2 ([11 §4.4]).
+   *
+   * Ikut master data supaya otorisasi dapat diputuskan **offline**. Force Close
+   * Shift dan persetujuan void terjadi justru ketika jaringan sedang bermasalah;
+   * otorisasi yang memerlukan permintaan HTTP akan gagal tepat pada saat ia
+   * paling dibutuhkan.
+   *
+   * Opsional karena server pra-v2 tidak mengirimnya.
+   */
+  role?: string
+  permissions?: string[] | null
 }
 
 export type MasterCategory = {
@@ -141,15 +153,68 @@ export type MasterProduct = {
 
 /** `GET /v1/pos/sync/master-data` ([03 §2.2]) — setiap array terkonfirmasi bisa `null`. */
 export type MasterDataResponse = {
+  /**
+   * Versi monotonik per outlet — dasar gerbang Buka Shift (butir 10).
+   *
+   * Opsional pada tipe ini, bukan karena server boleh menghilangkannya, tetapi
+   * karena server LAMA memang tidak mengirimnya. Perangkat yang menghadapi
+   * backend pra-v2 tetap harus dapat menarik master data; gerbangnya yang
+   * kemudian memutuskan apakah versi yang tidak diketahui cukup untuk membuka
+   * shift.
+   */
+  version?: number
   staffs: MasterStaff[] | null
   categories: MasterCategory[] | null
   products: MasterProduct[] | null
+  /** Ambang batas operasional ([11 §4.4]). */
+  config?: Record<string, unknown>
 }
 
 /* ── Sync up (`POST /v1/pos/sync`, [03 §2.3]) ─────────────────────────────── */
 
 export type ShiftStatus = 'OPEN' | 'CLOSED'
-export type TransactionStatus = 'COMPLETED' | 'CANCELLED'
+
+/**
+ * `CANCELLED` adalah **nilai warisan v1** dan sengaja dipertahankan: baris yang
+ * sudah tertulis di perangkat lapangan tidak dapat ditulis ulang, dan menolaknya
+ * saat sinkronisasi berarti membuang pembatalan yang benar-benar terjadi.
+ *
+ * Baris baru memakai `VOIDED` ([11 §2.1]). Kedua nilai lolos
+ * `CHECK ck_txn_status` di PostgreSQL selama jendela deprekasi ([11 §M18.4]).
+ */
+export type TransactionStatus = 'COMPLETED' | 'VOIDED' | 'CANCELLED'
+
+/* ── v2 — enum pendukung state machine Void/Retur ([11 §2]) ───────────────── */
+
+/** Agregat retur atas sebuah transaksi. **Dihitung server**, bukan klien. */
+export type ReturnState = 'NONE' | 'PARTIAL' | 'FULL'
+
+/**
+ * Cakupan retur.
+ *
+ * Dinamai `ReturnKind`, bukan `ReturnType`, karena `ReturnType<T>` adalah
+ * *utility type* bawaan TypeScript — memakai nama itu akan membayanginya di
+ * setiap berkas yang mengimpor tipe ini.
+ */
+export type ReturnKind = 'FULL' | 'PARTIAL'
+
+/**
+ * Arah uang kembali. `EXCHANGE` berarti tidak ada uang berpindah sama sekali —
+ * barang ditukar — sehingga nominalnya tidak boleh masuk hitungan kas laci.
+ */
+export type RefundMethod =
+  | 'CASH'
+  | 'CARD_REVERSAL'
+  | 'QRIS_REVERSAL'
+  | 'EXCHANGE'
+  | 'STORE_CREDIT'
+
+/**
+ * Apa yang dibatalkan. `CART_LINE` dan `HELD_ORDER` membatalkan sesuatu yang
+ * **belum menjadi transaksi** — itulah alasan `void_logs` harus berdiri sendiri
+ * dan tidak dapat direduksi menjadi kolom di `transactions` ([11 §3.2]).
+ */
+export type VoidScope = 'CART_LINE' | 'HELD_ORDER' | 'TRANSACTION'
 
 /**
  * `id` WAJIB diisi klien (UUID v4) — server tidak membuatkan. Inilah dasar
@@ -201,6 +266,167 @@ export type WastePayload = {
   quantity: number
   reason: string
   client_created_at: IsoDateTime
+}
+
+/* ══════════════ v2 — payload kontrak sync versi 2 ([11 §4.2]) ═════════════ */
+
+/**
+ * Header penanda versi kontrak. Server melayani `1` dan `2` selama jendela
+ * deprekasi; tanpa header, permintaan diperlakukan sebagai v1 ([11 §4.1]).
+ */
+export const POS_CONTRACT_VERSION_HEADER = 'X-POS-Contract-Version'
+export const POS_CONTRACT_VERSION_V2 = '2'
+
+/** Satu baris tender. Nominal dalam **Rupiah desimal** — sudah lewat `toMajor`. */
+export type PaymentPayload = {
+  id: string
+  sequence: number
+  method: PaymentMethod
+  amount: number
+  /** WAJIB untuk `DEBIT`/`CREDIT` — ditegakkan `ck_card_requires_trace`. */
+  trace_number?: string
+  /** WAJIB untuk `DEBIT`/`CREDIT`. Tepat 4 digit. */
+  card_last4?: string
+  card_network?: string
+  approval_code?: string
+  edc_terminal_id?: string
+}
+
+export type ShiftPayloadV2 = ShiftPayload & {
+  device_id: string
+  master_data_version: number | null
+  /** Rupiah desimal — satu-satunya angka kas yang berasal dari kasir (butir 9). */
+  declared_cash: number
+  declared_edc_total: number
+  declared_qris_total: number
+  blind_close: boolean
+  closed_by: string | null
+}
+
+export type TransactionPayloadV2 = Omit<TransactionPayload, 'payment_method'> & {
+  device_id: string
+  short_code: string | null
+  /** Diskriminator Void vs Retur ([11 §2.1]). */
+  receipt_printed_at: IsoDateTime | null
+  reprint_count: number
+  /** Ringkasan; `SPLIT` bila `payments.length > 1`. */
+  payment_method: PaymentSummaryMethod
+  /** Sumber kebenaran pembayaran. Invarian: `Σ amount === total_amount`. */
+  payments: PaymentPayload[]
+  voided_at: IsoDateTime | null
+  voided_by: string | null
+  void_reason_code: string | null
+}
+
+export type ReturnItemPayload = {
+  id: string
+  transaction_item_id: string
+  product_id: string
+  quantity: number
+  unit_price: number
+  restock: boolean
+  waste_reason_code?: string
+}
+
+export type ReturnPayload = {
+  id: string
+  original_transaction_id: string
+  /** Shift **saat retur**, bukan shift transaksi asal. */
+  shift_id: string
+  device_id: string
+  staff_id: string
+  authorized_by: string | null
+  return_type: ReturnKind
+  refund_method: RefundMethod
+  refund_amount: number
+  reason_code: string
+  reason_notes: string
+  receipt_printed: boolean
+  short_code: string | null
+  client_created_at: IsoDateTime
+  items: ReturnItemPayload[]
+}
+
+export type VoidLogPayload = {
+  id: string
+  shift_id: string
+  device_id: string
+  staff_id: string
+  authorized_by: string | null
+  scope: VoidScope
+  transaction_id: string | null
+  held_cart_id: string | null
+  product_id: string | null
+  quantity_before: number
+  quantity_after: number
+  value_amount: number
+  reason_code: string
+  reason_notes: string
+  receipt_printed: boolean
+  items_snapshot: VoidLogItemPayload[] | null
+  client_created_at: IsoDateTime
+}
+
+export type VoidLogItemPayload = {
+  product_id: string
+  product_name: string
+  quantity: number
+  unit_price: number
+}
+
+export type SecurityEventPayload = {
+  id: string
+  shift_id: string | null
+  staff_id: string | null
+  device_id: string
+  event_type: string
+  severity: 'INFO' | 'WARN' | 'CRITICAL'
+  details: Record<string, unknown>
+  client_created_at: IsoDateTime
+}
+
+export type WastePayloadV2 = WastePayload & {
+  shift_id: string | null
+  device_id: string
+  reason_code: string
+  receipt_printed: boolean
+}
+
+/** Bentuk lengkap `POST /v1/pos/sync` pada kontrak v2 ([11 §4.2]). */
+export type SyncUpRequestV2 = {
+  device_id: string
+  master_data_version: number | null
+  shifts: ShiftPayloadV2[]
+  transactions: TransactionPayloadV2[]
+  returns: ReturnPayload[]
+  void_logs: VoidLogPayload[]
+  wastes: WastePayloadV2[]
+  security_events: SecurityEventPayload[]
+}
+
+/**
+ * Galat per-entitas ([11 §4.3]).
+ *
+ * `retryable: false` memindahkan baris ke **karantina** (`_synced = -1`).
+ * `failed_transactions` v1 yang berupa array string tidak pernah dapat
+ * memberi tahu kasir MENGAPA barisnya ditolak, sehingga P-13 hanya bisa
+ * menyuruh "coba lagi" tanpa akhir.
+ */
+export type SyncError = {
+  entity: 'shift' | 'transaction' | 'return' | 'void_log' | 'waste' | 'security_event'
+  id: string
+  code: string
+  message: string
+  retryable: boolean
+}
+
+export type SyncUpResponseV2 = SyncUpResponse & {
+  returns_synced: number
+  void_logs_synced: number
+  security_events_synced: number
+  errors: SyncError[] | null
+  master_data_version: number | null
+  server_time: IsoDateTime
 }
 
 /**

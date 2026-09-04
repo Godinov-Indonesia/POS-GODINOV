@@ -86,18 +86,61 @@ func main() {
 	posRepo := repository.NewPOSRepository(db)
 	reportRepo := repository.NewReportRepository(db)
 
+	// Repositori v2 — Fase M11.2 ([11 §4.7])
+	paymentRepo := repository.NewTransactionPaymentRepository(db)
+	returnRepo := repository.NewReturnRepository(db)
+	voidLogRepo := repository.NewVoidLogRepository(db)
+	securityEventRepo := repository.NewSecurityEventRepository(db)
+	masterVersionRepo := repository.NewMasterVersionRepository(db)
+
+	// Repositori v2 — Fase M15.3 ([11 §4.7])
+	shiftReconcileRepo := repository.NewShiftReconcileRepository(db)
+
+	// Repositori v2 — Fase M16.3 ([11 §4.7])
+	opnameSessionRepo := repository.NewOpnameSessionRepository(db)
+
 	// Setup Services
 	businessSvc := service.NewBusinessService(businessRepo, tokenMaker, txManager)
 	outletSvc := service.NewOutletService(outletRepo, businessRepo, txManager)
-	staffSvc := service.NewStaffService(staffRepo, outletRepo)
+	staffSvc := service.NewStaffService(staffRepo, outletRepo,
+		service.WithStaffMasterVersion(txManager, masterVersionRepo))
 	rawMaterialSvc := service.NewRawMaterialService(rawMaterialRepo, outletRepo)
-	productSvc := service.NewProductService(productRepo, rawMaterialRepo, outletRepo, txManager)
+	productSvc := service.NewProductService(productRepo, rawMaterialRepo, outletRepo, txManager,
+		service.WithProductMasterVersion(masterVersionRepo))
 	wasteLogSvc := service.NewWasteLogService(wasteLogRepo, rawMaterialRepo, outletRepo, txManager)
 	stockOpnameSvc := service.NewStockOpnameService(stockOpnameRepo, rawMaterialRepo, outletRepo, txManager)
 	restockLogSvc := service.NewRestockLogService(restockLogRepo, rawMaterialRepo, outletRepo, txManager)
-	categorySvc := service.NewProductCategoryService(categoryRepo, outletRepo)
+	categorySvc := service.NewProductCategoryService(categoryRepo, outletRepo,
+		service.WithCategoryMasterVersion(txManager, masterVersionRepo))
 	posAuthSvc := service.NewPOSAuthService(businessRepo, outletRepo, tokenMaker)
-	posSyncSvc := service.NewPOSSyncService(staffRepo, categoryRepo, productRepo, posRepo, rawMaterialRepo, txManager)
+	// Aturan retur hidup di layanannya sendiri ([11 §M13.6]) dan dipakai DUA
+	// pemanggil: jalur sinkronisasi dan endpoint `returnable`. Satu instance
+	// untuk keduanya memastikan tidak ada versi aturan yang menyimpang.
+	returnSvc := service.NewReturnService(
+		returnRepo, posRepo, productRepo, rawMaterialRepo, txManager,
+	)
+
+	// Rekonsiliasi shift hidup di layanannya sendiri ([11 §M15.3]): angka
+	// ekspektasi dan selisih dihitung SERVER, tidak pernah diterima dari
+	// perangkat kasir (aturan R3/R4).
+	shiftReconcileSvc := service.NewShiftReconcileService(posRepo, shiftReconcileRepo)
+
+	// Modul Opname terisolasi ([11 §M16.3]). Berbagi `rawMaterialRepo` dan
+	// `stockOpnameRepo` dengan jalur pemilik — isolasinya ada di TRANSPORT
+	// (scope token) dan di bentuk DTO, bukan di duplikasi penyimpanan.
+	opnameSessionSvc := service.NewOpnameSessionService(
+		opnameSessionRepo, rawMaterialRepo, outletRepo, stockOpnameRepo, txManager,
+	)
+
+	posSyncSvc := service.NewPOSSyncService(
+		staffRepo, categoryRepo, productRepo, posRepo, rawMaterialRepo, txManager,
+		service.WithPaymentRepository(paymentRepo),
+		service.WithReturnService(returnSvc),
+		service.WithVoidLogRepository(voidLogRepo),
+		service.WithSecurityEventRepository(securityEventRepo),
+		service.WithMasterVersionRepository(masterVersionRepo),
+		service.WithShiftReconcileService(shiftReconcileSvc),
+	)
 	reportSvc := service.NewReportService(reportRepo)
 
 	// Setup Handlers
@@ -112,7 +155,10 @@ func main() {
 	categoryHandler := handler.NewProductCategoryHandler(categorySvc)
 	posAuthHandler := handler.NewPOSAuthHandler(posAuthSvc)
 	posSyncHandler := handler.NewPOSSyncHandler(posSyncSvc)
+	posReturnHandler := handler.NewPOSReturnHandler(returnSvc)
 	reportHandler := handler.NewReportHandler(reportSvc)
+	shiftReconcileHandler := handler.NewShiftReconcileHandler(shiftReconcileSvc)
+	opnameSessionHandler := handler.NewOpnameSessionHandler(opnameSessionSvc)
 
 	// Setup Router
 	mux := handler.SetupRouter(
@@ -127,7 +173,10 @@ func main() {
 		categoryHandler,
 		posAuthHandler,
 		posSyncHandler,
+		posReturnHandler,
 		reportHandler,
+		shiftReconcileHandler,
+		opnameSessionHandler,
 		tokenMaker, 
 		auditRepo,
 		tenantManager,

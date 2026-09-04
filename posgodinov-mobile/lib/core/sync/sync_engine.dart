@@ -1,9 +1,12 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/database/app_database.dart';
+import 'package:posgodinov_mobile/core/database/daos/return_dao.dart';
+import 'package:posgodinov_mobile/core/database/daos/security_event_dao.dart';
 import 'package:posgodinov_mobile/core/database/daos/shift_dao.dart';
 import 'package:posgodinov_mobile/core/database/daos/sync_dao.dart';
 import 'package:posgodinov_mobile/core/database/daos/transaction_dao.dart';
+import 'package:posgodinov_mobile/core/database/daos/void_log_dao.dart';
 import 'package:posgodinov_mobile/core/database/daos/waste_dao.dart';
 import 'package:posgodinov_mobile/core/error/failures.dart';
 import 'package:posgodinov_mobile/core/network/connectivity_monitor.dart';
@@ -25,6 +28,9 @@ class SyncEngine {
     required SyncDao syncDao,
     required ConnectivityMonitor connectivity,
     required SecureStorageService storage,
+    ReturnDao? returnDao,
+    VoidLogDao? voidLogDao,
+    SecurityEventDao? securityEventDao,
     Backoff backoff = const Backoff(),
     DateTime Function()? now,
   })  : _remote = remote,
@@ -35,6 +41,9 @@ class SyncEngine {
         _syncDao = syncDao,
         _connectivity = connectivity,
         _storage = storage,
+        _returnDao = returnDao,
+        _voidLogDao = voidLogDao,
+        _securityEventDao = securityEventDao,
         _backoff = backoff,
         _now = now ?? DateTime.now;
 
@@ -46,6 +55,14 @@ class SyncEngine {
   final SyncDao _syncDao;
   final ConnectivityMonitor _connectivity;
   final SecureStorageService _storage;
+
+  /// DAO entitas v2. Sengaja **opsional**: uji yang hanya menguji jalur
+  /// transaksi tidak perlu merakit tiga DAO tambahan hanya untuk membuktikan
+  /// sesuatu yang tidak menyentuhnya.
+  final ReturnDao? _returnDao;
+  final VoidLogDao? _voidLogDao;
+  final SecurityEventDao? _securityEventDao;
+
   final Backoff _backoff;
   final DateTime Function() _now;
 
@@ -115,10 +132,35 @@ class SyncEngine {
           shifts: batch.shifts,
           transactions: batch.transactions,
           wastes: batch.wastes,
+          deviceId: await _deviceId(),
+          masterDataVersion: await _masterDataVersion(),
+          returns: batch.returns,
+          voidLogs: batch.voidLogs,
+          securityEvents: batch.securityEvents,
         );
       } on Failure catch (f) {
         await _recordFailure(f, trigger, batch, startedAt);
         return aggregate.merge(SyncOutcome.failure(f.message));
+      }
+
+      // ── BUTIR 10 — kabar versi terkini dari server ([11 §M15.1]) ────────
+      //
+      // Ditulis dari SETIAP respons sync, bukan hanya dari penarikan master
+      // data: perangkat yang berjualan seharian tanpa menarik master tetap
+      // harus tahu bahwa pemilik sudah menaikkan harga, dan respons sync adalah
+      // satu-satunya kabar yang ia terima.
+      //
+      // Dibandingkan gerbang Buka Shift dengan versi yang benar-benar dipegang
+      // perangkat. Nol diabaikan — server pra-v2 mengirimnya sebagai bawaan
+      // `int64`, dan memperlakukannya sebagai versi sah akan membuat setiap
+      // perangkat tampak lebih baru daripada server.
+      if (response.masterDataVersion != null &&
+          response.masterDataVersion! > 0) {
+        await _syncDao.writeMeta(
+          SyncMetaKeys.masterDataServerVersion,
+          response.masterDataVersion.toString(),
+          _now(),
+        );
       }
 
       final SyncOutcome outcome = await _reconciler.reconcile(
@@ -160,10 +202,24 @@ class SyncEngine {
     );
     final List<LocalWaste> wastes = await _wasteDao.pending();
 
+    // Entitas v2. DAO yang tidak disuntikkan menghasilkan daftar kosong —
+    // payload-nya tetap sah, koleksinya sekadar tidak berisi apa pun.
+    final List<ReturnWithItems> returns =
+        await _returnDao?.pendingReturns() ?? const <ReturnWithItems>[];
+    final List<LocalVoidLog> voidLogs =
+        await _voidLogDao?.pending() ?? const <LocalVoidLog>[];
+    final List<LocalSecurityEvent> securityEvents =
+        await _securityEventDao?.pending() ?? const <LocalSecurityEvent>[];
+
     final List<LocalShift> unsynced = await _shiftDao.pending();
-    final Set<String> parentIds = transactions
-        .map((TransactionWithItems t) => t.transaction.shiftId)
-        .toSet();
+    // Shift induk ditarik dari SELURUH entitas yang merujuknya, bukan hanya
+    // transaksi: retur dan log pembatalan juga memiliki FK ke `shifts(id)`,
+    // dan backend memprosesnya setelah shift.
+    final Set<String> parentIds = <String>{
+      ...transactions.map((TransactionWithItems t) => t.transaction.shiftId),
+      ...returns.map((ReturnWithItems r) => r.returnRow.shiftId),
+      ...voidLogs.map((LocalVoidLog v) => v.shiftId),
+    };
     final List<LocalShift> parents = await _shiftDao.byIds(parentIds);
 
     // Dedup berdasarkan id — sebuah shift dapat muncul di kedua daftar.
@@ -176,7 +232,21 @@ class SyncEngine {
       shifts: byId.values.toList(growable: false),
       transactions: transactions,
       wastes: wastes,
+      returns: returns,
+      voidLogs: voidLogs,
+      securityEvents: securityEvents,
     );
+  }
+
+  /// Identitas instalasi (butir 12). `'legacy'` untuk perangkat yang dipasang
+  /// sebelum penomoran ini ada — nilainya sama dengan bawaan kolom di server,
+  /// sehingga barisnya tetap dapat dibedakan dari perangkat v2.
+  Future<String> _deviceId() async =>
+      await _syncDao.readMeta(SyncMetaKeys.deviceId) ?? 'legacy';
+
+  Future<int?> _masterDataVersion() async {
+    final String? raw = await _syncDao.readMeta(SyncMetaKeys.masterDataVersion);
+    return raw == null ? null : int.tryParse(raw);
   }
 
   Future<void> _recordFailure(
@@ -216,6 +286,14 @@ class SyncEngine {
         shiftsSynced: Value<int>(outcome.shiftsSynced),
         transactionsSynced: Value<int>(outcome.transactionsSynced),
         wastesSynced: Value<int>(outcome.wastesSynced),
+        // ── v2 ([11 §M12.3]) ─────────────────────────────────────────────
+        returnsSent: Value<int>(batch.returns.length),
+        returnsSynced: Value<int>(outcome.returnsSynced),
+        voidLogsSent: Value<int>(batch.voidLogs.length),
+        voidLogsSynced: Value<int>(outcome.voidLogsSynced),
+        securityEventsSent: Value<int>(batch.securityEvents.length),
+        securityEventsSynced: Value<int>(outcome.securityEventsSynced),
+        quarantined: Value<int>(outcome.quarantined),
         failedTransactionIds:
             Value<String>(outcome.failedTransactionIds.join(',')),
         ok: Value<bool>(outcome.ok),

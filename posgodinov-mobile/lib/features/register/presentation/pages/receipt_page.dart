@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/cart_line.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/sale_transaction.dart';
 import 'package:posgodinov_mobile/features/register/presentation/cubit/transaction_cubit.dart';
@@ -90,7 +89,7 @@ class _Completed extends StatelessWidget {
           children: <Widget>[
             Icon(Icons.check_circle, color: t.success, size: 32),
             const SizedBox(width: Gap.md),
-            Expanded(
+            const Expanded(
               child: Text('Transaksi tersimpan', style: PosText.buttonLg),
             ),
           ],
@@ -122,8 +121,8 @@ class _Completed extends StatelessWidget {
 
         const Divider(height: Gap.xl),
         _Row(label: 'TOTAL', minor: transaction.totalAmountMinor,
-            size: MoneySize.xl),
-        if (transaction.paymentMethod == PaymentMethod.cash) ...<Widget>[
+            size: MoneySize.xl,),
+        if (transaction.paymentMethod.isCash) ...<Widget>[
           const SizedBox(height: Gap.xs),
           _Row(
             label: 'Tunai',

@@ -18,7 +18,31 @@ class HeldCartCubit extends Cubit<List<HeldCartSummary>> {
     _sub = _repository.watchAll().listen(emit);
   }
 
-  Future<void> discard(String id) => _repository.discard(id);
+  /// Membatalkan pesanan tertahan — **butir 13** ([11 §M13.5]).
+  ///
+  /// Bukan `discard`: pembatalannya menulis jejak audit, dan nama metode yang
+  /// menyembunyikan itu akan membuat pemanggil berikutnya mengira aksinya
+  /// murah.
+  Future<void> cancel({
+    required String id,
+    required String shiftId,
+    required String staffId,
+    required String reasonCode,
+    required String reasonNotes,
+    String? authorizedBy,
+    String cashierName = '',
+    String? authorizedByName,
+  }) =>
+      _repository.cancel(
+        id: id,
+        shiftId: shiftId,
+        staffId: staffId,
+        reasonCode: reasonCode,
+        reasonNotes: reasonNotes,
+        authorizedBy: authorizedBy,
+        cashierName: cashierName,
+        authorizedByName: authorizedByName,
+      );
 
   @override
   Future<void> close() async {

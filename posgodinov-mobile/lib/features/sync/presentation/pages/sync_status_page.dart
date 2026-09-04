@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:posgodinov_mobile/core/network/clock_skew_monitor.dart';
 import 'package:posgodinov_mobile/features/sync/presentation/cubit/sync_cubit.dart';
 import 'package:posgodinov_mobile/features/sync/presentation/widgets/sync_badge_chip.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
@@ -34,6 +33,33 @@ class SyncStatusPage extends StatelessWidget {
               const SizedBox(height: Gap.lg),
 
               _QueueCard(state: state),
+
+              // ── TIGA KELOMPOK ANTREAN ([11 §M12.3]) ────────────────────
+              //
+              // Pembagiannya bukan kosmetik: hanya kelompok ketiga yang
+              // menuntut manusia. Menyatukan ketiganya membuat satu baris
+              // cacat permanen tersembunyi di antara seratus baris yang akan
+              // beres sendiri.
+              const SizedBox(height: Gap.lg),
+              _QueueGroups(state: state),
+
+              // Kelompok "Butuh tindakan" dijelaskan LEBIH DULU daripada
+              // kegagalan biasa: hanya inilah yang tidak akan beres sendiri.
+              if (state.needsAttention) ...<Widget>[
+                const SizedBox(height: Gap.lg),
+                const _Notice(
+                  tone: _Tone.danger,
+                  icon: Icons.report_problem_outlined,
+                  title: 'Baris ini tidak akan terkirim sendiri',
+                  body: 'Server menolaknya dengan alasan yang TIDAK BERUBAH '
+                      'berapa kali pun dikirim ulang — misalnya pembayaran '
+                      'kartu tanpa nomor trace, atau retur yang melebihi '
+                      'jumlah aslinya. Baris ini sudah dikeluarkan dari '
+                      'antrean supaya tidak menahan baris di belakangnya. '
+                      'Datanya TETAP TERSIMPAN di perangkat; laporkan ke '
+                      'supervisor.',
+                ),
+              ],
 
               if (state.hasError) ...<Widget>[
                 const SizedBox(height: Gap.lg),
@@ -89,6 +115,106 @@ class SyncStatusPage extends StatelessWidget {
         },
       ),
       backgroundColor: t.bg,
+    );
+  }
+}
+
+/// Tiga kelompok antrean, berdampingan ([11 §M12.3]).
+class _QueueGroups extends StatelessWidget {
+  const _QueueGroups({required this.state});
+
+  final SyncState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final GodinovTokens t = context.tokens;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Expanded(
+          child: _GroupTile(
+            label: 'Antre',
+            value: state.waitingCount,
+            hint: 'Menunggu giliran kirim.',
+            accent: t.fgMuted,
+            active: state.waitingCount > 0,
+          ),
+        ),
+        const SizedBox(width: Gap.sm),
+        Expanded(
+          child: _GroupTile(
+            label: 'Gagal',
+            value: state.failedCount,
+            hint: 'Akan diulang otomatis.',
+            accent: t.warningText,
+            active: state.failedCount > 0,
+          ),
+        ),
+        const SizedBox(width: Gap.sm),
+        Expanded(
+          child: _GroupTile(
+            label: 'Butuh tindakan',
+            value: state.quarantinedCount,
+            hint: 'Ditolak permanen.',
+            // Token `dangerText` TIDAK ADA di GodinovTokens — hanya `danger`,
+            // `dangerHover`, dan `dangerSubtle`. Memakai nama yang tidak ada
+            // baru ketahuan saat kompilasi di mesin yang punya Flutter SDK.
+            accent: t.danger,
+            active: state.quarantinedCount > 0,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GroupTile extends StatelessWidget {
+  const _GroupTile({
+    required this.label,
+    required this.value,
+    required this.hint,
+    required this.accent,
+    required this.active,
+  });
+
+  final String label;
+  final int value;
+  final String hint;
+  final Color accent;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final GodinovTokens t = context.tokens;
+
+    return Container(
+      padding: const EdgeInsets.all(Gap.md),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(Radii.lg),
+        // Warna SAJA tidak pernah menjadi satu-satunya penanda ([06 §1.5]) —
+        // label dan `hint` membawa arti yang sama tanpa bergantung warna.
+        border: Border.all(color: active ? accent : t.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            label.toUpperCase(),
+            style: PosText.sm.copyWith(color: t.fgMuted, letterSpacing: 0.4),
+          ),
+          const SizedBox(height: Gap.xs),
+          Text(
+            '$value',
+            style: PosText.moneyXl.copyWith(
+              color: active ? accent : t.fgSubtle,
+            ),
+          ),
+          const SizedBox(height: Gap.xs),
+          Text(hint, style: PosText.sm.copyWith(color: t.fgSubtle)),
+        ],
+      ),
     );
   }
 }
@@ -180,18 +306,18 @@ class _Limitations extends StatelessWidget {
           style: PosText.sm.copyWith(color: t.fgMuted, letterSpacing: 0.6),
         ),
         const SizedBox(height: Gap.sm),
-        _Bullet(
+        const _Bullet(
           // Batasan [05 §1.6.6] hilang sejak M8 — tetapi hanya bila sistem
           // mengizinkan proses latar berjalan.
           text: 'Sinkronisasi juga berjalan saat aplikasi tertutup, sekitar '
               'tiap 15 menit. Bila penghemat baterai aktif, sistem dapat '
               'menghentikannya — periksa Pengaturan → Sinkronisasi Latar.',
         ),
-        _Bullet(
+        const _Bullet(
           text: 'Percobaan ulang tidak pernah menyerah. Data keuangan tidak '
               'pernah dibuang, sebanyak apa pun kegagalannya.',
         ),
-        _Bullet(
+        const _Bullet(
           text: 'Laporan pemilik dikelompokkan berdasarkan waktu data tiba di '
               'server, bukan waktu transaksi di kasir. Penjualan offline yang '
               'baru tersinkron muncul pada tanggal sinkronisasi.',

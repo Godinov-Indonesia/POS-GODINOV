@@ -3,6 +3,7 @@ package unit
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"posgodinov-backend/internal/database"
@@ -47,6 +48,23 @@ func (m *MockPOSRepository) GetTransactionByID(ctx context.Context, id string) (
 	}
 	return nil, errors.New("not found")
 }
+func (m *MockPOSRepository) LookupTransaction(ctx context.Context, outletID, code string) (*domain.Transaction, error) {
+	trimmed := strings.TrimSpace(code)
+	if trimmed == "" {
+		return nil, errors.New("kode transaksi kosong")
+	}
+	upper := strings.ToUpper(trimmed)
+	for _, t := range m.transactions {
+		if t.OutletID != outletID {
+			continue
+		}
+		if t.ID == trimmed || (t.ShortCode != nil && *t.ShortCode == upper) {
+			return t, nil
+		}
+	}
+	return nil, errors.New("transaksi tidak ditemukan")
+}
+
 func (m *MockPOSRepository) GetTransactions(ctx context.Context, outletID string, limit, offset int) ([]*domain.Transaction, error) {
 	return nil, nil
 }
@@ -160,7 +178,7 @@ func TestSyncUp(t *testing.T) {
 	svc := service.NewPOSSyncService(staffRepo, catRepo, productRepo, posRepo, rmRepo, txManager)
 
 	// 1. New Transaction (Completed)
-	req1 := &domain.SyncUpRequest{
+	req1 := &domain.SyncUpRequestV2{SyncUpRequest: domain.SyncUpRequest{
 		Transactions: []*domain.Transaction{
 			{
 				ID:     "trx-1",
@@ -170,7 +188,7 @@ func TestSyncUp(t *testing.T) {
 				},
 			},
 		},
-	}
+	}}
 
 	res, err := svc.SyncUp(ctx, "biz-1", "out-1", req1)
 	if err != nil {
@@ -198,7 +216,7 @@ func TestSyncUp(t *testing.T) {
 	}
 
 	// 3. Cancel Transaction (Reverse Deduction)
-	req2 := &domain.SyncUpRequest{
+	req2 := &domain.SyncUpRequestV2{SyncUpRequest: domain.SyncUpRequest{
 		Transactions: []*domain.Transaction{
 			{
 				ID:     "trx-1",
@@ -208,7 +226,7 @@ func TestSyncUp(t *testing.T) {
 				},
 			},
 		},
-	}
+	}}
 
 	res, err = svc.SyncUp(ctx, "biz-1", "out-1", req2)
 	if err != nil {
@@ -223,7 +241,7 @@ func TestSyncUp(t *testing.T) {
 	}
 
 	// 4. Negative Stock Allowed
-	req3 := &domain.SyncUpRequest{
+	req3 := &domain.SyncUpRequestV2{SyncUpRequest: domain.SyncUpRequest{
 		Transactions: []*domain.Transaction{
 			{
 				ID:     "trx-2",
@@ -233,7 +251,7 @@ func TestSyncUp(t *testing.T) {
 				},
 			},
 		},
-	}
+	}}
 	_, err = svc.SyncUp(ctx, "biz-1", "out-1", req3)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)

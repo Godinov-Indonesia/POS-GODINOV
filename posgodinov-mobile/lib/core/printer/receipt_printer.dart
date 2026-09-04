@@ -85,7 +85,7 @@ class ReceiptData {
   final String cashierName;
   final List<ReceiptLine> lines;
   final int totalMinor;
-  final PaymentMethod paymentMethod;
+  final PaymentSummary paymentMethod;
   final int cashReceivedMinor;
   final int changeMinor;
   final DateTime issuedAt;

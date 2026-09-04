@@ -3102,6 +3102,164 @@
               "body": "{\n    \"status\": \"success\",\n    \"message\": \"Riwayat transaksi berhasil didapatkan\",\n    \"data\": [\n        {\n            \"id\": \"d2e7b822-3a99-4e71-925f-38c12faeb4b9\",\n            \"shift_id\": \"f8a73b22-8199-4d62-a25e-38c12faeb3b7\",\n            \"outlet_id\": \"GG37RT\",\n            \"business_id\": \"3BFU6JKH\",\n            \"customer_name\": \"Ibu Sari\",\n            \"total_amount\": 25000,\n            \"payment_method\": \"QRIS\",\n            \"status\": \"CANCELLED\",\n            \"cancel_notes\": \"Pelanggan berubah pikiran, minta di-refund\",\n            \"client_created_at\": \"2026-07-27T18:45:00+07:00\",\n            \"created_at\": \"2026-07-27T14:10:00.548232+07:00\",\n            \"items\": [\n                {\n                    \"id\": \"b2f7b822-3a99-4e71-925f-38c12faeb9c2\",\n                    \"transaction_id\": \"d2e7b822-3a99-4e71-925f-38c12faeb4b9\",\n                    \"product_id\": \"bd05cf39-f0d8-4037-a393-b2d600273759\",\n                    \"quantity\": 1,\n                    \"unit_price\": 25000\n                }\n            ]\n        },\n        {\n            \"id\": \"c1f7b822-2a99-4e71-925f-28c12faeb4b9\",\n            \"shift_id\": \"f8a73b22-8199-4d62-a25e-38c12faeb3b7\",\n            \"outlet_id\": \"GG37RT\",\n            \"business_id\": \"3BFU6JKH\",\n            \"customer_name\": \"Pak Anton\",\n            \"total_amount\": 40000,\n            \"payment_method\": \"CASH\",\n            \"status\": \"COMPLETED\",\n            \"cancel_notes\": \"\",\n            \"client_created_at\": \"2026-07-27T16:15:00+07:00\",\n            \"created_at\": \"2026-07-27T14:10:00.525489+07:00\",\n            \"items\": [\n                {\n                    \"id\": \"e4f7b822-2a99-4e71-925f-28c12faeb8b1\",\n                    \"transaction_id\": \"c1f7b822-2a99-4e71-925f-28c12faeb4b9\",\n                    \"product_id\": \"03ecd73d-535a-4769-9050-96b62b522ffe\",\n                    \"quantity\": 2,\n                    \"unit_price\": 15000\n                },\n                {\n                    \"id\": \"a1f7b822-2a99-4e71-925f-28c12faeb9c2\",\n                    \"transaction_id\": \"c1f7b822-2a99-4e71-925f-28c12faeb4b9\",\n                    \"product_id\": \"d579e78b-0d3e-478a-af79-9c6dcf1b35d7\",\n                    \"quantity\": 1,\n                    \"unit_price\": 10000\n                }\n            ]\n        }\n    ]\n}"
             }
           ]
+        },
+        {
+          "name": "POS v2 — Kontrak Sinkronisasi (M11)",
+          "description": "Kontrak sinkronisasi versi 2 — docs/11-v2-implementation-plan.md §4.\n\nVersi dipilih lewat header `X-POS-Contract-Version`:\n- tanpa header atau `1` → jalur v1 (koleksi v2 diabaikan)\n- `2` → jalur v2 (seluruh entitas diproses)\n\nSetiap respons membawa `X-POS-Contract-Supported: 1,2`.\n\n**PENTING:** `200 OK` TIDAK berarti semuanya berhasil. Periksa `errors[]`; baris ber-`retryable: false` harus DIKARANTINA klien, bukan dikirim ulang selamanya.",
+          "item": [
+            {
+              "name": "Sync Up v2 — seluruh entitas",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-POS-Contract-Version",
+                    "value": "2"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"device_id\": \"dev-01HXQ2\",\n  \"master_data_version\": 187,\n  \"shifts\": [\n    {\n      \"id\": \"8f14e45f-ceea-467a-9ae0-6a8d6d3d8a11\",\n      \"staff_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"device_id\": \"dev-01HXQ2\",\n      \"master_data_version\": 187,\n      \"opening_balance\": 500000,\n      \"closing_balance\": 1750000,\n      \"declared_cash\": 1750000,\n      \"declared_edc_total\": 900000,\n      \"declared_qris_total\": 250000,\n      \"blind_close\": true,\n      \"status\": \"CLOSED\",\n      \"client_opened_at\": \"2026-08-20T08:02:00+07:00\",\n      \"client_closed_at\": \"2026-08-20T16:10:00+07:00\"\n    }\n  ],\n  \"transactions\": [\n    {\n      \"id\": \"aaaa1111-2222-4333-8444-555566667777\",\n      \"shift_id\": \"8f14e45f-ceea-467a-9ae0-6a8d6d3d8a11\",\n      \"device_id\": \"dev-01HXQ2\",\n      \"short_code\": \"AB1234-260820-K7QF1\",\n      \"customer_name\": \"\",\n      \"total_amount\": 155000,\n      \"payment_method\": \"SPLIT\",\n      \"status\": \"COMPLETED\",\n      \"cancel_notes\": \"\",\n      \"receipt_printed_at\": \"2026-08-20T10:14:22+07:00\",\n      \"reprint_count\": 0,\n      \"client_created_at\": \"2026-08-20T10:14:00+07:00\",\n      \"payments\": [\n        {\n          \"id\": \"bbbb1111-2222-4333-8444-555566667777\",\n          \"sequence\": 1,\n          \"method\": \"CASH\",\n          \"amount\": 55000\n        },\n        {\n          \"id\": \"cccc1111-2222-4333-8444-555566667777\",\n          \"sequence\": 2,\n          \"method\": \"DEBIT\",\n          \"amount\": 100000,\n          \"trace_number\": \"004871\",\n          \"card_last4\": \"4417\",\n          \"card_network\": \"GPN\",\n          \"edc_terminal_id\": \"EDC-02\"\n        }\n      ],\n      \"items\": [\n        {\n          \"id\": \"dddd1111-2222-4333-8444-555566667777\",\n          \"transaction_id\": \"aaaa1111-2222-4333-8444-555566667777\",\n          \"product_id\": \"eeee1111-2222-4333-8444-555566667777\",\n          \"quantity\": 2,\n          \"unit_price\": 27500\n        }\n      ]\n    }\n  ],\n  \"returns\": [\n    {\n      \"id\": \"ffff1111-2222-4333-8444-555566667777\",\n      \"original_transaction_id\": \"aaaa1111-2222-4333-8444-555566667777\",\n      \"shift_id\": \"8f14e45f-ceea-467a-9ae0-6a8d6d3d8a11\",\n      \"device_id\": \"dev-01HXQ2\",\n      \"staff_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"authorized_by\": \"660e8400-e29b-41d4-a716-446655440001\",\n      \"return_type\": \"PARTIAL\",\n      \"refund_method\": \"CASH\",\n      \"refund_amount\": 55000,\n      \"reason_code\": \"DEFECTIVE\",\n      \"reason_notes\": \"Kemasan bocor saat diterima pelanggan\",\n      \"receipt_printed\": true,\n      \"short_code\": \"AB1234-260820-R2M9X\",\n      \"client_created_at\": \"2026-08-21T09:00:00+07:00\",\n      \"items\": [\n        {\n          \"id\": \"1111aaaa-2222-4333-8444-555566667777\",\n          \"transaction_item_id\": \"dddd1111-2222-4333-8444-555566667777\",\n          \"product_id\": \"eeee1111-2222-4333-8444-555566667777\",\n          \"quantity\": 2,\n          \"unit_price\": 27500,\n          \"restock\": false,\n          \"waste_reason_code\": \"BROKEN\"\n        }\n      ]\n    }\n  ],\n  \"void_logs\": [\n    {\n      \"id\": \"2222aaaa-2222-4333-8444-555566667777\",\n      \"shift_id\": \"8f14e45f-ceea-467a-9ae0-6a8d6d3d8a11\",\n      \"device_id\": \"dev-01HXQ2\",\n      \"staff_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"authorized_by\": \"660e8400-e29b-41d4-a716-446655440001\",\n      \"scope\": \"CART_LINE\",\n      \"transaction_id\": null,\n      \"held_cart_id\": null,\n      \"product_id\": \"eeee1111-2222-4333-8444-555566667777\",\n      \"quantity_before\": 12,\n      \"quantity_after\": 3,\n      \"value_amount\": 247500,\n      \"reason_code\": \"WRONG_QTY\",\n      \"reason_notes\": \"Pelanggan mengurangi pesanan\",\n      \"receipt_printed\": true,\n      \"items_snapshot\": null,\n      \"client_created_at\": \"2026-08-20T10:05:00+07:00\"\n    }\n  ],\n  \"wastes\": [\n    {\n      \"id\": \"3333aaaa-2222-4333-8444-555566667777\",\n      \"staff_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"product_id\": \"eeee1111-2222-4333-8444-555566667777\",\n      \"shift_id\": \"8f14e45f-ceea-467a-9ae0-6a8d6d3d8a11\",\n      \"device_id\": \"dev-01HXQ2\",\n      \"quantity\": 1,\n      \"reason\": \"Tumpah saat penyajian\",\n      \"reason_code\": \"SPILLED\",\n      \"receipt_printed\": true,\n      \"client_created_at\": \"2026-08-20T11:00:00+07:00\"\n    }\n  ],\n  \"security_events\": [\n    {\n      \"id\": \"4444aaaa-2222-4333-8444-555566667777\",\n      \"shift_id\": \"8f14e45f-ceea-467a-9ae0-6a8d6d3d8a11\",\n      \"staff_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"device_id\": \"dev-01HXQ2\",\n      \"event_type\": \"KIOSK_EXIT_DENIED\",\n      \"severity\": \"CRITICAL\",\n      \"details\": {\n        \"attempts\": 3,\n        \"staff_identifier\": \"K-014\"\n      },\n      \"client_created_at\": \"2026-08-20T12:30:00+07:00\"\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{url}}/v1/pos/sync",
+                  "host": [
+                    "{{url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "pos",
+                    "sync"
+                  ]
+                },
+                "description": "Payload v2 lengkap: multi-tender (butir 8), retur (butir 15), log pembatalan (butir 5/13), waste beralasan (butir 7), audit keamanan (R9), dan Blind Closing (butir 9).\n\nPerhatikan `expected_cash`/`cash_variance` TIDAK dikirim: server menghitungnya sendiri dan mengabaikan nilai dari klien (aturan R4).",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token_binding}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Sync Up v2 — kartu tanpa trace number (harus DITOLAK)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-POS-Contract-Version",
+                    "value": "2"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"device_id\": \"dev-01HXQ2\",\n  \"transactions\": [\n    {\n      \"id\": \"5555aaaa-2222-4333-8444-555566667777\",\n      \"shift_id\": \"8f14e45f-ceea-467a-9ae0-6a8d6d3d8a11\",\n      \"total_amount\": 100000,\n      \"payment_method\": \"DEBIT\",\n      \"status\": \"COMPLETED\",\n      \"client_created_at\": \"2026-08-20T10:00:00+07:00\",\n      \"payments\": [\n        {\n          \"id\": \"6666aaaa-2222-4333-8444-555566667777\",\n          \"sequence\": 1,\n          \"method\": \"DEBIT\",\n          \"amount\": 100000\n        }\n      ],\n      \"items\": []\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{url}}/v1/pos/sync",
+                  "host": [
+                    "{{url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "pos",
+                    "sync"
+                  ]
+                },
+                "description": "Menegakkan butir 8. Diharapkan `errors[0].code = CARD_DETAILS_REQUIRED` dengan `retryable: false`, dan `transactions_synced = 0`.\n\nBaris ini dikarantina di klien: mengirim ulang tidak akan pernah membuatnya lolos, dan menahannya di antrean akan memblokir seluruh baris di belakangnya.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token_binding}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Sync Up v1 — kompatibilitas mundur",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"shifts\": [],\n  \"transactions\": [\n    {\n      \"id\": \"7777aaaa-2222-4333-8444-555566667777\",\n      \"shift_id\": \"8f14e45f-ceea-467a-9ae0-6a8d6d3d8a11\",\n      \"customer_name\": \"\",\n      \"total_amount\": 55000,\n      \"payment_method\": \"CASH\",\n      \"status\": \"COMPLETED\",\n      \"cancel_notes\": \"\",\n      \"client_created_at\": \"2026-08-20T10:00:00+07:00\",\n      \"items\": []\n    }\n  ],\n  \"wastes\": []\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{url}}/v1/pos/sync",
+                  "host": [
+                    "{{url}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "pos",
+                    "sync"
+                  ]
+                },
+                "description": "Bentuk PERSIS seperti yang dikirim perangkat lama: tanpa `device_id`, tanpa `payments`, tanpa koleksi baru. WAJIB tetap `200`.\n\nPerangkat yang mati dua minggu kembali membawa uang yang sudah diterima; menolaknya berarti menghapus penjualan nyata.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{token_binding}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
         }
       ]
     }

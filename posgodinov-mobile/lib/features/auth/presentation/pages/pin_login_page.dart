@@ -84,7 +84,7 @@ class _PinLoginPageState extends State<PinLoginPage> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
-                      Text(
+                      const Text(
                         'MASUK SEBAGAI KASIR',
                         textAlign: TextAlign.center,
                         style: PosText.buttonLg,

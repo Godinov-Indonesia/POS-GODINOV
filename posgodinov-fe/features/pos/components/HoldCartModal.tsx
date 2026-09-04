@@ -16,22 +16,33 @@ const PRESET_CHIPS = ['Meja 1', 'Meja 2', 'Takeaway', 'Drive Thru']
 
 export function HoldCartModal({ open, onClose, onConfirm }: HoldCartModalProps) {
   const [label, setLabel] = React.useState('')
+  const [wasOpen, setWasOpen] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
 
-  // Mengatur nilai default Pesanan #HH:mm dan melakukan fokus input saat modal terbuka
-  React.useEffect(() => {
+  // Mengatur nilai default Pesanan #HH:mm saat modal berpindah ke keadaan terbuka.
+  //
+  // Disetel SAAT RENDER, bukan di dalam useEffect. `setState` sinkron di dalam
+  // badan efek memicu render berantai dan ditolak react-hooks/set-state-in-effect;
+  // ini pola "sesuaikan state ketika prop berubah" yang dianjurkan React.
+  // Perilakunya identik: label direset setiap kali modal dibuka.
+  if (open !== wasOpen) {
+    setWasOpen(open)
     if (open) {
       const now = new Date()
       const hh = String(now.getHours()).padStart(2, '0')
       const mm = String(now.getMinutes()).padStart(2, '0')
       setLabel(`Pesanan #${hh}:${mm}`)
-      
-      const timer = setTimeout(() => {
-        inputRef.current?.focus()
-        inputRef.current?.select()
-      }, 50)
-      return () => clearTimeout(timer)
     }
+  }
+
+  // Fokus + select adalah sinkronisasi ke DOM — itu memang wilayah efek.
+  React.useEffect(() => {
+    if (!open) return
+    const timer = setTimeout(() => {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }, 50)
+    return () => clearTimeout(timer)
   }, [open])
 
   const handleSubmit = (e?: React.FormEvent) => {

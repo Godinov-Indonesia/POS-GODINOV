@@ -1,0 +1,308 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# M13 · butir 5 — Strict Qty Audit / Void Guard  ([11 §M13.4])
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# YANG DIBUKTIKAN SKENARIO INI
+#
+#   Penurunan kuantitas keranjang yang MELEWATI ambang (`void_threshold_qty`,
+#   bawaan 5 — `SyncLimits.voidThresholdQty`) tidak boleh lewat tombol minus
+#   biasa. Ia wajib membuka Void Reason Sheet, menuntut alasan, dan baru
+#   sesudah itu kuantitasnya turun.
+#
+#   Aritmetikanya (`CartCubit.canDecrementTo`) memakai PUNCAK kuantitas, bukan
+#   kuantitas saat ini, dan gerbangnya `totalDecrease > threshold`:
+#
+#     qty 10 → ketukan minus ke-1..5  ⇒ totalDecrease 1..5  ≤ 5  → LOLOS
+#     qty  5 → ketukan minus ke-6     ⇒ totalDecrease 6     >  5 → DIBLOKIR
+#
+#   Karena itu ketukan ke-6 — bukan yang lain — adalah ketukan yang harus
+#   memunculkan sheet. Skenario ini menegaskan keduanya: lima ketukan pertama
+#   TIDAK memunculkan sheet (`assertNotVisible`), ketukan keenam memunculkannya.
+#
+# PRASYARAT PERANGKAT
+#
+#   · Emulator/tablet sudah TERPASANG (binding P-01) dan master data terunduh.
+#     Alurnya berhenti dengan pesan jelas bila layar "Pemasangan Perangkat"
+#     yang muncul — binding menuntut backend dan bukan bagian dari UAT ini.
+#   · Data berasal dari `posgodinov-be/cmd/seeder` (PIN seluruh staf: 123456,
+#     produk "Espresso" pada kategori "Kopi").
+#   · Tata letak TABLET/desktop — panel keranjang menempel di kanan layar.
+#     Pada handheld (`context.isHandheld`) keranjang menjadi bottom sheet dan
+#     pemilih di bawah tidak akan ketemu.
+#
+# ⚠️ Seluruh pemilih memakai TEKS dan LABEL SEMANTIK yang sudah ada di kode
+#    Flutter. Tidak ada `Semantics.identifier` yang ditambahkan demi pengujian
+#    ini; alurnya menyesuaikan diri pada aplikasi, bukan sebaliknya.
+#
+# ⚠️ AWALAN `(?s)` PADA SETIAP REGEX BUKAN HIASAN
+#
+#    Maestro mencocokkan regex ke SELURUH teks sebuah node, dan Flutter
+#    MENGGABUNG teks anak sebuah kartu menjadi satu node ber-baris-baru:
+#
+#        ProductTile "Espresso"  →  "E\nEspresso\nRp 18.000"
+#
+#    `.` tidak melintasi baris baru, sehingga `.*Espresso.*` GAGAL di node itu
+#    dan Maestro melapor "Element not found: Espresso" — tepat pada kartu yang
+#    terpampang jelas di tangkapan layarnya sendiri. `(?s)` menyalakan mode
+#    DOTALL dan menghapus seluruh kelas kegagalan itu.
+#
+#    Label yang berdiri sendiri (`Semantics(label:)` pada tombol stepper,
+#    "KERANJANG", judul Void Sheet) tidak digabung, jadi tetap dicocokkan utuh
+#    tanpa `(?s)` — pemilih yang persis lebih tajam daripada yang longgar.
+# ══════════════════════════════════════════════════════════════════════════════
+
+appId: id.godinov.pos
+name: M13 · Void Guard — penurunan kuantitas melewati ambang
+tags:
+  - uat
+  - m13
+  - void
+env:
+  # Kredensial seeder. PIN diasumsikan 6 digit (bawaan seeder: 123456); setiap
+  # digit diketuk satu per satu karena P-03 memakai keypad, bukan TextField
+  # yang bisa di-`inputText`.
+  STAFF_ID: kasir01
+  STAFF_PIN: "123456"
+
+  # Produk uji: harus ada di grid katalog dan namanya unik.
+  PRODUCT: Espresso
+
+  # Modal awal laci bila shift belum terbuka (label tombol "Pilih cepat").
+  OPENING_CASH_PRESET: Rp 500rb
+
+  # Alasan yang dipilih di Void Sheet — label Bahasa Indonesia untuk kode
+  # `WRONG_QTY` (`kVoidReasonLabels`). Sengaja BUKAN "Lainnya", supaya aturan
+  # catatan wajib tidak ikut terpicu dan skenario ini tetap menguji satu hal.
+  VOID_REASON: Jumlah salah
+---
+
+# ── 1. Luncurkan aplikasi ────────────────────────────────────────────────────
+#
+# `clearState` SENGAJA TIDAK dipakai: menghapus state berarti menghapus token
+# perangkat, dan alurnya akan terlempar ke P-01 Binding yang menuntut backend.
+- launchApp:
+    appId: id.godinov.pos
+
+# NOTE-01 — layar sinkronisasi HARUS ikut ditunggu di sini.
+#
+# Versi sebelumnya langsung menunggu layar utama saja, lalu menangani
+# "Sinkronisasi Data" SETELAHNYA. Urutan itu terbalik: ketika master data basi
+# dan `AppGate` singgah ke P-02, tidak satu pun dari ketiga teks layar utama
+# pernah muncul — tunggu di atas kehabisan waktu 30 detik dan alurnya mati
+# SEBELUM mencapai baris yang justru dibuat untuk menangani layar itu.
+# Penanganannya hanya berguna bila layarnya boleh ditunggu lebih dulu.
+- extendedWaitUntil:
+    visible:
+      text: "(?s).*(Pemasangan Perangkat|Sinkronisasi Data|MASUK SEBAGAI KASIR|Modal Awal Laci|KERANJANG).*"
+    timeout: 30000
+
+# Berhenti cepat dengan pesan yang menunjuk penyebabnya, bukan gagal samar di
+# tengah alur karena tombol produk tidak ketemu.
+- assertNotVisible: "Pemasangan Perangkat"
+
+# Sinkronisasi master data (P-02) kadang menyela; tunggu sampai ia SELESAI.
+# Dijalankan SEBELUM layar utama ditunggu — itulah inti NOTE-01.
+#
+# ⚠️ JANGAN menunggu tombol "Lanjutkan" di sini. `MasterSyncPage` memasang
+#    `BlocConsumer.listener` yang memanggil `onCompleted` begitu state menjadi
+#    `MasterSyncDone` — halaman itu MENUTUP DIRINYA SENDIRI, dan tombolnya
+#    hanya sempat tergambar satu frame sebelum `AppGate` berpindah. Menunggu
+#    tombol yang memang tidak pernah menetap membuat alurnya kehabisan waktu
+#    pada jalur yang justru BERHASIL.
+#
+#    Yang ditunggu karena itu adalah AKIBATNYA: layar berikutnya muncul (jalur
+#    sukses), atau tombol pemulihan muncul (jalur gagal).
+- runFlow:
+    when:
+      visible: "Sinkronisasi Data"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "(?s).*(MASUK SEBAGAI KASIR|Modal Awal Laci|KERANJANG|Lanjut dengan Data Tersimpan|Coba Lagi).*"
+          timeout: 120000
+
+      # Unduhan gagal tetapi perangkat masih memegang snapshot lama: teruskan
+      # dengan data tersimpan. UAT M13 murni lokal — ia tidak menguji kesegaran
+      # master data, jadi snapshot lama sudah memadai.
+      - runFlow:
+          when:
+            visible: "Lanjut dengan Data Tersimpan"
+          commands:
+            - tapOn: "Lanjut dengan Data Tersimpan"
+
+# Baru sesudah gerbang awal bersih, layar utama ditunggu.
+- extendedWaitUntil:
+    visible:
+      text: "(?s).*(MASUK SEBAGAI KASIR|Modal Awal Laci|KERANJANG).*"
+    timeout: 30000
+
+# ── 2. Login kasir (dilewati bila sesi sebelumnya masih hidup) ───────────────
+- runFlow:
+    when:
+      visible: "MASUK SEBAGAI KASIR"
+    commands:
+      # Field ID staff dikenali lewat hint-nya ("kasir01") — P-03 tidak memberi
+      # `Semantics.identifier` pada TextField ini.
+      - tapOn: "kasir01"
+      - inputText: "${STAFF_ID}"
+
+      # ⚠️ JANGAN memakai `hideKeyboard` di sini. Pada Android ia menekan BACK,
+      #    dan P-03 adalah rute PERTAMA aplikasi — backnya tidak menutup papan
+      #    ketik, melainkan MENUTUP APLIKASI. Gejalanya menyesatkan: langkah
+      #    berikutnya melapor "Element not found: 1" seolah keypadnya yang
+      #    salah, padahal yang tersisa di layar tinggal launcher Android.
+      #
+      #    `Enter` menutup papan ketik lewat jalur aplikasi: TextField satu
+      #    baris memakai `TextInputAction.done`, sehingga fokusnya lepas tanpa
+      #    satu pun tombol sistem ditekan.
+      - pressKey: Enter
+
+      # Keypad PIN: setiap tombol berlabel digitnya sendiri (`PinKeypad._rows`).
+      - tapOn: "${STAFF_PIN[0]}"
+      - tapOn: "${STAFF_PIN[1]}"
+      - tapOn: "${STAFF_PIN[2]}"
+      - tapOn: "${STAFF_PIN[3]}"
+      - tapOn: "${STAFF_PIN[4]}"
+      - tapOn: "${STAFF_PIN[5]}"
+
+      # "MASUK" juga terkandung pada judul "MASUK SEBAGAI KASIR". `below`
+      # mengunci tombolnya: judul ada DI ATAS keypad, tombol ada di bawahnya.
+      - tapOn:
+          text: "MASUK"
+          below: "Kosongkan PIN"
+
+      - extendedWaitUntil:
+          visible:
+            text: "(?s).*(Modal Awal Laci|KERANJANG).*"
+          timeout: 30000
+
+# ── 3. Buka shift (dilewati bila shift sudah terbuka) ────────────────────────
+- runFlow:
+    when:
+      visible: "Modal Awal Laci"
+    commands:
+      - tapOn: "${OPENING_CASH_PRESET}"
+      # "Buka Shift" adalah judul AppBar SEKALIGUS label tombol; `below`
+      # memilih tombolnya.
+      - tapOn:
+          text: "Buka Shift"
+          below: "Pilih cepat"
+      - extendedWaitUntil:
+          visible: "KERANJANG"
+          timeout: 30000
+
+# ── 4. Layar kasir siap ──────────────────────────────────────────────────────
+- assertVisible: "KERANJANG"
+- assertVisible: "Keranjang kosong"
+
+# ── 5. Masukkan satu item, naikkan kuantitas menjadi 10 ──────────────────────
+#
+# Ketukan pertama pada kartu produk memasukkan 1 unit; sembilan ketukan pada
+# tombol tambah membawanya ke 10. Menaikkan kuantitas TIDAK PERNAH diaudit —
+# tidak ada yang hilang — sehingga tidak boleh ada sheet yang muncul di sini.
+- tapOn: "(?s).*${PRODUCT}.*"
+- extendedWaitUntil:
+    visible: "Kurangi ${PRODUCT}"
+    timeout: 10000
+
+- repeat:
+    times: 9
+    commands:
+      - tapOn: "Tambah ${PRODUCT}"
+      - waitForAnimationToEnd:
+          timeout: 2000
+
+# Baris keranjang menampilkan "<harga> × <qty>" (`CartLineTile`). Puncak
+# kuantitas kini 10 — angka inilah yang dipakai gerbang butir 5, bukan
+# kuantitas pada saat penurunan dimulai.
+- assertVisible: "(?s).*× 10.*"
+- assertNotVisible: "Penurunan besar memerlukan pembatalan"
+
+# ── 6. Lima ketukan minus pertama: DI BAWAH ambang, tanpa gesekan ────────────
+- repeat:
+    times: 5
+    commands:
+      - tapOn: "Kurangi ${PRODUCT}"
+      - waitForAnimationToEnd:
+          timeout: 2000
+
+- assertVisible: "(?s).*× 5.*"
+
+# Kontrol negatif: gesekan harus sebanding dengan yang dipertaruhkan. Penurunan
+# 5 unit (== ambang, bukan > ambang) tetap lolos. Tanpa penegasan ini, sheet
+# yang muncul terlalu dini akan lulus diam-diam.
+- assertNotVisible: "Penurunan besar memerlukan pembatalan"
+
+# ── 7. Ketukan minus KEENAM: penurunan 6 unit > ambang 5 → HARUS DIBLOKIR ────
+- tapOn: "Kurangi ${PRODUCT}"
+
+- extendedWaitUntil:
+    visible: "Penurunan besar memerlukan pembatalan"
+    timeout: 15000
+
+# ── 8. ASSERTION UTAMA — Void Reason Sheet muncul ────────────────────────────
+- assertVisible: "Penurunan besar memerlukan pembatalan"
+- assertVisible: "(?s).*6 unit ${PRODUCT} akan lenyap dari keranjang ini.*"
+- assertVisible: "(?s).*melewati ambang 5 unit.*"
+
+# Butir 6 — peringatan struk audit dinyatakan SEBELUM kasir menekan tombol.
+- assertVisible: "(?s).*Struk pembatalan akan tercetak untuk audit.*"
+- assertVisible: "(?s).*Alasan pembatalan.*"
+- assertVisible: "(?s).*Nilai yang dibatalkan.*"
+
+- takeScreenshot: build/maestro/m13-01-void-sheet
+
+# ── Aset Manual Book ─────────────────────────────────────────────────────────
+#
+# Dipakai `docs/manuals/cashier-manual-mobile.md`. Diambil DI SINI — sesudah
+# ketujuh asersi di atas — supaya gambar yang masuk manual adalah gambar sheet
+# yang isinya baru saja diperiksa, bukan sembarang layar yang kebetulan terbuka.
+#
+# ⚠️ JANGAN menulis path ke luar folder keluaran Maestro di sini.
+#
+#    Maestro 2.9.0 menolaknya secara tegas, dan penolakannya MENGGAGALKAN
+#    seluruh alur:
+#
+#      Take screenshot ../../docs/manuals/assets/void-sheet-mobile... FAILED
+#      Invalid path "../../docs/manuals/assets/void-sheet-mobile.png" for
+#      takeScreenshot: it resolves outside this run's takeScreenshot output folder.
+#
+#    Jadi bukan sekadar "mendarat di tempat lain" — UAT M13 ikut merah, dan
+#    yang hilang bukan gambarnya saja melainkan bukti butir 5-nya.
+#
+#    Berkas ditulis ke sub-folder `manual/` di dalam direktori run
+#    (`~/.maestro/tests/<stempel-waktu>/…/takeScreenshot/manual/`), lalu
+#    `build_manuals.sh` memanennya ke `docs/manuals/assets/void-sheet-mobile.png`.
+#    Nama sub-foldernya sengaja dibedakan dari `build/maestro/` di atas supaya
+#    aset manual dan bukti UAT tidak pernah tertukar.
+- takeScreenshot: manual/void-sheet-mobile
+
+# Kuantitas belum boleh berubah selama sheet terbuka: gerbangnya memutuskan
+# lebih dulu, `CartCubit.applyAudited` menyusul setelah alasan tercatat.
+- assertNotVisible: "(?s).*× 4.*"
+
+# ── 9. Pilih alasan, lalu catat pembatalannya ────────────────────────────────
+- tapOn: "(?s).*Pilih alasan.*"
+- extendedWaitUntil:
+    visible: "${VOID_REASON}"
+    timeout: 10000
+- tapOn: "${VOID_REASON}"
+- assertVisible: "${VOID_REASON}"
+
+# Tombol kirim baru hidup setelah alasan terisi (`_VoidReasonSheetState._complete`).
+- tapOn: "Catat & turunkan"
+
+# ── 10. Kembali ke layar keranjang, penurunan diterapkan ─────────────────────
+- extendedWaitUntil:
+    notVisible: "Penurunan besar memerlukan pembatalan"
+    timeout: 15000
+
+- assertVisible: "KERANJANG"
+- assertVisible: "(?s).*${PRODUCT}.*"
+
+# 10 − 6 = 4. Angka inilah bukti bahwa penurunannya benar-benar diterapkan
+# SETELAH alasan tercatat, bukan diterapkan diam-diam lebih dulu.
+- assertVisible: "(?s).*× 4.*"
+- assertNotVisible: "Keranjang kosong"
+
+- takeScreenshot: build/maestro/m13-02-setelah-void

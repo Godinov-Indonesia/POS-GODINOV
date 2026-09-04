@@ -22,6 +22,12 @@ LocalShift _shift({
       status: status,
       clientOpenedAt: _openedAt,
       clientClosedAt: DateTime.utc(2026, 8, 10, 14),
+      declaredCashMinor: 145000000,
+      declaredEdcTotalMinor: 0,
+      declaredQrisTotalMinor: 0,
+      blindClose: false,
+      deviceId: 'dev-1',
+      quarantined: false,
       synced: synced,
       syncError: 'kegagalan sebelumnya',
       syncAttempts: 3,
@@ -34,17 +40,20 @@ TransactionWithItems _tx() => TransactionWithItems(
         shiftId: '9f8e7d6c-1111-4222-8333-444455556666',
         customerName: 'Andi',
         totalAmountMinor: 4400000, // Rp 44.000
-        paymentMethod: PaymentMethod.cash,
+        paymentMethod: PaymentSummary.cash,
         status: TransactionStatus.completed,
         cancelNotes: '',
         clientCreatedAt: _createdAt,
+        reprintCount: 0,
+        deviceId: 'dev-1',
+        quarantined: false,
         synced: false,
         syncError: 'jangan dikirim',
         syncAttempts: 2,
         lastSyncAttemptAt: _createdAt,
       ),
       items: <LocalTransactionItem>[
-        LocalTransactionItem(
+        const LocalTransactionItem(
           id: 'bbbb1111-2222-4333-8444-555566667777',
           transactionId: 'aaaa1111-2222-4333-8444-555566667777',
           productId: 'uuid-produk',
@@ -63,6 +72,10 @@ LocalWaste _waste() => LocalWaste(
       quantity: 1,
       reason: 'Tumpah saat penyajian',
       clientCreatedAt: _createdAt,
+      reasonCode: 'SPILLED',
+      deviceId: 'dev-1',
+      receiptPrinted: false,
+      quarantined: false,
       synced: false,
       syncError: null,
       syncAttempts: 0,
@@ -193,6 +206,12 @@ void main() {
         status: ShiftStatus.open,
         clientOpenedAt: _openedAt,
         clientClosedAt: null,
+        declaredCashMinor: 0,
+        declaredEdcTotalMinor: 0,
+        declaredQrisTotalMinor: 0,
+        blindClose: false,
+        deviceId: 'dev-1',
+        quarantined: false,
         synced: false,
         syncError: null,
         syncAttempts: 0,
@@ -208,7 +227,7 @@ void main() {
 
   group('SyncUpResponse', () {
     test('failed_transactions null dinormalkan menjadi []', () {
-      final SyncUpResponse r = SyncUpResponse.fromJson(<String, dynamic>{
+      final SyncUpResponse r = SyncUpResponse.fromJson(const <String, dynamic>{
         'shifts_synced': 1,
         'transactions_synced': 47,
         'wastes_synced': 3,
@@ -230,7 +249,7 @@ void main() {
     });
 
     test('daftar id gagal dibaca apa adanya', () {
-      final SyncUpResponse r = SyncUpResponse.fromJson(<String, dynamic>{
+      final SyncUpResponse r = SyncUpResponse.fromJson(const <String, dynamic>{
         'failed_transactions': <dynamic>['a', 'b'],
       });
 

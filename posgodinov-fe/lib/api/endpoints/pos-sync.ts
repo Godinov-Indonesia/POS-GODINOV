@@ -3,7 +3,16 @@
  */
 
 import { posRequest, posRequestList } from '@/lib/api/pos-client'
-import type { MasterDataResponse, PosTransaction, SyncUpRequest, SyncUpResponse } from '@/lib/types/api'
+import {
+  POS_CONTRACT_VERSION_HEADER,
+  POS_CONTRACT_VERSION_V2,
+  type MasterDataResponse,
+  type PosTransaction,
+  type SyncUpRequest,
+  type SyncUpRequestV2,
+  type SyncUpResponse,
+  type SyncUpResponseV2,
+} from '@/lib/types/api'
 
 /** ⚠️ Setiap array di dalamnya bisa `null` — normalisasi dilakukan pemanggil. */
 export const fetchMasterData = (): Promise<MasterDataResponse> =>
@@ -20,9 +29,40 @@ export const syncUp = (payload: SyncUpRequest): Promise<SyncUpResponse> =>
   })
 
 /**
+ * Kontrak v2 — dipakai mesin sync sejak Fase M12 ([11 §4.1]).
+ *
+ * Header `X-POS-Contract-Version: 2` adalah satu-satunya hal yang memberi tahu
+ * server bahwa koleksi baru pada payload boleh diproses. Tanpa header itu,
+ * server memperlakukan permintaan sebagai v1 dan **mengabaikan** `returns`,
+ * `void_logs`, serta `security_events` secara diam-diam — kegagalan paling
+ * senyap yang mungkin terjadi, karena `200` tetap kembali dan hitungannya tetap
+ * masuk akal.
+ */
+export const syncUpV2 = (payload: SyncUpRequestV2): Promise<SyncUpResponseV2> =>
+  posRequest<SyncUpResponseV2>('/v1/pos/sync', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: { [POS_CONTRACT_VERSION_HEADER]: POS_CONTRACT_VERSION_V2 },
+  })
+
+/**
  * ⚠️ Paginasi tidak berfungsi: handler menetapkan `limit = 50`, `offset = 0`
  * secara hard-coded. Endpoint ini hanya akan mengembalikan **50 transaksi
  * terbaru — selamanya** ([03 §2.4]).
  */
 export const fetchServerTransactions = (): Promise<PosTransaction[]> =>
   posRequestList<PosTransaction>('/v1/pos/transactions')
+
+/**
+ * Mencari SATU transaksi lampau lewat kode struk — butir 16 ([11 §M17.3]).
+ *
+ * ⚠️ Mengembalikan satu transaksi, bukan daftar. Endpoint yang mengembalikan
+ * daftar adalah penelusuran massal dengan nama lain, dan itu persis keadaan
+ * yang butir 16 tutup.
+ *
+ * `outlet_id` **tidak** dikirim: server mengambilnya dari device token. Kasir
+ * yang mengetik kode milik cabang lain menerima `404` yang sama dengan kode
+ * yang tidak ada sama sekali.
+ */
+export const lookupTransaction = (code: string): Promise<PosTransaction> =>
+  posRequest<PosTransaction>(`/v1/pos/transactions/lookup?code=${encodeURIComponent(code)}`)

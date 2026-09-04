@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/di/injection.dart';
+import 'package:posgodinov_mobile/core/printer/audit_receipt_data.dart';
 import 'package:posgodinov_mobile/core/sync/sync_triggers.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/catalog.dart';
 import 'package:posgodinov_mobile/features/register/domain/repositories/catalog_repository.dart';
@@ -18,9 +20,22 @@ import 'package:posgodinov_mobile/shared/widgets/touch_button.dart';
 /// Produk jadi yang terbuang: tumpah, gosong, kedaluwarsa. Masuk antrean
 /// sinkronisasi dan mengurangi bahan baku di server lewat BOM.
 class WastePage extends StatefulWidget {
-  const WastePage({super.key, required this.staffId});
+  const WastePage({
+    super.key,
+    required this.staffId,
+    this.staffName = '',
+    this.shiftId,
+  });
 
   final String staffId;
+
+  /// Hanya untuk DICETAK pada baris saksi struk pembuangan; yang tersimpan
+  /// tetap [staffId].
+  final String staffName;
+
+  /// Mengikat pembuangan ke shift yang sedang berjalan, sehingga laporan
+  /// pemilik dapat memisahkan waste per shift alih-alih per hari.
+  final String? shiftId;
 
   @override
   State<WastePage> createState() => _WastePageState();
@@ -28,6 +43,15 @@ class WastePage extends StatefulWidget {
 
 class _WastePageState extends State<WastePage> {
   final TextEditingController _reason = TextEditingController();
+
+  /// Bawaan `OTHER` sengaja TIDAK dipakai sebagai nilai awal.
+  ///
+  /// Kalau dropdown sudah terisi sejak awal, kasir yang buru-buru akan
+  /// meninggalkannya di situ, dan seluruh laporan waste berakhir sebagai
+  /// "Lainnya" — kamus beku yang tidak pernah dipilih sama saja dengan tidak
+  /// ada ([11 §3.5]).
+  String? _reasonCode;
+
   List<CatalogProduct> _products = const <CatalogProduct>[];
   CatalogProduct? _selected;
   int _quantity = 1;
@@ -50,7 +74,10 @@ class _WastePageState extends State<WastePage> {
   }
 
   bool get _canSubmit =>
-      _selected != null && _quantity > 0 && _reason.text.trim().isNotEmpty;
+      _selected != null &&
+      _quantity > 0 &&
+      _reasonCode != null &&
+      _reason.text.trim().isNotEmpty;
 
   Future<void> _submit() async {
     final CatalogProduct p = _selected!;
@@ -60,6 +87,9 @@ class _WastePageState extends State<WastePage> {
           productName: p.name,
           quantity: _quantity,
           reason: _reason.text,
+          reasonCode: _reasonCode!,
+          staffName: widget.staffName,
+          shiftId: widget.shiftId,
           onReported: () async => getIt<SyncTriggers>().onTransactionSaved(),
         );
 
@@ -67,6 +97,7 @@ class _WastePageState extends State<WastePage> {
     setState(() {
       _selected = null;
       _quantity = 1;
+      _reasonCode = null;
       _reason.clear();
     });
   }
@@ -128,7 +159,31 @@ class _WastePageState extends State<WastePage> {
               ),
 
               const SizedBox(height: Gap.lg),
-              Text('Alasan', style: PosText.sm.copyWith(color: t.fgMuted)),
+              Text(
+                'Kategori alasan',
+                style: PosText.sm.copyWith(color: t.fgMuted),
+              ),
+              const SizedBox(height: Gap.xs),
+              DropdownButtonFormField<String>(
+                initialValue: _reasonCode,
+                isExpanded: true,
+                hint: const Text('Pilih kategori'),
+                items: <DropdownMenuItem<String>>[
+                  for (final String code in ReasonCodes.wasteReasons)
+                    DropdownMenuItem<String>(
+                      value: code,
+                      child: Text(ReasonLabels.wasteReasons[code] ?? code),
+                    ),
+                ],
+                onChanged: (String? code) =>
+                    setState(() => _reasonCode = code),
+              ),
+
+              const SizedBox(height: Gap.lg),
+              Text(
+                'Keterangan',
+                style: PosText.sm.copyWith(color: t.fgMuted),
+              ),
               const SizedBox(height: Gap.xs),
               TextField(
                 controller: _reason,

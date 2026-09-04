@@ -6,7 +6,7 @@ import 'package:posgodinov_mobile/core/printer/receipt_printer.dart';
 import 'package:posgodinov_mobile/features/printer/presentation/cubit/printer_cubit.dart';
 
 ReceiptData _receipt({
-  PaymentMethod method = PaymentMethod.cash,
+  PaymentSummary method = PaymentSummary.cash,
   int totalMinor = 4400000,
   int cashMinor = 5000000,
 }) =>
@@ -162,7 +162,7 @@ void main() {
       // Membuka laci pada QRIS hanya mengundang kesalahan hitung di akhir
       // shift.
       final List<int> bytes =
-          await builder.build(_receipt(method: PaymentMethod.qris));
+          await builder.build(_receipt(method: PaymentSummary.qris));
 
       expect(_contains(bytes, <int>[0x1B, 0x70]), isFalse);
     });

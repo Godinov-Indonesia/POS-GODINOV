@@ -47,7 +47,7 @@ void main() {
 
       for (final int v in hasil) {
         expect(v % _rp(5000) == 0 || v % _rp(10000) == 0 ||
-            v % _rp(50000) == 0 || v % _rp(100000) == 0, isTrue);
+            v % _rp(50000) == 0 || v % _rp(100000) == 0, isTrue,);
       }
     });
   });

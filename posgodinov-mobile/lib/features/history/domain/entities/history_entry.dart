@@ -19,12 +19,14 @@ class HistoryEntry extends Equatable {
     this.cancelNotes = '',
     this.synced = true,
     this.lines = const <HistoryLine>[],
+    this.receiptPrintedAt,
+    this.itemIds = const <String>[],
   });
 
   final String id;
   final String shiftId;
   final int totalMinor;
-  final PaymentMethod paymentMethod;
+  final PaymentSummary paymentMethod;
   final TransactionStatus status;
   final DateTime clientCreatedAt;
 
@@ -42,9 +44,29 @@ class HistoryEntry extends Equatable {
 
   final List<HistoryLine> lines;
 
-  bool get isCancelled => status == TransactionStatus.cancelled;
+  /// **DISKRIMINATOR VOID vs RETUR** (butir 15, [11 §2.1]).
+  ///
+  /// `null` = struk belum pernah terbit → wilayah VOID.
+  /// Terisi = dokumen sudah berpindah ke pelanggan → wilayah RETUR.
+  final DateTime? receiptPrintedAt;
 
-  bool get canVoid => isLocal && !isCancelled;
+  /// `transaction_items.id` per baris, sejajar urutan [lines].
+  ///
+  /// Dibutuhkan alur Retur: batas retur dihitung per BARIS item, dan baris itu
+  /// diidentifikasi oleh id-nya — bukan oleh produk, karena satu produk dapat
+  /// muncul di dua baris dengan harga snapshot berbeda.
+  final List<String> itemIds;
+
+  /// `true` untuk `voided` MAUPUN `cancelled` (warisan v1).
+  ///
+  /// Memeriksa salah satunya saja akan membuat transaksi lama tampak masih
+  /// dapat dibatalkan, dan server memotong stok dua kali ([11 §2.1]).
+  bool get isCancelled => status.isCancellation;
+
+  /// ⚠️ **Bukan penentu jalur pembatalan.** Keputusan Void-vs-Retur hidup di
+  /// `core/pos/cancellation_policy.dart` dan HANYA di sana ([11 §M13.1]).
+  /// Getter ini semata menyaring baris server yang itemnya tidak lengkap.
+  bool get canCancel => isLocal && !isCancelled;
 
   /// Delapan karakter pertama UUID, huruf besar ([06 §2.6]).
   String get shortId =>
@@ -71,14 +93,23 @@ class HistoryLine extends Equatable {
     required this.productName,
     required this.quantity,
     required this.unitPriceMinor,
+    this.productId = '',
   });
 
   final String productName;
   final int quantity;
+
+  /// **INTEGER SEN** — snapshot harga saat penjualan terjadi.
   final int unitPriceMinor;
+
+  /// Dibutuhkan alur Retur ([11 §M13.3]): `return_items.product_id` menunjuk
+  /// produk, bukan nama. Kosong untuk baris yang berasal dari server, yang
+  /// memang tidak dapat diretur dari perangkat ini.
+  final String productId;
 
   int get lineTotalMinor => unitPriceMinor * quantity;
 
   @override
-  List<Object?> get props => <Object?>[productName, quantity, unitPriceMinor];
+  List<Object?> get props =>
+      <Object?>[productId, productName, quantity, unitPriceMinor];
 }

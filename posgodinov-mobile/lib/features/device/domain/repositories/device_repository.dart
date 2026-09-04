@@ -34,4 +34,10 @@ abstract interface class DeviceRepository {
 
   /// `true` bila belum ada master data sama sekali di perangkat.
   Future<bool> isMasterDataEmpty();
+
+  /// Identitas instalasi yang stabil — dasar butir 12 ([11 §M15.2]).
+  ///
+  /// Dibuat sekali saat binding dan **tidak pernah** berubah. Mengembalikan id
+  /// yang berlaku, baik yang baru dibuat maupun yang sudah ada.
+  Future<String> ensureDeviceId();
 }

@@ -19,13 +19,26 @@ class CashLine {
 
 /// Aritmetika penutupan shift — **fungsi murni, integer sen**.
 ///
-/// # Mengapa ini penting
+/// ═══════════════════════════════════════════════════════════════════════════
+/// ⛔ DIKELUARKAN DARI JALUR UI PADA M15.3 (butir 9)
+/// ═══════════════════════════════════════════════════════════════════════════
 ///
-/// Server **tidak menghitung ulang** `expected_balance` maupun `discrepancy`;
-/// keduanya dipercaya apa adanya dari klien ([02 §2.11]). Nilai `discrepancy`
-/// inilah yang dijumlahkan pada dashboard pemilik sebagai indikator selisih
-/// kas — jadi rumus di berkas ini adalah satu-satunya sumber angka yang akan
-/// dipakai pemilik untuk menilai kasirnya.
+/// Catatan lama di sini berbunyi: "Server **tidak menghitung ulang**
+/// `expected_balance` maupun `discrepancy`; keduanya dipercaya apa adanya dari
+/// klien." Kalimat itu menjelaskan persis lubang yang butir 9 dibangun untuk
+/// menutupnya — orang yang paling berkepentingan agar selisihnya nol adalah
+/// orang yang menghitungnya.
+///
+/// Sejak Blind Closing, wewenang itu pindah ke `ShiftReconcileService` di
+/// server (aturan R3/R4). [ShiftMath.expectedBalance] dan
+/// [ShiftMath.discrepancy] **tidak boleh dipanggil dari layar mana pun**;
+/// `CloseShiftPage` maupun `ShiftCubit` sudah tidak mengimpor berkas ini.
+///
+/// Berkas ini SENGAJA tidak dihapus. `config.blind_close_enabled == false`
+/// adalah mode yang dijanjikan ([11 §M15.3]): pemilik yang mematikan Blind
+/// Closing membutuhkan rumus ini kembali, dan rumus yang dihapus lalu diketik
+/// ulang di tempat lain jauh lebih berbahaya daripada rumus yang tinggal di
+/// satu tempat dengan larangan yang jelas.
 abstract final class ShiftMath {
   /// `opening + Σ(transaksi COMPLETED bermetode CASH)`.
   ///

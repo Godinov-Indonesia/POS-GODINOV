@@ -49,12 +49,20 @@ class WasteCubit extends Cubit<WasteState> {
         );
   }
 
+  /// [reasonCode] dan [staffName] BUKAN sekadar tambahan kosmetik: keduanya
+  /// dicetak pada struk pembuangan (butir 7). Tanpa kode alasan, laporan
+  /// pemilik hanya melihat teks bebas yang tidak dapat dikelompokkan; tanpa
+  /// nama pelapor, baris tanda tangan saksi tidak punya siapa pun untuk
+  /// dicocokkan ([11 §M14.3]).
   Future<void> submit({
     required String staffId,
     required String productId,
     required String productName,
     required int quantity,
     required String reason,
+    String reasonCode = 'OTHER',
+    String staffName = '',
+    String? shiftId,
     Future<void> Function()? onReported,
   }) async {
     if (state.submitting) return;
@@ -67,6 +75,9 @@ class WasteCubit extends Cubit<WasteState> {
         productName: productName,
         quantity: quantity,
         reason: reason,
+        reasonCode: reasonCode,
+        staffName: staffName,
+        shiftId: shiftId,
       );
       emit(state.copyWith(submitting: false, lastSubmitted: productName));
       await onReported?.call();

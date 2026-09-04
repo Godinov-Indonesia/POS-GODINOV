@@ -12,6 +12,8 @@ class SyncState extends Equatable {
   const SyncState({
     this.isSyncing = false,
     this.pendingCount = 0,
+    this.failedCount = 0,
+    this.quarantinedCount = 0,
     this.isOnline = false,
     this.skew,
     this.lastError,
@@ -22,7 +24,27 @@ class SyncState extends Equatable {
   final bool isSyncing;
 
   /// Transaksi yang belum tersinkron — angka di StatusBar.
+  ///
+  /// **Tidak** memuat baris berkarantina: baris itu sudah dikeluarkan dari
+  /// antrean, dan menghitungnya di sini membuat kasir menunggu antrean yang
+  /// tidak akan pernah kosong dengan sendirinya.
   final int pendingCount;
+
+  /// Baris yang gagal tetapi MASIH akan dicoba ulang ([11 §M12.3]).
+  final int failedCount;
+
+  /// Baris yang ditolak server secara PERMANEN — **butuh tindakan manusia**.
+  final int quarantinedCount;
+
+  /// Antrean yang benar-benar hanya menunggu giliran.
+  ///
+  /// Dihitung sebagai selisih supaya satu baris tidak pernah muncul di dua
+  /// kelompok sekaligus — kasir yang melihat angka yang sama dua kali akan
+  /// berhenti mempercayainya.
+  int get waitingCount =>
+      pendingCount - failedCount < 0 ? 0 : pendingCount - failedCount;
+
+  bool get needsAttention => quarantinedCount > 0;
 
   final bool isOnline;
   final ClockSkew? skew;
@@ -44,6 +66,7 @@ class SyncState extends Equatable {
   /// **Prioritas tampilan StatusBar** bila beberapa kondisi bersamaan
   /// ([06 §4.7.1]): yang paling merugikan bila diabaikan tampil lebih dulu.
   SyncBadge get badge {
+    if (needsAttention) return SyncBadge.needsAttention;
     if (hasError || hasShiftMismatch) return SyncBadge.failed;
     if (hasClockSkew) return SyncBadge.clockSkew;
     if (!isOnline) {
@@ -60,6 +83,8 @@ class SyncState extends Equatable {
   SyncState copyWith({
     bool? isSyncing,
     int? pendingCount,
+    int? failedCount,
+    int? quarantinedCount,
     bool? isOnline,
     ClockSkew? skew,
     String? lastError,
@@ -70,6 +95,8 @@ class SyncState extends Equatable {
       SyncState(
         isSyncing: isSyncing ?? this.isSyncing,
         pendingCount: pendingCount ?? this.pendingCount,
+        failedCount: failedCount ?? this.failedCount,
+        quarantinedCount: quarantinedCount ?? this.quarantinedCount,
         isOnline: isOnline ?? this.isOnline,
         skew: skew ?? this.skew,
         lastError: clearError ? null : (lastError ?? this.lastError),
@@ -81,6 +108,8 @@ class SyncState extends Equatable {
   List<Object?> get props => <Object?>[
         isSyncing,
         pendingCount,
+        failedCount,
+        quarantinedCount,
         isOnline,
         skew,
         lastError,
@@ -91,7 +120,11 @@ class SyncState extends Equatable {
 
 /// Lencana status pada StatusBar, terurut sesuai prioritas tampilan.
 enum SyncBadge {
-  /// ▲ `n gagal sinkron` — **selalu menang** atas status lain.
+  /// ▲ Ada baris yang **butuh tindakan** — menang atas segalanya, karena hanya
+  /// kelompok inilah yang tidak akan beres dengan sendirinya.
+  needsAttention,
+
+  /// ▲ `n gagal sinkron`.
   failed,
 
   /// ▲ Jam perangkat melenceng.
@@ -135,6 +168,7 @@ class SyncCubit extends Cubit<SyncState> {
   final DateTime Function() _now;
 
   StreamSubscription<int>? _pendingSub;
+  StreamSubscription<int>? _quarantinedSub;
   StreamSubscription<bool>? _onlineSub;
   StreamSubscription<ClockSkew>? _skewSub;
 
@@ -151,6 +185,12 @@ class SyncCubit extends Cubit<SyncState> {
 
     _pendingSub = _txDao.watchPendingCount().listen(
           (int count) => emit(state.copyWith(pendingCount: count)),
+        );
+    // Kelompok ketiga P-13 ([11 §M12.3]). Disimak terpisah karena sumbernya
+    // kolom yang berbeda, dan karena angkanya harus tetap terlihat walau
+    // antrean biasa sudah kosong.
+    _quarantinedSub = _txDao.watchQuarantinedCount().listen(
+          (int count) => emit(state.copyWith(quarantinedCount: count)),
         );
     _onlineSub = _connectivity.isOnline.listen(
           (bool online) => emit(state.copyWith(isOnline: online)),
@@ -209,6 +249,7 @@ class SyncCubit extends Cubit<SyncState> {
 
   Future<void> _cancelAll() async {
     await _pendingSub?.cancel();
+    await _quarantinedSub?.cancel();
     await _onlineSub?.cancel();
     await _skewSub?.cancel();
   }

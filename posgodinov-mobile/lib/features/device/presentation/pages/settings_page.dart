@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:posgodinov_mobile/core/config/constants.dart';
@@ -9,6 +11,8 @@ import 'package:posgodinov_mobile/features/kiosk/presentation/cubit/kiosk_cubit.
 import 'package:posgodinov_mobile/features/device/presentation/cubit/master_sync_cubit.dart';
 import 'package:posgodinov_mobile/features/printer/presentation/cubit/printer_cubit.dart';
 import 'package:posgodinov_mobile/features/printer/presentation/pages/printer_setup_page.dart';
+import 'package:posgodinov_mobile/features/shift/domain/session_lock_guard.dart';
+import 'package:posgodinov_mobile/features/shift/presentation/widgets/force_close_sheet.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
 import 'package:posgodinov_mobile/shared/theme/app_theme.dart';
 import 'package:posgodinov_mobile/shared/theme/godinov_tokens.dart';
@@ -38,6 +42,14 @@ class _SettingsPageState extends State<SettingsPage> {
   final TextEditingController _outlet = TextEditingController();
   final BatteryOptimization _battery = BatteryOptimization();
   bool _savingOutlet = false;
+
+  /// ── BUTIR 12 — Identity Lock ([11 §M15.2]) ────────────────────────────
+  ///
+  /// `true` selama ada shift `OPEN` di perangkat ini. Bawaannya TERKUNCI:
+  /// menampilkan tombol keluar selama keadaan shift belum diketahui berarti
+  /// menampilkannya, walau sekejap, pada perangkat yang seharusnya terkunci —
+  /// dan sekejap sudah cukup untuk diketuk.
+  bool _shiftLocked = true;
   final KioskService _kiosk = KioskService();
   bool _batteryExempt = false;
   bool _isDeviceOwner = false;
@@ -55,7 +67,35 @@ class _SettingsPageState extends State<SettingsPage> {
 
       final bool owner = await _kiosk.isDeviceOwner;
       if (mounted) setState(() => _isDeviceOwner = owner);
+
+      await _refreshLock();
     });
+  }
+
+  /// Membaca keadaan kunci **tanpa mencatat apa pun**.
+  ///
+  /// `isLockedSilently`, bukan `isLocked`: yang terakhir menulis satu baris
+  /// audit setiap kali dipanggil, dan menggambar ulang layar bukan percobaan
+  /// keluar sesi.
+  Future<void> _refreshLock() async {
+    final bool locked = await getIt<SessionLockGuard>().isLockedSilently();
+    if (mounted) setState(() => _shiftLocked = locked);
+  }
+
+  /// Membuka jalur darurat Force Close (butir 12).
+  Future<void> _openForceClose() async {
+    final bool? closed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const ForceCloseSheet(),
+    );
+
+    if (closed == true && mounted) {
+      // Perangkat baru saja dilepas dari shift orang lain. Layar pengaturan
+      // ditutup supaya kasir kembali ke gerbang navigasi, yang akan
+      // mengarahkannya ke Login — sesi lama sudah dibersihkan saga.
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -192,12 +232,29 @@ class _SettingsPageState extends State<SettingsPage> {
                       onTap: isSyncing ? null : () => getIt<MasterSyncCubit>().sync(),
                     ),
                     const SizedBox(height: Gap.sm),
-                    _ActionTile(
-                      icon: Icons.person_outline,
-                      label: 'Ganti kasir — ${widget.cashierName}',
-                      hint: 'Shift yang sedang berjalan tidak ikut ditutup.',
-                      onTap: isSyncing ? null : widget.onChangeCashier,
-                    ),
+
+                    // ═══════════════════════════════════════════════════════
+                    // BUTIR 12 — TIDAK DIRENDER, BUKAN DINONAKTIFKAN
+                    // ═══════════════════════════════════════════════════════
+                    //
+                    // Selama ada shift `OPEN`, "Ganti kasir" tidak dibangun
+                    // sama sekali. Tombol yang tampak tetapi ditolak mengajari
+                    // kasir bahwa aplikasinya rusak, lalu mengajari orang
+                    // berikutnya mencari jalan lain — dan salah satu jalan itu
+                    // cepat atau lambat berhasil.
+                    //
+                    // Hint lama di sini berbunyi "Shift yang sedang berjalan
+                    // tidak ikut ditutup." Kalimat itu menjelaskan persis
+                    // lubang yang butir 12 dibangun untuk menutupnya.
+                    if (_shiftLocked)
+                      _LockedSessionCard(onForceClose: _openForceClose)
+                    else
+                      _ActionTile(
+                        icon: Icons.person_outline,
+                        label: 'Ganti kasir — ${widget.cashierName}',
+                        hint: 'Tidak ada shift berjalan di perangkat ini.',
+                        onTap: isSyncing ? null : widget.onChangeCashier,
+                      ),
                   ],
                 );
               },
@@ -225,9 +282,9 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
 
-          _Section(
+          const _Section(
             title: 'PERANGKAT',
-            child: const _DeviceWarning(),
+            child: _DeviceWarning(),
           ),
         ],
       ),
@@ -272,7 +329,7 @@ class _KioskCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text(
+                      const Text(
                         'Perangkat ini BUKAN Device Owner',
                         style: PosText.base,
                       ),
@@ -394,7 +451,7 @@ class _BatteryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
+                    const Text(
                       'Sinkronisasi latar dapat dihentikan sistem',
                       style: PosText.base,
                     ),
@@ -463,7 +520,7 @@ class _DeviceWarning extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text('Perangkat tidak dapat dilepas', style: PosText.base),
+                const Text('Perangkat tidak dapat dilepas', style: PosText.base),
                 const SizedBox(height: Gap.xs),
                 Text(
                   // [03 §2.1] — tidak ada endpoint unbind, tidak ada daftar
@@ -555,6 +612,69 @@ class _ActionTile extends StatelessWidget {
             Icon(Icons.chevron_right, color: t.fgSubtle),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Menggantikan tombol "Ganti kasir" selama sesi terkunci — **butir 12**
+/// ([11 §M15.2]).
+///
+/// Menjelaskan MENGAPA jalan normalnya tertutup, lalu menawarkan satu-satunya
+/// jalan keluar yang sah. Kartu penjelasan dipilih ketimbang tombol yang
+/// dinonaktifkan karena keduanya menyampaikan hal yang berbeda: tombol mati
+/// berarti "sedang tidak bisa", kartu ini berarti "memang tidak boleh".
+class _LockedSessionCard extends StatelessWidget {
+  const _LockedSessionCard({required this.onForceClose});
+
+  final Future<void> Function() onForceClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final GodinovTokens t = context.tokens;
+
+    return Container(
+      padding: const EdgeInsets.all(Gap.lg),
+      decoration: BoxDecoration(
+        color: t.bg,
+        borderRadius: BorderRadius.circular(Radii.md),
+        border: Border.all(color: t.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.lock_outline, size: 20, color: t.fgMuted),
+              const SizedBox(width: Gap.sm),
+              Expanded(
+                child: Text(
+                  'Sesi terkunci oleh shift yang berjalan',
+                  style: PosText.base.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Gap.xs),
+          Text(
+            'Kasir tidak dapat diganti sebelum shift ditutup. Gunakan '
+            '"Tutup Shift" untuk mengakhiri sesi secara normal.',
+            style: PosText.sm.copyWith(color: t.fgMuted),
+          ),
+
+          const SizedBox(height: Gap.md),
+          // Jalur darurat. Diletakkan DI BAWAH keterangan yang menjelaskan
+          // mengapa jalan normalnya tertutup — bukan sebagai tombol setara di
+          // daftar menu.
+          TextButton.icon(
+            onPressed: () => unawaited(onForceClose()),
+            icon: Icon(Icons.gpp_maybe_outlined, color: t.danger),
+            label: Text(
+              'Tutup Paksa Shift (Supervisor)',
+              style: PosText.sm.copyWith(color: t.danger),
+            ),
+          ),
+        ],
       ),
     );
   }

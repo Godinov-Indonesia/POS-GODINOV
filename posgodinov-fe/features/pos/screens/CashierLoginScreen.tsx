@@ -7,8 +7,9 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { usePosAuthStore } from '@/features/pos/auth/pos-auth-store'
 import { verifyPin } from '@/features/pos/auth/pin-verifier'
+import { Banner } from '@/components/ui/feedback'
 import { Keypad, useDigitInput } from '@/features/pos/components/Keypad'
-import { posNavigate } from '@/features/pos/router/usePosRouter'
+import { posNavigate, usePosParams } from '@/features/pos/router/usePosRouter'
 import { PIN_MAX_LENGTH } from '@/lib/constants/limits'
 import { findStaffByIdentifier } from '@/lib/db/repositories/master.repo'
 import { getOpenShift } from '@/lib/db/repositories/shift.repo'
@@ -22,6 +23,9 @@ import { cn } from '@/lib/utils/cn'
  * dijalankan di Web Worker (ADR-08).
  */
 export function CashierLoginScreen() {
+  // Penanda dari saga tutup shift / force close ([11 §M15.4]). Sebuah tanda,
+  // bukan angka — lihat catatan pada <ShiftClosedNotice />.
+  const closed = usePosParams().closed
   const [identifier, setIdentifier] = React.useState('')
   const { digits: pin, append, backspace, clear } = useDigitInput(PIN_MAX_LENGTH)
   const [error, setError] = React.useState<string | null>(null)
@@ -63,6 +67,8 @@ export function CashierLoginScreen() {
         className="flex w-[26rem] max-w-full flex-col gap-4 rounded-2xl border border-border bg-surface p-6 shadow-elevated"
       >
         <h1 className="text-center text-pos-lg font-bold text-fg">MASUK SEBAGAI KASIR</h1>
+
+        {closed ? <ShiftClosedNotice force={closed === 'force'} /> : null}
 
         <Field label="ID / Username Staff" htmlFor="staff-identifier">
           <Input
@@ -106,6 +112,28 @@ export function CashierLoginScreen() {
         </p>
       </form>
     </div>
+  )
+}
+
+/**
+ * Konfirmasi ringkas setelah shift ditutup — **butir 17** ([11 §M15.4]).
+ *
+ * ⚠️ **Tanpa satu angka pun.** Bukan nominal setoran, bukan jumlah transaksi,
+ * bukan status selisih. Kasir berikutnya berdiri di depan layar yang sama —
+ * seringkali dalam antrean yang sama — dan angka apa pun di sini adalah
+ * kebocoran Blind Closing ke orang yang bahkan belum login.
+ *
+ * Yang dikonfirmasi hanyalah bahwa shift benar-benar tertutup: tanpa itu, kasir
+ * yang perangkatnya sedang offline tidak punya cara membedakan penutupan yang
+ * berhasil dari layar yang sekadar kembali sendiri.
+ */
+function ShiftClosedNotice({ force }: { force: boolean }) {
+  return (
+    <Banner tone={force ? 'warning' : 'info'} title="Shift ditutup">
+      {force
+        ? 'Shift sebelumnya ditutup paksa oleh supervisor. Perangkat siap dipakai kasir berikutnya.'
+        : 'Data shift tersimpan dan akan terkirim otomatis. Perangkat siap dipakai kasir berikutnya.'}
+    </Banner>
   )
 }
 

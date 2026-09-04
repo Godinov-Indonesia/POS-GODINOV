@@ -1,41 +1,60 @@
 'use client'
 
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, EyeOff } from 'lucide-react'
 import * as React from 'react'
 
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/dialog'
 import { Banner, Skeleton } from '@/components/ui/feedback'
-import { Money, Num } from '@/components/ui/money'
+import { Money } from '@/components/ui/money'
+import { toast } from '@/components/ui/toaster'
 import { usePosAuthStore } from '@/features/pos/auth/pos-auth-store'
 import { Keypad, digitsToMinor, useDigitInput } from '@/features/pos/components/Keypad'
 import { posNavigate } from '@/features/pos/router/usePosRouter'
-import { summarizeShift } from '@/features/pos/shift/shift-math'
-import { runSync } from '@/features/pos/sync/useSyncEngine'
-import { closeShift, getOpenShift } from '@/lib/db/repositories/shift.repo'
-import { listTransactionsByShift } from '@/lib/db/repositories/transaction.repo'
+import { closeShiftSaga } from '@/features/pos/shift/close-shift-saga'
+import { getOpenShift } from '@/lib/db/repositories/shift.repo'
+import { formatTimeId } from '@/lib/time'
 
 /**
- * P-12 Tutup Shift — docs/04 §A.3.
+ * P-12 Tutup Shift — **Blind Closing**, butir 9 ([11 §M15.3]).
  *
- * `expected_balance` dan `discrepancy` dihitung **di klien**; server tidak
- * menghitung ulang, padahal `discrepancy` inilah yang muncul di dashboard
- * pemilik. Setelah shift ditutup, sync dipicu langsung — ini momen paling
- * penting untuk mengirim data, karena laci sudah dihitung ([05 §1.6.4]).
+ * ═══════════════════════════════════════════════════════════════════════════
+ * APA YANG SENGAJA TIDAK ADA DI LAYAR INI
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ *   ⛔ agregat penjualan sistem        ⛔ jumlah transaksi
+ *   ⛔ angka ekspektasi laci           ⛔ selisih kas
+ *   ⛔ ringkasan per metode bayar      ⛔ modal awal laci
+ *
+ * Nama-nama field itu sengaja TIDAK ditulis di berkas ini, bahkan di dalam
+ * komentar: DoD M15 butir 2 memverifikasi layar ini lewat `grep` harfiah, dan
+ * pemeriksaan yang tersandung pada komentarnya sendiri akan dimatikan orang
+ * pertama yang menjalankannya.
+ *
+ * Semuanya pernah ada di sini, dan **dihapus dari kode** — bukan disembunyikan
+ * di balik flag. Kode yang disembunyikan akan dinyalakan kembali oleh orang
+ * yang tidak tahu mengapa ia dimatikan.
+ *
+ * Alasannya satu kalimat: angka deklarasi yang diketik sambil melihat
+ * ekspektasi tidak memiliki nilai audit apa pun. Kasir yang tahu laci
+ * *seharusnya* berisi Rp 3.240.000 akan mengetik Rp 3.240.000, apa pun isi
+ * lacinya. Yang dicari fase ini justru kesaksian yang tidak dicocokkan.
+ *
+ * Modal awal pun ikut hilang — ia adalah suku pertama rumus ekspektasi, dan
+ * kasir yang melihatnya bersama penjualan tunai dapat menghitung sisanya di
+ * kepala.
+ *
+ * ⚠️ Berkas ini **tidak boleh** mengimpor apa pun dari `shift-math`. Aturannya
+ * ditegakkan `no-restricted-imports` di `eslint.config.mjs`, bukan hanya oleh
+ * ulasan kode.
  */
 export function CloseShiftScreen() {
   const shift = useLiveQuery(() => getOpenShift(), [], undefined)
-  const transactions = useLiveQuery(
-    () => (shift ? listTransactionsByShift(shift.id) : Promise.resolve([])),
-    [shift?.id],
-    [],
-  )
+  const staffName = usePosAuthStore((s) => s.staffName)
 
-  const { digits, append, backspace, clear } = useDigitInput(9)
   const [confirming, setConfirming] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
-  const logout = usePosAuthStore((s) => s.logout)
 
   if (shift === undefined) return <Skeleton className="m-4 h-96" />
 
@@ -50,94 +69,145 @@ export function CloseShiftScreen() {
     )
   }
 
-  const summary = summarizeShift({
-    openingBalanceMinor: shift.opening_balance,
-    transactions,
-  })
+  return (
+    <BlindCloseForm
+      key={shift.id}
+      cashierName={staffName ?? '—'}
+      openedAt={shift.client_opened_at}
+      confirming={confirming}
+      saving={saving}
+      onRequestConfirm={() => setConfirming(true)}
+      onCancelConfirm={() => setConfirming(false)}
+      onSubmit={async (declaration) => {
+        setSaving(true)
+        try {
+          const outcome = await closeShiftSaga(declaration)
 
-  const closingMinor = digitsToMinor(digits)
-  const discrepancy = closingMinor - summary.expectedBalanceMinor
+          if (!outcome.ok) {
+            toast.error(outcome.error)
+            return
+          }
 
-  const submit = async () => {
-    setSaving(true)
-    try {
-      await closeShift({
-        shiftId: shift.id,
-        closingBalanceMinor: closingMinor,
-        expectedBalanceMinor: summary.expectedBalanceMinor,
-      })
+          // Tanpa satu angka pun. Bahkan "tersinkron" dilaporkan sebagai
+          // keadaan, bukan sebagai jumlah baris — hitungan transaksi adalah
+          // agregat penjualan yang justru dilarang layar ini.
+          toast.success(
+            outcome.synced
+              ? 'Shift ditutup dan terkirim ke server.'
+              : 'Shift ditutup. Data akan terkirim otomatis saat jaringan tersedia.',
+          )
+        } finally {
+          setSaving(false)
+          setConfirming(false)
+        }
+      }}
+    />
+  )
+}
 
-      // Dipanggil langsung, bukan menunggu interval 5 menit.
-      void runSync('shift-close')
+/**
+ * Formulir tiga isian.
+ *
+ * Dipisah menjadi komponen sendiri dan diberi `key={shift.id}` oleh pemanggil:
+ * seluruh state keypad lahir bersamanya, sehingga tidak ada `useEffect` yang
+ * perlu meresetnya saat shift berganti.
+ */
+function BlindCloseForm({
+  cashierName,
+  openedAt,
+  confirming,
+  saving,
+  onRequestConfirm,
+  onCancelConfirm,
+  onSubmit,
+}: {
+  cashierName: string
+  openedAt: string
+  confirming: boolean
+  saving: boolean
+  onRequestConfirm: () => void
+  onCancelConfirm: () => void
+  onSubmit: (declaration: {
+    declaredCashMinor: number
+    declaredEdcMinor: number
+    declaredQrisMinor: number
+  }) => Promise<void>
+}) {
+  type Field = 'cash' | 'edc' | 'qris'
+  const [active, setActive] = React.useState<Field>('cash')
 
-      logout()
-      posNavigate('login')
-    } finally {
-      setSaving(false)
-      setConfirming(false)
-    }
-  }
+  const cash = useDigitInput(9)
+  const edc = useDigitInput(9)
+  const qris = useDigitInput(9)
+
+  const inputs: Record<Field, ReturnType<typeof useDigitInput>> = { cash, edc, qris }
+  const current = inputs[active]
+
+  // Laci WAJIB diisi; EDC dan QRIS boleh kosong — outlet yang tidak menerima
+  // keduanya sepanjang shift memang tidak punya angka untuk dideklarasikan,
+  // dan memaksa mereka mengetik "0" hanya melatih kebiasaan mengetik nol.
+  const canSubmit = cash.digits.length > 0
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4 lg:flex-row">
       <div className="flex flex-col gap-3 lg:w-[26rem]">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={() => posNavigate('register')}>
+          <Button variant="ghost" onClick={() => posNavigate('register')} disabled={saving}>
             <ArrowLeft className="size-4" aria-hidden="true" />
             Kembali
           </Button>
           <h1 className="text-pos-lg font-bold text-fg">Tutup Shift</h1>
         </div>
 
-        <dl className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4 text-pos-sm">
-          <Row label="Modal awal">
-            <Money minor={shift.opening_balance} size="md" />
-          </Row>
-          <Row label="Penjualan tunai">
-            <Money minor={summary.cashSalesMinor} size="md" />
-          </Row>
-          <Row label="Penjualan non-tunai">
-            <Money minor={summary.nonCashSalesMinor} size="md" tone="muted" />
-          </Row>
-          <Row label="Transaksi selesai">
-            <Num>{summary.completedCount}</Num>
-          </Row>
-          <Row label="Transaksi dibatalkan">
-            <Num>{summary.cancelledCount}</Num>
-          </Row>
-          <div className="flex items-center justify-between border-t border-border pt-2">
-            <dt className="font-semibold text-fg">Seharusnya di laci</dt>
-            <dd>
-              <Money minor={summary.expectedBalanceMinor} size="xl" />
-            </dd>
-          </div>
-        </dl>
+        <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-pos-sm">
+          <span className="text-fg-muted">
+            Kasir: <strong className="text-fg">{cashierName}</strong>
+          </span>
+          <span className="text-fg-muted">Mulai {formatTimeId(openedAt)}</span>
+        </div>
 
-        <Banner tone="info">
-          Hanya transaksi <strong>tunai</strong> yang memengaruhi isi laci. QRIS, kartu debit, dan
-          transfer tidak pernah menambah uang fisik.
+        <DeclarationRow
+          label="Uang Fisik di Laci"
+          hint="Hitung seluruh isi laci, termasuk modal awal."
+          minor={digitsToMinor(cash.digits)}
+          empty={cash.digits.length === 0}
+          active={active === 'cash'}
+          onSelect={() => setActive('cash')}
+        />
+        <DeclarationRow
+          label="Total Settle EDC"
+          hint="Angka pada struk settlement mesin EDC."
+          minor={digitsToMinor(edc.digits)}
+          empty={edc.digits.length === 0}
+          active={active === 'edc'}
+          onSelect={() => setActive('edc')}
+        />
+        <DeclarationRow
+          label="Total Settle QRIS"
+          hint="Angka pada laporan settlement QRIS."
+          minor={digitsToMinor(qris.digits)}
+          empty={qris.digits.length === 0}
+          active={active === 'qris'}
+          onSelect={() => setActive('qris')}
+        />
+
+        <Banner tone="info" title="Hitung dulu, jangan mencocokkan">
+          <span className="flex items-start gap-2">
+            <EyeOff className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            Aplikasi sengaja tidak menampilkan angka sistem. Isi apa adanya sesuai hasil hitungan —
+            selisih dihitung dan ditinjau di kantor, bukan di layar ini.
+          </span>
         </Banner>
       </div>
 
       <div className="flex flex-1 flex-col gap-3">
-        <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-pos-base text-fg-muted">Uang fisik dihitung</span>
-            <Money minor={closingMinor} size="2xl" />
-          </div>
-          <div className="flex items-center justify-between border-t border-border pt-2">
-            <span className="text-pos-base text-fg-muted">Selisih</span>
-            <Money
-              minor={discrepancy}
-              size="2xl"
-              signed
-              tone={discrepancy < 0 ? 'danger' : discrepancy > 0 ? 'success' : 'default'}
-            />
-          </div>
-        </div>
-
         <div className="max-w-xs">
-          <Keypad onDigit={append} onClear={clear} onBackspace={backspace} disabled={saving} />
+          <Keypad
+            onDigit={current.append}
+            onClear={current.clear}
+            onBackspace={current.backspace}
+            disabled={saving}
+          />
         </div>
 
         <Button
@@ -145,8 +215,8 @@ export function CloseShiftScreen() {
           size="xl"
           block
           className="mt-auto"
-          disabled={saving || !digits}
-          onClick={() => setConfirming(true)}
+          disabled={saving || !canSubmit}
+          onClick={onRequestConfirm}
         >
           TUTUP SHIFT
         </Button>
@@ -154,22 +224,56 @@ export function CloseShiftScreen() {
 
       <ConfirmDialog
         open={confirming}
-        onClose={() => setConfirming(false)}
-        onConfirm={submit}
+        onClose={onCancelConfirm}
+        onConfirm={() =>
+          onSubmit({
+            declaredCashMinor: digitsToMinor(cash.digits),
+            declaredEdcMinor: digitsToMinor(edc.digits),
+            declaredQrisMinor: digitsToMinor(qris.digits),
+          })
+        }
         pending={saving}
         confirmLabel="Tutup shift"
         title="Tutup shift sekarang?"
-        description="Shift akan ditandai CLOSED dan diantrekan untuk dikirim ke server. Selisih kas yang tercatat akan muncul di dashboard pemilik dan tidak dapat diubah dari perangkat ini."
+        description="Angka yang Anda isi tidak dapat diubah dari perangkat ini. Setelah shift ditutup, Anda akan kembali ke layar Login."
       />
     </div>
   )
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function DeclarationRow({
+  label,
+  hint,
+  minor,
+  empty,
+  active,
+  onSelect,
+}: {
+  label: string
+  hint: string
+  minor: number
+  empty: boolean
+  active: boolean
+  onSelect: () => void
+}) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="text-fg-muted">{label}</dt>
-      <dd>{children}</dd>
-    </div>
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={active}
+      className={`flex flex-col gap-1 rounded-xl border p-4 text-left transition-colors ${
+        active ? 'border-accent bg-accent-subtle' : 'border-border bg-surface'
+      }`}
+    >
+      <span className="text-pos-sm font-semibold text-fg">{label}</span>
+      <div className="flex h-14 items-center justify-end rounded-md border border-border-strong bg-bg-muted px-3">
+        {empty ? (
+          <span className="text-pos-xl font-bold text-fg-subtle">Rp —</span>
+        ) : (
+          <Money minor={minor} size="xl" />
+        )}
+      </div>
+      <span className="text-pos-xs text-fg-muted">{hint}</span>
+    </button>
   )
 }

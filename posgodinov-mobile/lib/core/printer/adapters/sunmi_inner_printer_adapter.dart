@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:posgodinov_mobile/core/printer/receipt_printer.dart';

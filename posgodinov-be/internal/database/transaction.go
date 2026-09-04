@@ -29,9 +29,24 @@ func NewTransactionManager(db *gorm.DB) TransactionManager {
 // WithTransaction membungkus fungsi callback ke dalam sebuah DB transaction.
 // Jika terjadi error pada `fn`, transaksi akan otomatis di-Rollback.
 func (tm *postgresTransactionManager) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	// IKUT SERTA pada transaksi yang sudah berjalan, jangan membuka yang kedua.
+	//
+	// `tm.db` selalu koneksi ROOT, bukan handle transaksi dari context. Tanpa
+	// penjaga ini, panggilan bersarang akan membuka transaksi KEDUA yang berdiri
+	// sendiri: ia commit walau transaksi luar di-rollback, sehingga sebagian
+	// perubahan bertahan dan sebagian lenyap. Kegagalan seperti itu tidak
+	// memunculkan galat apa pun — ia hanya menyisakan data yang tidak konsisten.
+	//
+	// Ikut serta, bukan SavePoint: bila langkah dalam gagal, seluruh unit logis
+	// memang harus batal. Galatnya merambat ke atas dan transaksi luar
+	// menggulungnya.
+	if _, ok := ctx.Value(txKey).(*gorm.DB); ok {
+		return fn(ctx)
+	}
+
 	// First determine which DB to use (Tenant vs Default)
 	dbToUse := GetDB(ctx, tm.db)
-	
+
 	return dbToUse.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Simpan object transaksi GORM ke dalam Context
 		txCtx := context.WithValue(ctx, txKey, tx)

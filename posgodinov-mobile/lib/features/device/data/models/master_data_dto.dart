@@ -8,6 +8,8 @@ class StaffDto {
     required this.staffIdentifier,
     required this.name,
     required this.pinHash,
+    this.role = '',
+    this.permissions = const <String>[],
   });
 
   factory StaffDto.fromJson(Map<String, dynamic> json) => StaffDto(
@@ -15,6 +17,16 @@ class StaffDto {
         staffIdentifier: json['staff_identifier'] as String? ?? '',
         name: json['name'] as String? ?? '',
         pinHash: json['pin_hash'] as String? ?? '',
+        // v2 — server pra-v2 tidak mengirim keduanya; bawaannya sengaja
+        // KOSONG, bukan peran istimewa. Otorisasi yang gagal terbuka pada
+        // perangkat yang master datanya belum diperbarui adalah pintu belakang,
+        // bukan kompatibilitas ([11 §M15.2]).
+        role: json['role'] as String? ?? '',
+        permissions: <String>[
+          for (final Object? p in (json['permissions'] as List<Object?>?) ??
+              const <Object?>[])
+            if (p is String) p,
+        ],
       );
 
   final String id;
@@ -23,6 +35,15 @@ class StaffDto {
 
   /// **Jangan pernah** menuliskan nilai ini ke log atau menampilkannya.
   final String pinHash;
+
+  /// v2 — mis. `OWNER`, `SUPERVISOR`, `CASHIER` ([11 §4.4]).
+  ///
+  /// Ikut master data supaya otorisasi dapat diputuskan **offline**: Force
+  /// Close Shift dibutuhkan tepat ketika jaringan sedang bermasalah.
+  final String role;
+
+  /// v2 — izin granular di atas peran, mis. `SHIFT_FORCE_CLOSE`.
+  final List<String> permissions;
 }
 
 class CategoryDto {
@@ -86,17 +107,30 @@ class MasterDataDto {
     required this.staffs,
     required this.categories,
     required this.products,
+    this.version,
+    this.config,
   });
 
   factory MasterDataDto.fromJson(Map<String, dynamic> json) => MasterDataDto(
         staffs: Envelope.list(json['staffs'], StaffDto.fromJson),
         categories: Envelope.list(json['categories'], CategoryDto.fromJson),
         products: Envelope.list(json['products'], ProductDto.fromJson),
+        version: (json['version'] as num?)?.toInt(),
+        config: json['config'] as Map<String, dynamic>?,
       );
 
   final List<StaffDto> staffs;
   final List<CategoryDto> categories;
   final List<ProductDto> products;
+
+  /// Versi monotonik per outlet — dasar gerbang Buka Shift (butir 10).
+  ///
+  /// `null` pada server pra-v2. Gerbangnya yang memutuskan apakah versi yang
+  /// tidak diketahui cukup untuk membuka shift ([11 §M15.1]).
+  final int? version;
+
+  /// Ambang batas operasional ([11 §4.4]).
+  final Map<String, dynamic>? config;
 }
 
 /// Respons `POST /v1/auth/device/bind`.

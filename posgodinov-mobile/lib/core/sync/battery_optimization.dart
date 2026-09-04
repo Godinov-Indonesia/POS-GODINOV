@@ -69,7 +69,7 @@ class BatteryOptimization {
     try {
       final AndroidDeviceInfo info = await _deviceInfo.androidInfo;
       final String vendor = info.manufacturer.toLowerCase();
-      return aggressiveVendors.any((String v) => vendor.contains(v));
+      return aggressiveVendors.any(vendor.contains);
     } on Object {
       return false;
     }

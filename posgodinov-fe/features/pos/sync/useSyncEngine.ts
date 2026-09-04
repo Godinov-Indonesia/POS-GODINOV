@@ -49,6 +49,12 @@ export async function runSync(
     store.setSkipped(null)
     if (result.ok) {
       store.setSuccess(nowIso())
+    } else if (result.quarantined > 0) {
+      // Karantina lebih mendesak daripada kegagalan biasa: ia tidak akan hilang
+      // sendiri. Pesannya menyebut tindakan, bukan sekadar jumlah.
+      store.setError(
+        `${result.quarantined} baris ditolak permanen dan butuh tindakan — buka daftar di bawah.`,
+      )
     } else {
       store.setError(
         result.failedTransactionIds.length

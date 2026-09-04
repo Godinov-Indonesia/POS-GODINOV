@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:posgodinov_mobile/features/auth/domain/entities/cashier_session.dart';
 import 'package:posgodinov_mobile/features/auth/domain/repositories/auth_repository.dart';
 import 'package:posgodinov_mobile/features/auth/presentation/cubit/cashier_auth_cubit.dart';
+import 'package:posgodinov_mobile/features/shift/domain/session_lock_guard.dart';
 
 /// Fake sederhana — lebih terbaca daripada mock untuk kontrak sekecil ini.
 class _FakeAuthRepository implements AuthRepository {
@@ -102,11 +103,43 @@ void main() {
     });
 
     blocTest<CashierAuthCubit, CashierAuthState>(
-      'logout mengembalikan ke loggedOut',
+      'requestLogout mengembalikan ke loggedOut saat tidak ada shift terbuka',
+      // `lockGuard` sengaja tidak disuntikkan: tanpa penjaga, tidak ada shift
+      // yang mengunci apa pun, dan inilah jalur yang harus tetap berfungsi.
       build: () => CashierAuthCubit(_FakeAuthRepository(session: _siti)),
       act: (CashierAuthCubit c) async {
         await c.login(staffIdentifier: 'kasir01', pin: '1234');
-        c.logout();
+        await c.requestLogout(source: 'uji');
+      },
+      skip: 2,
+      expect: () => <Matcher>[isA<CashierLoggedOut>()],
+    );
+
+    blocTest<CashierAuthCubit, CashierAuthState>(
+      'requestLogout DITOLAK selama shift berjalan — butir 12 ([11 §M15.2])',
+      build: () => CashierAuthCubit(
+        _FakeAuthRepository(session: _siti),
+        lockGuard: _AlwaysLockedGuard(),
+      ),
+      act: (CashierAuthCubit c) async {
+        await c.login(staffIdentifier: 'kasir01', pin: '1234');
+        final bool keluar = await c.requestLogout(source: 'uji');
+        expect(keluar, isFalse);
+      },
+      skip: 2,
+      // Sesi TETAP masuk: tidak ada state baru setelah login.
+      expect: () => <Matcher>[],
+    );
+
+    blocTest<CashierAuthCubit, CashierAuthState>(
+      'clearSession menembus kunci — hanya untuk saga & force close',
+      build: () => CashierAuthCubit(
+        _FakeAuthRepository(session: _siti),
+        lockGuard: _AlwaysLockedGuard(),
+      ),
+      act: (CashierAuthCubit c) async {
+        await c.login(staffIdentifier: 'kasir01', pin: '1234');
+        c.clearSession();
       },
       skip: 2,
       expect: () => <Matcher>[isA<CashierLoggedOut>()],
@@ -134,4 +167,16 @@ void main() {
       expect(budi.shortName, 'Budi');
     });
   });
+}
+
+/// Penjaga yang selalu mengunci — mewakili perangkat dengan shift `OPEN`.
+///
+/// `SessionLockGuard` asli menyentuh Drift; yang diuji di sini adalah keputusan
+/// Cubit-nya, bukan kuerinya.
+class _AlwaysLockedGuard implements SessionLockGuard {
+  @override
+  Future<bool> isLocked({String source = 'unknown'}) async => true;
+
+  @override
+  Future<bool> isLockedSilently() async => true;
 }

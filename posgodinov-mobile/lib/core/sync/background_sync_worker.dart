@@ -77,8 +77,12 @@ class BackgroundSync {
   /// menghasilkan apa pun — sistem tetap membulatkannya ke 15 menit.
   static const Duration frequency = Duration(minutes: 15);
 
+  /// [debug] tidak lagi diteruskan ke Workmanager: sejak 0.10 parameter
+  /// `isInDebugMode` DITANDAI usang dan **tidak berpengaruh apa pun** —
+  /// penggantinya adalah handler `WorkmanagerDebug`. Parameternya
+  /// dipertahankan agar tanda tangan pemanggil tidak berubah.
   Future<void> initialize({bool debug = false}) =>
-      Workmanager().initialize(callbackDispatcher, isInDebugMode: debug);
+      Workmanager().initialize(callbackDispatcher);
 
   /// Menjadwalkan tugas periodik.
   ///

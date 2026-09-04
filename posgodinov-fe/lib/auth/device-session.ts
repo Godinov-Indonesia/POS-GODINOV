@@ -17,6 +17,7 @@
 import { registerTokenResolver } from '@/lib/api/http'
 import { getMeta, setMeta } from '@/lib/db/repositories/meta.repo'
 import { nowIso } from '@/lib/time'
+import { newUuid } from '@/lib/uuid'
 
 export const getDeviceToken = (): Promise<string | undefined> => getMeta<string>('device.token')
 
@@ -31,7 +32,57 @@ export async function saveDeviceBinding(params: {
   await setMeta('device.token', params.token)
   await setMeta('device.boundAt', nowIso())
   await setMeta('device.outletLabel', params.outletLabel)
+  await ensureDeviceId()
 }
+
+/**
+ * Identitas instalasi yang stabil — dasar butir 12 ([11 §M15.2]).
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DIBUAT SEKALI, TIDAK PERNAH BERUBAH
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Indeks `uq_shift_open_per_device` mengunci satu shift `OPEN` per perangkat.
+ * Kunci itu hanya bermakna bila identitas perangkatnya menetap: `device_id`
+ * yang lahir baru setiap kali aplikasi dibuka membuat setiap sesi tampak
+ * seperti perangkat berbeda, dan kasir dapat membuka shift kedua hanya dengan
+ * menyegarkan tab.
+ *
+ * Karena itu ia **tidak boleh** diturunkan dari fingerprint browser, dan tidak
+ * boleh tinggal di `localStorage` yang ikut terhapus bersama cache. Ia lahir
+ * sekali saat binding, di dalam `meta` Dexie yang sama dengan device token, dan
+ * hidup selama pemasangannya.
+ *
+ * Mengembalikan id yang berlaku, baik yang baru dibuat maupun yang sudah ada.
+ */
+export async function ensureDeviceId(): Promise<string> {
+  const existing = await getMeta<string>('device.id')
+  // ⚠️ Pengembalian lebih awal ini adalah inti fungsinya. Menghapusnya —
+  // bahkan "sekadar untuk memuat ulang" — akan menerbitkan identitas baru pada
+  // perangkat yang sedang memegang shift terbuka, dan penguncian butir 12
+  // hilang tanpa satu pun galat.
+  if (existing) return existing
+
+  const id =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : newUuid()
+
+  await setMeta('device.id', id)
+  return id
+}
+
+/**
+ * `device.id` yang berlaku, atau `'legacy'` bila perangkat belum pernah
+ * mendapatkannya.
+ *
+ * `'legacy'` bukan nilai cadangan yang sembarang: server memakainya sebagai
+ * pembebasan `ck_shift_master_version`, sehingga perangkat pra-v2 tetap dapat
+ * mengirim shift lamanya. Perangkat yang sudah dibinding pada v2 tidak akan
+ * pernah melihatnya.
+ */
+export const getDeviceId = async (): Promise<string> =>
+  (await getMeta<string>('device.id')) ?? 'legacy'
 
 export const getBoundOutletLabel = (): Promise<string | undefined> =>
   getMeta<string>('device.outletLabel')

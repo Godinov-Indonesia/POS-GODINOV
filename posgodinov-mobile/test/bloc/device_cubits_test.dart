@@ -11,11 +11,10 @@ class _FakeDeviceRepository implements DeviceRepository {
   _FakeDeviceRepository({
     this.bindError,
     this.syncError,
-    this.snapshot,
-    this.bound = false,
     this.masterEmpty = false,
     this.masterStale = false,
-  });
+  })  : snapshot = null,
+        bound = false;
 
   final Failure? bindError;
   final Failure? syncError;
@@ -66,6 +65,11 @@ class _FakeDeviceRepository implements DeviceRepository {
 
   @override
   Future<bool> isMasterDataEmpty() async => masterEmpty;
+
+  /// Identitas instalasi stabil — butir 12 ([11 §M15.2]). Tetap sepanjang umur
+  /// fake ini, persis seperti implementasi asli yang membuatnya sekali.
+  @override
+  Future<String> ensureDeviceId() async => 'dev-fake-0001';
 }
 
 void main() {
