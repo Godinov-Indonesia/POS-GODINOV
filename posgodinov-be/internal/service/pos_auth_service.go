@@ -43,7 +43,7 @@ func (s *posAuthService) BindDevice(ctx context.Context, req *domain.DeviceBindR
 	}
 
 	// 3. Get Outlet by Serial Tenant
-	outlet, err := s.outletRepo.GetBySerialTenant(ctx, business.ID, req.SerialOutlet)
+	outlet, err := s.outletRepo.GetBySerialOutlet(ctx, business.ID, req.SerialOutlet)
 	if err != nil {
 		return nil, errors.New("serial outlet tidak valid untuk bisnis ini")
 	}

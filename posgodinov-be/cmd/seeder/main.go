@@ -466,7 +466,7 @@ func (s *seeder) seedOutletMaster(bp outletBP) (*outletData, error) {
 	created := s.dayStart(s.days).Add(-24 * time.Hour)
 
 	od.outlet = &domain.Outlet{
-		ID: bp.ID, BusinessID: businessID, SerialTenant: bp.Serial,
+		ID: bp.ID, BusinessID: businessID, SerialOutlet: bp.Serial,
 		Name: bp.Name, Address: bp.Address, CreatedAt: created,
 	}
 	if err := s.db.Create(od.outlet).Error; err != nil {

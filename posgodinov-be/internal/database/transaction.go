@@ -10,7 +10,7 @@ type contextKey string
 
 const (
 	txKey contextKey = "gorm_transaction"
-	TenantDBKey contextKey = "tenant_db"
+	BusinessDBKey contextKey = "tenant_db"
 )
 
 // TransactionManager adalah kontrak untuk menjalankan fungsi di dalam scope transaksi
@@ -64,9 +64,9 @@ func GetDB(ctx context.Context, defaultDB *gorm.DB) *gorm.DB {
 		return tx
 	}
 	
-	// 2. Tenant DB has second priority
-	if tenantDB, ok := ctx.Value(TenantDBKey).(*gorm.DB); ok && tenantDB != nil {
-		return tenantDB
+	// 2. Business DB has second priority
+	if businessDB, ok := ctx.Value(BusinessDBKey).(*gorm.DB); ok && businessDB != nil {
+		return businessDB
 	}
 	
 	// 3. Fallback to default (Landlord) DB

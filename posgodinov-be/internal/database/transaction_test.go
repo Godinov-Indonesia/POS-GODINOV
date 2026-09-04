@@ -10,7 +10,7 @@ import (
 func TestGetDB_RoutingPriority(t *testing.T) {
 	// Create dummy DB instances
 	rootDB := &gorm.DB{}
-	tenantDB := &gorm.DB{}
+	businessDB := &gorm.DB{}
 	txDB := &gorm.DB{}
 
 	ctx := context.Background()
@@ -21,11 +21,11 @@ func TestGetDB_RoutingPriority(t *testing.T) {
 		t.Errorf("Expected rootDB, got something else")
 	}
 
-	// 2. Tenant DB takes precedence over root
-	ctxTenant := context.WithValue(ctx, TenantDBKey, tenantDB)
+	// 2. Business DB takes precedence over root
+	ctxTenant := context.WithValue(ctx, BusinessDBKey, businessDB)
 	db = GetDB(ctxTenant, rootDB)
-	if db != tenantDB {
-		t.Errorf("Expected tenantDB, got something else")
+	if db != businessDB {
+		t.Errorf("Expected businessDB, got something else")
 	}
 
 	// 3. Transaction takes highest precedence

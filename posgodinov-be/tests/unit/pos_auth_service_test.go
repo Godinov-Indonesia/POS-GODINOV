@@ -39,9 +39,9 @@ func (m *MockOutletRepositoryForAuth) CountByBusinessID(ctx context.Context, bus
 func (m *MockOutletRepositoryForAuth) GetAllByBusinessID(ctx context.Context, businessID string) ([]*domain.Outlet, error) { return nil, nil }
 func (m *MockOutletRepositoryForAuth) GetByID(ctx context.Context, id string) (*domain.Outlet, error) { return nil, nil }
 
-func (m *MockOutletRepositoryForAuth) GetBySerialTenant(ctx context.Context, businessID, serial string) (*domain.Outlet, error) {
+func (m *MockOutletRepositoryForAuth) GetBySerialOutlet(ctx context.Context, businessID, serial string) (*domain.Outlet, error) {
 	for _, o := range m.outlets {
-		if o.BusinessID == businessID && o.SerialTenant == serial {
+		if o.BusinessID == businessID && o.SerialOutlet == serial {
 			return o, nil
 		}
 	}
@@ -67,7 +67,7 @@ func TestBindDevice(t *testing.T) {
 	mockOutletRepo.outlets = append(mockOutletRepo.outlets, &domain.Outlet{
 		ID:           "out-1",
 		BusinessID:   "biz-1",
-		SerialTenant: "OUT-001",
+		SerialOutlet: "OUT-001",
 	})
 
 	// 1. Success case

@@ -90,10 +90,10 @@ func AuditMiddleware(repo domain.AuditRepository) func(http.HandlerFunc) http.Ha
 					StatusCode: rw.statusCode,
 				}
 
-				// Tangkap Tenant DB untuk dilempar ke goroutine
-				var tenantDB interface{}
-				if tdb := r.Context().Value(database.TenantDBKey); tdb != nil {
-					tenantDB = tdb
+				// Tangkap Business DB untuk dilempar ke goroutine
+				var businessDB interface{}
+				if tdb := r.Context().Value(database.BusinessDBKey); tdb != nil {
+					businessDB = tdb
 				}
 
 				// Run asynchronously to not block the response
@@ -101,13 +101,13 @@ func AuditMiddleware(repo domain.AuditRepository) func(http.HandlerFunc) http.Ha
 					// Use a background context because the request context is canceled after response is sent
 					bgCtx := context.Background()
 					if tdb != nil {
-						bgCtx = context.WithValue(bgCtx, database.TenantDBKey, tdb)
+						bgCtx = context.WithValue(bgCtx, database.BusinessDBKey, tdb)
 					}
 					
 					if err := repo.Create(bgCtx, log); err != nil {
 						logger.Error("failed to create audit log", "error", err, "action", log.Action)
 					}
-				}(auditLog, tenantDB)
+				}(auditLog, businessDB)
 			}
 		}
 	}

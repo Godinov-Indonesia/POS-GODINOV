@@ -27,14 +27,14 @@ func SetupRouter(
 	opnameSessionHandler *OpnameSessionHandler,
 	tokenMaker token.TokenMaker,
 	auditRepo domain.AuditRepository,
-	tenantManager *database.TenantManager,
+	tenantManager *database.BusinessDBManager,
 ) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	authMiddleware := middleware.AuthMiddleware(tokenMaker)
 	deviceMiddleware := middleware.POSDeviceMiddleware(tokenMaker)
 	auditMiddleware := middleware.AuditMiddleware(auditRepo)
-	tenantMiddleware := middleware.TenantMiddleware(tenantManager)
+	tenantMiddleware := middleware.BusinessMiddleware(tenantManager)
 	
 	// Helper to chain middlewares: Auth first, then Tenant, then Audit
 	chain := func(handler http.HandlerFunc) http.HandlerFunc {

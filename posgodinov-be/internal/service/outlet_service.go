@@ -51,7 +51,7 @@ func (s *outletService) Register(ctx context.Context, businessID string, req *do
 		outlet = &domain.Outlet{
 			ID:           id,
 			BusinessID:   businessID,
-			SerialTenant: serialTenant,
+			SerialOutlet: serialTenant,
 			Name:         req.Name,
 			Address:      req.Address,
 		}

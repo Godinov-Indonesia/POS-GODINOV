@@ -19,10 +19,10 @@ type businessService struct {
 	repo          domain.BusinessRepository
 	tokenMaker    token.TokenMaker
 	txManager     database.TransactionManager
-	tenantManager *database.TenantManager
+	tenantManager *database.BusinessDBManager
 }
 
-func NewBusinessService(repo domain.BusinessRepository, tokenMaker token.TokenMaker, txManager database.TransactionManager, tenantManager *database.TenantManager) domain.BusinessService {
+func NewBusinessService(repo domain.BusinessRepository, tokenMaker token.TokenMaker, txManager database.TransactionManager, tenantManager *database.BusinessDBManager) domain.BusinessService {
 	return &businessService{
 		repo:          repo,
 		tokenMaker:    tokenMaker,

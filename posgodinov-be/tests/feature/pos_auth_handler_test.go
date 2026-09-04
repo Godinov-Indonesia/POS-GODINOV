@@ -40,9 +40,9 @@ func (m *MockOutletRepositoryForAuth) Create(ctx context.Context, o *domain.Outl
 func (m *MockOutletRepositoryForAuth) CountByBusinessID(ctx context.Context, businessID string) (int64, error) { return 0, nil }
 func (m *MockOutletRepositoryForAuth) GetAllByBusinessID(ctx context.Context, businessID string) ([]*domain.Outlet, error) { return nil, nil }
 func (m *MockOutletRepositoryForAuth) GetByID(ctx context.Context, id string) (*domain.Outlet, error) { return nil, nil }
-func (m *MockOutletRepositoryForAuth) GetBySerialTenant(ctx context.Context, businessID, serial string) (*domain.Outlet, error) {
+func (m *MockOutletRepositoryForAuth) GetBySerialOutlet(ctx context.Context, businessID, serial string) (*domain.Outlet, error) {
 	for _, o := range m.outlets {
-		if o.BusinessID == businessID && o.SerialTenant == serial {
+		if o.BusinessID == businessID && o.SerialOutlet == serial {
 			return o, nil
 		}
 	}
@@ -64,7 +64,7 @@ func TestPOSAuthHandler_BindDevice(t *testing.T) {
 	mockOutletRepo.outlets = append(mockOutletRepo.outlets, &domain.Outlet{
 		ID:           "out-1",
 		BusinessID:   "biz-1",
-		SerialTenant: "OUT-001",
+		SerialOutlet: "OUT-001",
 	})
 
 	svc := service.NewPOSAuthService(mockBusinessRepo, mockOutletRepo, tokenMaker)

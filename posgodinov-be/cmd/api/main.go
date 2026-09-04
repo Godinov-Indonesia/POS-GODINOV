@@ -81,7 +81,7 @@ func main() {
 	categoryRepo := repository.NewProductCategoryRepository(db)
 	auditRepo := repository.NewAuditRepository(db)
 	txManager := database.NewTransactionManager(db)
-	tenantManager := database.NewTenantManager(cfg, db)
+	tenantManager := database.NewBusinessDBManager(cfg, db)
 
 	posRepo := repository.NewPOSRepository(db)
 	reportRepo := repository.NewReportRepository(db)
