@@ -31,8 +31,8 @@ func (s *outletService) Register(ctx context.Context, businessID string, req *do
 
 	var outlet *domain.Outlet
 	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
-		// 1. Lock the business row to prevent concurrent outlet creations from getting the same count
-		business, err := s.businessRepo.LockByID(txCtx, businessID)
+		// 1. Dapatkan informasi bisnis (dari Landlord DB, tanpa tenant transaction)
+		business, err := s.businessRepo.GetByID(context.Background(), businessID)
 		if err != nil {
 			return errors.New("akses ditolak: bisnis tidak ditemukan")
 		}

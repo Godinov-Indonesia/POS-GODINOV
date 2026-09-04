@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/pkg/logger"
 	"posgodinov-backend/pkg/token"
@@ -89,13 +90,24 @@ func AuditMiddleware(repo domain.AuditRepository) func(http.HandlerFunc) http.Ha
 					StatusCode: rw.statusCode,
 				}
 
+				// Tangkap Tenant DB untuk dilempar ke goroutine
+				var tenantDB interface{}
+				if tdb := r.Context().Value(database.TenantDBKey); tdb != nil {
+					tenantDB = tdb
+				}
+
 				// Run asynchronously to not block the response
-				go func(log *domain.AuditLog) {
+				go func(log *domain.AuditLog, tdb interface{}) {
 					// Use a background context because the request context is canceled after response is sent
-					if err := repo.Create(context.Background(), log); err != nil {
+					bgCtx := context.Background()
+					if tdb != nil {
+						bgCtx = context.WithValue(bgCtx, database.TenantDBKey, tdb)
+					}
+					
+					if err := repo.Create(bgCtx, log); err != nil {
 						logger.Error("failed to create audit log", "error", err, "action", log.Action)
 					}
-				}(auditLog)
+				}(auditLog, tenantDB)
 			}
 		}
 	}
