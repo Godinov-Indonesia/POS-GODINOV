@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/internal/middleware"
 	"posgodinov-backend/pkg/token"
@@ -23,16 +24,21 @@ func SetupRouter(
 	reportHandler *ReportHandler,
 	tokenMaker token.TokenMaker,
 	auditRepo domain.AuditRepository,
+	tenantManager *database.TenantManager,
 ) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	authMiddleware := middleware.AuthMiddleware(tokenMaker)
 	deviceMiddleware := middleware.POSDeviceMiddleware(tokenMaker)
 	auditMiddleware := middleware.AuditMiddleware(auditRepo)
+	tenantMiddleware := middleware.TenantMiddleware(tenantManager)
 	
-	// Helper to chain middlewares: Auth first, so Audit can read the Token Payload from context
+	// Helper to chain middlewares: Auth first, then Tenant, then Audit
 	chain := func(handler http.HandlerFunc) http.HandlerFunc {
-		return authMiddleware(auditMiddleware(handler))
+		return authMiddleware(tenantMiddleware(auditMiddleware(handler)))
+	}
+	deviceChain := func(handler http.HandlerFunc) http.HandlerFunc {
+		return deviceMiddleware(tenantMiddleware(handler))
 	}
 
 	// Business Routes
@@ -43,9 +49,9 @@ func SetupRouter(
 	// POS Device Routes
 	mux.HandleFunc("POST /v1/auth/device/bind", posAuthHandler.BindDevice)
 	// POS Sync Routes (Mobile / Cashier Device)
-	mux.HandleFunc("GET /v1/pos/sync/master-data", deviceMiddleware(posSyncHandler.GetMasterData))
-	mux.HandleFunc("POST /v1/pos/sync", deviceMiddleware(posSyncHandler.SyncUp))
-	mux.HandleFunc("GET /v1/pos/transactions", deviceMiddleware(posSyncHandler.GetTransactions))
+	mux.HandleFunc("GET /v1/pos/sync/master-data", deviceChain(posSyncHandler.GetMasterData))
+	mux.HandleFunc("POST /v1/pos/sync", deviceChain(posSyncHandler.SyncUp))
+	mux.HandleFunc("GET /v1/pos/transactions", deviceChain(posSyncHandler.GetTransactions))
 	
 	// Reports Routes
 	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/reports/dashboard", chain(reportHandler.GetDashboard))

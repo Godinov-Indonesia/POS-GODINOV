@@ -81,6 +81,7 @@ func main() {
 	categoryRepo := repository.NewProductCategoryRepository(db)
 	auditRepo := repository.NewAuditRepository(db)
 	txManager := database.NewTransactionManager(db)
+	tenantManager := database.NewTenantManager(cfg)
 
 	posRepo := repository.NewPOSRepository(db)
 	reportRepo := repository.NewReportRepository(db)
@@ -129,6 +130,7 @@ func main() {
 		reportHandler,
 		tokenMaker, 
 		auditRepo,
+		tenantManager,
 	)
 
 	// Apply Middlewares (Recovery, CORS, Security Headers, and Logger)

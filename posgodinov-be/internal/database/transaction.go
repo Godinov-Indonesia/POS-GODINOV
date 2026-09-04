@@ -10,6 +10,7 @@ type contextKey string
 
 const (
 	txKey contextKey = "gorm_transaction"
+	TenantDBKey contextKey = "tenant_db"
 )
 
 // TransactionManager adalah kontrak untuk menjalankan fungsi di dalam scope transaksi
@@ -28,7 +29,10 @@ func NewTransactionManager(db *gorm.DB) TransactionManager {
 // WithTransaction membungkus fungsi callback ke dalam sebuah DB transaction.
 // Jika terjadi error pada `fn`, transaksi akan otomatis di-Rollback.
 func (tm *postgresTransactionManager) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
-	return tm.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	// First determine which DB to use (Tenant vs Default)
+	dbToUse := GetDB(ctx, tm.db)
+	
+	return dbToUse.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Simpan object transaksi GORM ke dalam Context
 		txCtx := context.WithValue(ctx, txKey, tx)
 		return fn(txCtx)
@@ -37,11 +41,20 @@ func (tm *postgresTransactionManager) WithTransaction(ctx context.Context, fn fu
 
 // GetDB adalah helper method untuk mengambil instance DB.
 // Jika di dalam context terdapat transaksi aktif, maka ia akan mengembalikan DB Transaksi.
-// Jika tidak ada, ia mengembalikan DB koneksi standard.
+// Jika tidak ada transaksi, ia mengecek DB Tenant.
+// Jika tidak ada, ia mengembalikan DB koneksi standard (Landlord).
 func GetDB(ctx context.Context, defaultDB *gorm.DB) *gorm.DB {
+	// 1. Transaction has highest priority
 	if tx, ok := ctx.Value(txKey).(*gorm.DB); ok {
 		return tx
 	}
+	
+	// 2. Tenant DB has second priority
+	if tenantDB, ok := ctx.Value(TenantDBKey).(*gorm.DB); ok && tenantDB != nil {
+		return tenantDB
+	}
+	
+	// 3. Fallback to default (Landlord) DB
 	return defaultDB
 }
 

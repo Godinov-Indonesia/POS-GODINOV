@@ -7,9 +7,10 @@ import (
 )
 
 type Payload struct {
-	ID    string `json:"id"`
-	Email string `json:"email"`
-	Type  string `json:"type"`
+	ID       string `json:"id"`
+	Email    string `json:"email"`
+	Type     string `json:"type"`
+	TenantID string `json:"tenant_id,omitempty"`
 }
 
 // TokenMaker manages PASETO tokens
