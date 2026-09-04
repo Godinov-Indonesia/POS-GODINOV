@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,7 +26,7 @@ type TenantManager struct {
 	landlordDB *gorm.DB
 }
 
-var validTenantName = regexp.MustCompile(`^[a-z0-9_]+$`)
+var validTenantName = regexp.MustCompile(`(?i)^[a-z0-9_]+$`)
 
 // NewTenantManager creates a new instance of TenantManager.
 func NewTenantManager(cfg *config.Config, landlordDB *gorm.DB) *TenantManager {
@@ -42,6 +43,8 @@ func (tm *TenantManager) GetTenantDB(ctx context.Context, tenantID string) (*gor
 	if !validTenantName.MatchString(tenantID) {
 		return nil, fmt.Errorf("invalid tenant ID format")
 	}
+
+	tenantID = strings.ToLower(tenantID)
 
 	// 1. Check if connection exists in pool (Read Lock)
 	tm.mu.RLock()
@@ -105,6 +108,7 @@ func (tm *TenantManager) CreateNewTenantDatabase(tenantID string) error {
 		return fmt.Errorf("invalid tenant ID format")
 	}
 
+	tenantID = strings.ToLower(tenantID)
 	dbName := fmt.Sprintf("tenant_%s", tenantID)
 
 	// Create database if it doesn't exist.
