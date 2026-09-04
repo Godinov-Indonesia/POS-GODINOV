@@ -7,25 +7,29 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/pkg/token"
 )
 
 type posAuthService struct {
 	businessRepo domain.BusinessRepository
-	outletRepo   domain.OutletRepository
-	tokenMaker   token.TokenMaker
+	outletRepo      domain.OutletRepository
+	tokenMaker      token.TokenMaker
+	businessManager *database.BusinessDBManager
 }
 
 func NewPOSAuthService(
 	businessRepo domain.BusinessRepository,
 	outletRepo domain.OutletRepository,
 	tokenMaker token.TokenMaker,
+	businessManager *database.BusinessDBManager,
 ) domain.POSAuthService {
 	return &posAuthService{
-		businessRepo: businessRepo,
-		outletRepo:   outletRepo,
-		tokenMaker:   tokenMaker,
+		businessRepo:    businessRepo,
+		outletRepo:      outletRepo,
+		tokenMaker:      tokenMaker,
+		businessManager: businessManager,
 	}
 }
 
@@ -42,8 +46,17 @@ func (s *posAuthService) BindDevice(ctx context.Context, req *domain.DeviceBindR
 		return nil, errors.New("kredensial bisnis tidak valid")
 	}
 
-	// 3. Get Outlet by Serial Tenant
-	outlet, err := s.outletRepo.GetBySerialOutlet(ctx, business.ID, req.SerialOutlet)
+	businessCtx := ctx
+	if s.businessManager != nil {
+		businessDB, err := s.businessManager.GetBusinessDB(ctx, business.ID)
+		if err != nil {
+			return nil, errors.New("gagal terhubung ke database bisnis")
+		}
+		businessCtx = context.WithValue(ctx, database.BusinessDBKey, businessDB)
+	}
+
+	// 3. Get Outlet by Serial Outlet
+	outlet, err := s.outletRepo.GetBySerialOutlet(businessCtx, business.ID, req.SerialOutlet)
 	if err != nil {
 		return nil, errors.New("serial outlet tidak valid untuk bisnis ini")
 	}

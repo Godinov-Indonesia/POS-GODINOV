@@ -67,7 +67,7 @@ func TestPOSAuthHandler_BindDevice(t *testing.T) {
 		SerialOutlet: "OUT-001",
 	})
 
-	svc := service.NewPOSAuthService(mockBusinessRepo, mockOutletRepo, tokenMaker)
+	svc := service.NewPOSAuthService(mockBusinessRepo, mockOutletRepo, tokenMaker, nil)
 	h := handler.NewPOSAuthHandler(svc)
 
 	mux := http.NewServeMux()

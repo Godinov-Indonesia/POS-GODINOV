@@ -34,7 +34,7 @@ func (s *outletService) Register(ctx context.Context, businessID string, req *do
 		// 1. Dapatkan informasi bisnis (dari Landlord DB, tanpa tenant transaction)
 		business, err := s.businessRepo.GetByID(context.Background(), businessID)
 		if err != nil {
-			return errors.New("akses ditolak: bisnis tidak ditemukan")
+			return fmt.Errorf("akses ditolak: bisnis tidak ditemukan (detail: %w)", err)
 		}
 
 		// 2. Count existing outlets (safe from race condition due to parent lock)

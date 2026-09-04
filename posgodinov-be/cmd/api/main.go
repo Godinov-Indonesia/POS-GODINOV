@@ -81,7 +81,7 @@ func main() {
 	categoryRepo := repository.NewProductCategoryRepository(db)
 	auditRepo := repository.NewAuditRepository(db)
 	txManager := database.NewTransactionManager(db)
-	tenantManager := database.NewBusinessDBManager(cfg, db)
+	businessManager := database.NewBusinessDBManager(cfg, db)
 
 	posRepo := repository.NewPOSRepository(db)
 	reportRepo := repository.NewReportRepository(db)
@@ -100,7 +100,7 @@ func main() {
 	opnameSessionRepo := repository.NewOpnameSessionRepository(db)
 
 	// Setup Services
-	businessSvc := service.NewBusinessService(businessRepo, tokenMaker, txManager, tenantManager)
+	businessSvc := service.NewBusinessService(businessRepo, tokenMaker, txManager, businessManager)
 	outletSvc := service.NewOutletService(outletRepo, businessRepo, txManager)
 	staffSvc := service.NewStaffService(staffRepo, outletRepo,
 		service.WithStaffMasterVersion(txManager, masterVersionRepo))
@@ -112,7 +112,7 @@ func main() {
 	restockLogSvc := service.NewRestockLogService(restockLogRepo, rawMaterialRepo, outletRepo, txManager)
 	categorySvc := service.NewProductCategoryService(categoryRepo, outletRepo,
 		service.WithCategoryMasterVersion(txManager, masterVersionRepo))
-	posAuthSvc := service.NewPOSAuthService(businessRepo, outletRepo, tokenMaker)
+	posAuthSvc := service.NewPOSAuthService(businessRepo, outletRepo, tokenMaker, businessManager)
 	// Aturan retur hidup di layanannya sendiri ([11 §M13.6]) dan dipakai DUA
 	// pemanggil: jalur sinkronisasi dan endpoint `returnable`. Satu instance
 	// untuk keduanya memastikan tidak ada versi aturan yang menyimpang.
@@ -179,7 +179,7 @@ func main() {
 		opnameSessionHandler,
 		tokenMaker, 
 		auditRepo,
-		tenantManager,
+		businessManager,
 	)
 
 	// Apply Middlewares (Recovery, CORS, Security Headers, and Logger)

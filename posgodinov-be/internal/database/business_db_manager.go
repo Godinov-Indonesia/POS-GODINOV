@@ -37,9 +37,9 @@ func NewBusinessDBManager(cfg *config.Config, landlordDB *gorm.DB) *BusinessDBMa
 	}
 }
 
-// GetTenantDB retrieves a database connection for a specific tenant.
+// GetBusinessDB retrieves a database connection for a specific business.
 // It uses lazy-loading: if the connection doesn't exist in the pool, it creates one.
-func (tm *BusinessDBManager) GetTenantDB(ctx context.Context, businessID string) (*gorm.DB, error) {
+func (tm *BusinessDBManager) GetBusinessDB(ctx context.Context, businessID string) (*gorm.DB, error) {
 	if !validBusinessName.MatchString(businessID) {
 		return nil, fmt.Errorf("invalid tenant ID format")
 	}

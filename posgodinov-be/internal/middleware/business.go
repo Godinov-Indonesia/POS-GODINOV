@@ -15,7 +15,7 @@ import (
 // or from the Auth Payload (if auth middleware was already run),
 // acquires the business DB connection from the connection pool,
 // and injects it into the request context.
-func BusinessMiddleware(tenantManager *database.BusinessDBManager) func(http.HandlerFunc) http.HandlerFunc {
+func BusinessMiddleware(businessManager *database.BusinessDBManager) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			businessID := r.Header.Get("X-Business-ID")
@@ -38,7 +38,7 @@ func BusinessMiddleware(tenantManager *database.BusinessDBManager) func(http.Han
 			// Validate format basic
 			businessID = strings.TrimSpace(businessID)
 			
-			businessDB, err := tenantManager.GetTenantDB(r.Context(), businessID)
+			businessDB, err := businessManager.GetBusinessDB(r.Context(), businessID)
 			if err != nil {
 				response.Error(w, http.StatusInternalServerError, "Failed to connect to business database", nil)
 				return

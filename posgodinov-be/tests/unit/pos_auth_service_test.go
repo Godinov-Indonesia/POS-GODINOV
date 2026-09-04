@@ -55,7 +55,7 @@ func TestBindDevice(t *testing.T) {
 	mockOutletRepo := &MockOutletRepositoryForAuth{}
 	tokenMaker, _ := token.NewPasetoMaker("01234567890123456789012345678901")
 
-	svc := service.NewPOSAuthService(mockBusinessRepo, mockOutletRepo, tokenMaker)
+	svc := service.NewPOSAuthService(mockBusinessRepo, mockOutletRepo, tokenMaker, nil)
 
 	hashedPass, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
 	mockBusinessRepo.businesses = append(mockBusinessRepo.businesses, &domain.Business{
