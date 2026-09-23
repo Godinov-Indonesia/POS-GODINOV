@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/dialog'
 import { Banner, Skeleton } from '@/components/ui/feedback'
 import { Input, NumericInput, Select } from '@/components/ui/input'
-import { Num, formatQuantity } from '@/components/ui/money'
+import { formatQuantity } from '@/components/ui/money'
 import { TBody, TD, TH, THead, TR, Table } from '@/components/ui/table'
 import { toast, toastApiError } from '@/components/ui/toaster'
 import { useCreateOpnameBulk } from '@/features/admin/inventory/hooks/useInventoryOps'
@@ -15,7 +15,6 @@ import { useRawMaterials } from '@/features/admin/inventory/hooks/useRawMaterial
 import { OutletGuard } from '@/features/admin/shell/OutletGuard'
 import { PageHeader } from '@/features/admin/shell/PageHeader'
 import type { OpnameInputType } from '@/lib/types/inventory'
-import { cn } from '@/lib/utils/cn'
 
 type Entry = { actual: string; inputType: OpnameInputType; notes: string }
 
@@ -26,7 +25,7 @@ const num = (raw: string): number => {
   return Number.isFinite(value) ? value : 0
 }
 
-/** D-19 Lembar Hitung Opname Massal — docs/04 §B.1. */
+/** D-19 Lembar Hitung Opname Massal — docs/04 §B.1. Blind SO: stok sistem tidak ditampilkan sebelum simpan. */
 export function OpnameSheet() {
   return (
     <div className="flex flex-col gap-4">
@@ -84,14 +83,17 @@ function OpnameInner({ outletId }: { outletId: string }) {
         ditandai <code>fraud_flag</code> oleh backend.
       </Banner>
 
+      <Banner tone="info" title="Blind count aktif — stok sistem disembunyikan">
+        Stok sistem dan selisih <strong>tidak ditampilkan</strong> selama pengisian untuk
+        menghindari bias hitung. Angka ini akan terlihat di laporan setelah opname disimpan.
+      </Banner>
+
       <Table>
         <THead>
           <TR>
             <TH>Bahan baku</TH>
-            <TH numeric>Stok sistem</TH>
             <TH>Satuan input</TH>
             <TH numeric>Hitung fisik</TH>
-            <TH numeric>Selisih (base unit)</TH>
             <TH>Catatan</TH>
           </TR>
         </THead>
@@ -101,22 +103,9 @@ function OpnameInner({ outletId }: { outletId: string }) {
             const packageAllowed =
               !!material.quantity_per_package && material.quantity_per_package > 0
 
-            // Konversi mengikuti backend: actual_base = actual × quantity_per_package.
-            const actualBase =
-              entry.inputType === 'package_unit'
-                ? num(entry.actual) * (material.quantity_per_package ?? 0)
-                : num(entry.actual)
-
-            const touched = entry.actual.trim() !== ''
-            const difference = actualBase - material.stock
-
             return (
               <TR key={material.id}>
                 <TD className="font-medium">{material.name}</TD>
-                <TD numeric>
-                  <Num>{formatQuantity(material.stock)}</Num>{' '}
-                  <span className="text-fg-muted">{material.unit}</span>
-                </TD>
                 <TD>
                   <Select
                     aria-label={`Satuan input untuk ${material.name}`}
@@ -142,21 +131,6 @@ function OpnameInner({ outletId }: { outletId: string }) {
                     value={entry.actual}
                     onChange={(e) => update(material.id, { actual: e.target.value })}
                   />
-                </TD>
-                <TD numeric>
-                  {touched ? (
-                    <Num
-                      className={cn(
-                        'font-semibold',
-                        difference < 0 ? 'text-danger' : difference > 0 ? 'text-success-text' : '',
-                      )}
-                    >
-                      {difference > 0 ? '+' : ''}
-                      {formatQuantity(difference)}
-                    </Num>
-                  ) : (
-                    <span className="text-fg-subtle">—</span>
-                  )}
                 </TD>
                 <TD>
                   <Input
@@ -197,3 +171,4 @@ function OpnameInner({ outletId }: { outletId: string }) {
     </div>
   )
 }
+
