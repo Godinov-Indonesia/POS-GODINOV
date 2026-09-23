@@ -1,26 +1,193 @@
+/* app/globals.css
+ *
+ * Godinov Palette — implementasi Tailwind v4 CSS-first.
+ * Sumber kebenaran: docs/06-ui-ux-design-system.md §1.4.
+ *
+ * ATURAN MUTLAK (§1.1): komponen TIDAK PERNAH merujuk Lapis 1.
+ * `bg-[#2563EB]` dan `bg-godinov-blue-600` sama-sama dilarang di dalam
+ * komponen; yang benar adalah `bg-accent`.
+ */
 @import "tailwindcss";
 
+/* ───────────────────────── LAPIS 1 — PRIMITIF ───────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Primary / Brand */
+  --godinov-navy-950: #0F172A;
+  --godinov-navy-900: #1E293B;
+  --godinov-navy-800: #334155;
+
+  /* Accent / Action */
+  --godinov-blue-600: #2563EB;
+  --godinov-blue-700: #1D4ED8;
+  --godinov-blue-50:  #EFF6FF;
+  --godinov-cyan-600: #0284C7;
+
+  /* Success / Paid */
+  --godinov-emerald-600: #059669;
+  --godinov-emerald-700: #047857;
+  --godinov-emerald-50:  #ECFDF5;
+
+  /* Warning / Alert */
+  --godinov-amber-600: #D97706;
+  --godinov-amber-700: #B45309;
+  --godinov-amber-50:  #FFFBEB;
+
+  /* Danger / Void */
+  --godinov-red-600: #DC2626;
+  --godinov-red-700: #B91C1C;
+  --godinov-red-50:  #FEF2F2;
+
+  /* Neutral */
+  --godinov-slate-50:  #F8FAFC;
+  --godinov-slate-100: #F1F5F9;
+  --godinov-slate-200: #E2E8F0;
+  --godinov-slate-300: #CBD5E1;
+  --godinov-slate-500: #64748B;
+  --godinov-slate-600: #475569;
+  --godinov-white:     #FFFFFF;
+
+  /* ─────────────────────── LAPIS 2 — SEMANTIK ─────────────────────── */
+  --bg:               var(--godinov-slate-50);
+  --bg-muted:         var(--godinov-slate-100);
+  --surface:          var(--godinov-white);
+  --surface-inverse:  var(--godinov-navy-950);
+  --border:           var(--godinov-slate-200);
+  --border-strong:    var(--godinov-slate-300);
+  --border-inverse:   var(--godinov-navy-800);
+
+  --fg:               var(--godinov-navy-950);
+  --fg-muted:         var(--godinov-slate-600);
+  --fg-subtle:        var(--godinov-slate-500);
+  --fg-inverse:       var(--godinov-white);
+
+  --brand:            var(--godinov-navy-950);
+  --accent:           var(--godinov-blue-600);
+  --accent-hover:     var(--godinov-blue-700);
+  --accent-subtle:    var(--godinov-blue-50);
+  --info:             var(--godinov-cyan-600);
+
+  --success:          var(--godinov-emerald-600);
+  --success-text:     var(--godinov-emerald-700);
+  --success-subtle:   var(--godinov-emerald-50);
+
+  --warning:          var(--godinov-amber-600);
+  --warning-text:     var(--godinov-amber-700);
+  --warning-subtle:   var(--godinov-amber-50);
+
+  --danger:           var(--godinov-red-600);
+  --danger-hover:     var(--godinov-red-700);
+  --danger-subtle:    var(--godinov-red-50);
+
+  --focus-ring:       var(--godinov-blue-600);
 }
 
+/* ─────────────── PEMETAAN KE UTILITY TAILWIND v4 ─────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Warna → menghasilkan bg-*, text-*, border-*, ring-*, fill-* */
+  --color-bg:              var(--bg);
+  --color-bg-muted:        var(--bg-muted);
+  --color-surface:         var(--surface);
+  --color-surface-inverse: var(--surface-inverse);
+  --color-border:          var(--border);
+  --color-border-strong:   var(--border-strong);
+  --color-border-inverse:  var(--border-inverse);
+  --color-fg:              var(--fg);
+  --color-fg-muted:        var(--fg-muted);
+  --color-fg-subtle:       var(--fg-subtle);
+  --color-fg-inverse:      var(--fg-inverse);
+  --color-brand:           var(--brand);
+  --color-accent:          var(--accent);
+  --color-accent-hover:    var(--accent-hover);
+  --color-accent-subtle:   var(--accent-subtle);
+  --color-info:            var(--info);
+  --color-success:         var(--success);
+  --color-success-text:    var(--success-text);
+  --color-success-subtle:  var(--success-subtle);
+  --color-warning:         var(--warning);
+  --color-warning-text:    var(--warning-text);
+  --color-warning-subtle:  var(--warning-subtle);
+  --color-danger:          var(--danger);
+  --color-danger-hover:    var(--danger-hover);
+  --color-danger-subtle:   var(--danger-subtle);
+
+  /* Tipografi */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Skala teks POS (§2.3) */
+  --text-pos-xs:   0.75rem;   /* 12px — meta, timestamp            */
+  --text-pos-sm:   0.875rem;  /* 14px — label, satuan              */
+  --text-pos-base: 1rem;      /* 16px — teks dasar, nama produk    */
+  --text-pos-md:   1.125rem;  /* 18px — nominal baris keranjang    */
+  --text-pos-lg:   1.375rem;  /* 22px — subtotal, label tombol besar */
+  --text-pos-xl:   1.75rem;   /* 28px — total keranjang            */
+  --text-pos-2xl:  2.5rem;    /* 40px — nominal bayar & kembalian   */
+
+  /* Touch target (§2.1) */
+  --spacing-touch:    3rem;    /* 48px — minimum absolut  */
+  --spacing-touch-md: 3.5rem;  /* 56px — numpad, aksi kritis */
+  --spacing-touch-lg: 4rem;    /* 64px — tombol bayar utama */
+  --spacing-touch-xl: 4.5rem;  /* 72px — Fast-Cash preset  */
+
+  /* Radius — lembut, konsisten; TIDAK ADA rounded-none pada permukaan */
+  --radius-sm:  0.375rem;  /*  6px — badge, chip         */
+  --radius-md:  0.5rem;    /*  8px — input, tab          */
+  --radius-lg:  0.625rem;  /* 10px — tombol              */
+  --radius-xl:  0.875rem;  /* 14px — kartu, tile produk  */
+  --radius-2xl: 1.125rem;  /* 18px — modal, panel        */
+
+  /* Elevasi — lembut & berlapis; BUKAN offset keras (§6.2) */
+  --shadow-card:     0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+  --shadow-raised:   0 2px 4px -1px rgb(15 23 42 / 0.06), 0 4px 8px -2px rgb(15 23 42 / 0.08);
+  --shadow-elevated: 0 8px 16px -4px rgb(15 23 42 / 0.10), 0 16px 32px -8px rgb(15 23 42 / 0.12);
+  --shadow-overlay:  0 24px 48px -12px rgb(15 23 42 / 0.22);
+
+  /* Motion (§6.1) */
+  --ease-out-pos: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-pos:  cubic-bezier(0.4, 0, 1, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ─────────────────────────── DASAR ─────────────────────────── */
+html {
+  color-scheme: light;          /* POS dikunci terang — lihat §1.6 */
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-synthesis-weight: none;
+}
+
+/* Angka selalu bertabular — kolom nominal tidak boleh bergoyang saat berubah */
+.tnum, table, input[inputmode="numeric"], input[inputmode="decimal"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cincin fokus tunggal untuk seluruh sistem (§5.6) */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+/* Pengerasan permukaan sentuh POS (§5.7) */
+.pos-root {
+  overscroll-behavior: none;              /* mematikan pull-to-refresh */
+  -webkit-tap-highlight-color: transparent;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.pos-root button,
+.pos-root [role="button"] {
+  touch-action: manipulation;             /* mematikan double-tap zoom */
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

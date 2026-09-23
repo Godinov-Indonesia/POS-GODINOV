@@ -37,10 +37,10 @@ func (r *postgresOutletRepository) GetAllByBusinessID(ctx context.Context, busin
 	return outlets, err
 }
 
-func (r *postgresOutletRepository) GetBySerialTenant(ctx context.Context, businessID, serial string) (*domain.Outlet, error) {
+func (r *postgresOutletRepository) GetBySerialOutlet(ctx context.Context, businessID, serial string) (*domain.Outlet, error) {
 	db := database.GetDB(ctx, r.db)
 	var o domain.Outlet
-	if err := db.WithContext(ctx).Where("business_id = ? AND serial_tenant = ?", businessID, serial).First(&o).Error; err != nil {
+	if err := db.WithContext(ctx).Where("business_id = ? AND serial_outlet = ?", businessID, serial).First(&o).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("outlet not found")
 		}

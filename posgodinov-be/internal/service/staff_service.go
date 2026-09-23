@@ -6,18 +6,42 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/domain"
 )
 
 type staffService struct {
 	staffRepo  domain.StaffRepository
 	outletRepo domain.OutletRepository
+
+	// v2 · butir 10 — master data POS memuat daftar staff beserta pin_hash,
+	// peran, dan izinnya. Kasir yang dinonaktifkan pemilik harus lenyap dari
+	// perangkat pada penarikan berikutnya, dan itu hanya terjadi bila
+	// perubahannya menaikkan versi.
+	versions masterVersionBumper
 }
 
-func NewStaffService(staffRepo domain.StaffRepository, outletRepo domain.OutletRepository) domain.StaffService {
-	return &staffService{
-		staffRepo:  staffRepo,
-		outletRepo: outletRepo,
+func NewStaffService(
+	staffRepo domain.StaffRepository,
+	outletRepo domain.OutletRepository,
+	opts ...StaffServiceOption,
+) domain.StaffService {
+	svc := &staffService{staffRepo: staffRepo, outletRepo: outletRepo}
+	for _, opt := range opts {
+		opt(svc)
+	}
+	return svc
+}
+
+// StaffServiceOption menyuntikkan dependensi v2 tanpa memecah pemanggil lama.
+type StaffServiceOption func(*staffService)
+
+func WithStaffMasterVersion(
+	txManager database.TransactionManager,
+	repo domain.MasterVersionRepository,
+) StaffServiceOption {
+	return func(s *staffService) {
+		s.versions = masterVersionBumper{txManager: txManager, repo: repo}
 	}
 }
 
@@ -61,8 +85,14 @@ func (s *staffService) RegisterStaff(ctx context.Context, businessID string, req
 		IsActive:        true,
 	}
 
-	if err := s.staffRepo.Create(ctx, staff); err != nil {
-		return nil, errors.New("gagal mendaftarkan kasir ke database")
+	err = s.versions.run(ctx, req.OutletID, func(txCtx context.Context) error {
+		if err := s.staffRepo.Create(txCtx, staff); err != nil {
+			return errors.New("gagal mendaftarkan kasir ke database")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return staff, nil
@@ -121,8 +151,14 @@ func (s *staffService) UpdateStaff(ctx context.Context, businessID, staffID stri
 		staff.IsActive = *req.IsActive
 	}
 
-	if err := s.staffRepo.Update(ctx, staff); err != nil {
-		return nil, errors.New("gagal mengupdate staff")
+	err = s.versions.run(ctx, staff.OutletID, func(txCtx context.Context) error {
+		if err := s.staffRepo.Update(txCtx, staff); err != nil {
+			return errors.New("gagal mengupdate staff")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return staff, nil
@@ -142,9 +178,14 @@ func (s *staffService) DeleteStaff(ctx context.Context, businessID, staffID stri
 		return errors.New("akses ditolak: staff ini bukan milik bisnis Anda")
 	}
 
-	if err := s.staffRepo.Delete(ctx, staffID); err != nil {
-		return errors.New("gagal menghapus staff")
-	}
-
-	return nil
+	// Penghapusan WAJIB menaikkan versi: staff yang lenyap tidak menyentuh
+	// `updated_at` mana pun, sehingga tanpa penghitung eksplisit PIN-nya tetap
+	// hidup di seluruh perangkat sampai penarikan master berikutnya kebetulan
+	// terjadi karena alasan lain.
+	return s.versions.run(ctx, staff.OutletID, func(txCtx context.Context) error {
+		if err := s.staffRepo.Delete(txCtx, staffID); err != nil {
+			return errors.New("gagal menghapus staff")
+		}
+		return nil
+	})
 }

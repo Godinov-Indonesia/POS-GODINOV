@@ -1,11 +1,11 @@
 {
   "info": {
-    "_postman_id": "b824996d-510e-4891-9300-1c2dee2267c6",
+    "_postman_id": "6c539362-2527-4d8f-84ac-71e246ffc18b",
     "name": "POS - Godinov Backend",
     "description": "URI : [https://api-pos.godinov.web.id](https://api-pos.godinov.web.id)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "33222587",
-    "_collection_link": "https://go.postman.co/collection/33222587-b824996d-510e-4891-9300-1c2dee2267c6?source=collection_link"
+    "_exporter_id": "25964563",
+    "_collection_link": "https://go.postman.co/collection/25964563-6c539362-2527-4d8f-84ac-71e246ffc18b?source=collection_link"
   },
   "item": [
     {
@@ -14,17 +14,25 @@
         {
           "name": "Register Business",
           "request": {
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
             "header": [
               {
                 "key": "Accept",
                 "value": "application/json",
                 "type": "text"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "",
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Kopi Senja Bahagia\",\n  \"owner_name\": \"Godinov\",\n  \"email\": \"owner@kopisenja.com\",\n  \"password\": \"password\",\n  \"confirmation_password\": \"password\"\n}",
+              "raw": "{\n  \"name\": \"Kopi kocak Bahagia\",\n  \"owner_name\": \"kocak\",\n  \"email\": \"owner@kocak.com\",\n  \"password\": \"password\",\n  \"confirmation_password\": \"password\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -80,7 +88,7 @@
               },
               "status": "Created",
               "code": 201,
-              "_postman_previewlanguage": "Text",
+              "_postman_previewlanguage": null,
               "header": [
                 {
                   "key": "Content-Security-Policy",
@@ -127,6 +135,9 @@
         {
           "name": "Login Business",
           "request": {
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
             "header": [
               {
@@ -137,7 +148,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"owner@kopisenja.com\",\n  \"password\": \"password\"\n}",
+              "raw": "{\n  \"email\": \"owner@kocak.com\",\n  \"password\": \"password\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -193,7 +204,7 @@
               },
               "status": "OK",
               "code": 200,
-              "_postman_previewlanguage": "Text",
+              "_postman_previewlanguage": null,
               "header": [
                 {
                   "key": "Content-Security-Policy",
@@ -270,7 +281,7 @@
               },
               "status": "Unauthorized",
               "code": 401,
-              "_postman_previewlanguage": "Text",
+              "_postman_previewlanguage": null,
               "header": [
                 {
                   "key": "Content-Security-Policy",
@@ -371,7 +382,7 @@
               },
               "status": "OK",
               "code": 200,
-              "_postman_previewlanguage": "Text",
+              "_postman_previewlanguage": null,
               "header": [
                 {
                   "key": "Content-Security-Policy",
@@ -429,9 +440,12 @@
                 "method": "POST",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "body": {
@@ -465,6 +479,11 @@
                         "key": "Accept",
                         "value": "application/json",
                         "type": "text"
+                      },
+                      {
+                        "key": "X-Business-ID",
+                        "value": "{{business_id}}",
+                        "type": "text"
                       }
                     ],
                     "body": {
@@ -490,7 +509,7 @@
                   },
                   "status": "Created",
                   "code": 201,
-                  "_postman_previewlanguage": "Text",
+                  "_postman_previewlanguage": null,
                   "header": [
                     {
                       "key": "Content-Security-Policy",
@@ -540,9 +559,12 @@
                 "method": "GET",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "url": {
@@ -583,7 +605,7 @@
                   },
                   "status": "OK",
                   "code": 200,
-                  "_postman_previewlanguage": "Text",
+                  "_postman_previewlanguage": null,
                   "header": [
                     {
                       "key": "Content-Security-Policy",
@@ -638,9 +660,12 @@
                 "method": "POST",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "body": {
@@ -699,7 +724,7 @@
                   },
                   "status": "Created",
                   "code": 201,
-                  "_postman_previewlanguage": "Text",
+                  "_postman_previewlanguage": null,
                   "header": [
                     {
                       "key": "Content-Security-Policy",
@@ -749,9 +774,12 @@
                 "method": "GET",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "url": {
@@ -792,7 +820,7 @@
                   },
                   "status": "OK",
                   "code": 200,
-                  "_postman_previewlanguage": "Text",
+                  "_postman_previewlanguage": null,
                   "header": [
                     {
                       "key": "Content-Security-Policy",
@@ -842,9 +870,12 @@
                 "method": "PUT",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "body": {
@@ -905,7 +936,7 @@
                   },
                   "status": "OK",
                   "code": 200,
-                  "_postman_previewlanguage": "Text",
+                  "_postman_previewlanguage": null,
                   "header": [
                     {
                       "key": "Content-Security-Policy",
@@ -953,7 +984,12 @@
               "name": "Delete Staff",
               "request": {
                 "method": "DELETE",
-                "header": [],
+                "header": [
+                  {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  }
+                ],
                 "url": {
                   "raw": "{{url}}/v1/business/staff/{{staff_uuid}}",
                   "host": [
@@ -983,9 +1019,12 @@
                     "method": "POST",
                     "header": [
                       {
+                        "key": "X-Business-ID",
+                        "value": "{{business_id}}"
+                      },
+                      {
                         "key": "Accept",
-                        "value": "application/json",
-                        "type": "text"
+                        "value": "application/json"
                       }
                     ],
                     "body": {
@@ -1019,9 +1058,8 @@
                         "method": "POST",
                         "header": [
                           {
-                            "key": "Accept",
-                            "value": "application/json",
-                            "type": "text"
+                            "key": "X-Business-ID",
+                            "value": "{{business_id}}"
                           }
                         ],
                         "body": {
@@ -1050,7 +1088,7 @@
                       },
                       "status": "Created",
                       "code": 201,
-                      "_postman_previewlanguage": "Text",
+                      "_postman_previewlanguage": null,
                       "header": [
                         {
                           "key": "Content-Security-Policy",
@@ -1100,9 +1138,12 @@
                     "method": "GET",
                     "header": [
                       {
+                        "key": "X-Business-ID",
+                        "value": "{{business_id}}"
+                      },
+                      {
                         "key": "Accept",
-                        "value": "application/json",
-                        "type": "text"
+                        "value": "application/json"
                       }
                     ],
                     "url": {
@@ -1147,7 +1188,7 @@
                       },
                       "status": "OK",
                       "code": 200,
-                      "_postman_previewlanguage": "Text",
+                      "_postman_previewlanguage": null,
                       "header": [
                         {
                           "key": "Content-Security-Policy",
@@ -1200,9 +1241,12 @@
                     "method": "GET",
                     "header": [
                       {
+                        "key": "X-Business-ID",
+                        "value": "{{business_id}}"
+                      },
+                      {
                         "key": "Accept",
-                        "value": "application/json",
-                        "type": "text"
+                        "value": "application/json"
                       }
                     ],
                     "body": {
@@ -1237,9 +1281,12 @@
                     "method": "GET",
                     "header": [
                       {
+                        "key": "X-Business-ID",
+                        "value": "{{business_id}}"
+                      },
+                      {
                         "key": "Accept",
-                        "value": "application/json",
-                        "type": "text"
+                        "value": "application/json"
                       }
                     ],
                     "url": {
@@ -1265,9 +1312,12 @@
                     "method": "POST",
                     "header": [
                       {
+                        "key": "X-Business-ID",
+                        "value": "{{business_id}}"
+                      },
+                      {
                         "key": "Accept",
-                        "value": "application/json",
-                        "type": "text"
+                        "value": "application/json"
                       }
                     ],
                     "body": {
@@ -1332,7 +1382,7 @@
                       },
                       "status": "Created",
                       "code": 201,
-                      "_postman_previewlanguage": "Text",
+                      "_postman_previewlanguage": null,
                       "header": [
                         {
                           "key": "Content-Security-Policy",
@@ -1382,9 +1432,12 @@
                     "method": "POST",
                     "header": [
                       {
+                        "key": "X-Business-ID",
+                        "value": "{{business_id}}"
+                      },
+                      {
                         "key": "Accept",
-                        "value": "application/json",
-                        "type": "text"
+                        "value": "application/json"
                       }
                     ],
                     "body": {
@@ -1449,7 +1502,7 @@
                       },
                       "status": "Created",
                       "code": 201,
-                      "_postman_previewlanguage": "Text",
+                      "_postman_previewlanguage": null,
                       "header": [
                         {
                           "key": "Content-Security-Policy",
@@ -1504,9 +1557,12 @@
                     "method": "POST",
                     "header": [
                       {
+                        "key": "X-Business-ID",
+                        "value": "{{business_id}}"
+                      },
+                      {
                         "key": "Accept",
-                        "value": "application/json",
-                        "type": "text"
+                        "value": "application/json"
                       }
                     ],
                     "body": {
@@ -1571,7 +1627,7 @@
                       },
                       "status": "Created",
                       "code": 201,
-                      "_postman_previewlanguage": "Text",
+                      "_postman_previewlanguage": null,
                       "header": [
                         {
                           "key": "Content-Security-Policy",
@@ -1621,9 +1677,12 @@
                     "method": "GET",
                     "header": [
                       {
+                        "key": "X-Business-ID",
+                        "value": "{{business_id}}"
+                      },
+                      {
                         "key": "Accept",
-                        "value": "application/json",
-                        "type": "text"
+                        "value": "application/json"
                       }
                     ],
                     "url": {
@@ -1668,7 +1727,7 @@
                       },
                       "status": "OK",
                       "code": 200,
-                      "_postman_previewlanguage": "Text",
+                      "_postman_previewlanguage": null,
                       "header": [
                         {
                           "key": "Content-Security-Policy",
@@ -1718,9 +1777,12 @@
                     "method": "DELETE",
                     "header": [
                       {
+                        "key": "X-Business-ID",
+                        "value": "{{business_id}}"
+                      },
+                      {
                         "key": "Accept",
-                        "value": "application/json",
-                        "type": "text"
+                        "value": "application/json"
                       }
                     ],
                     "url": {
@@ -1751,9 +1813,12 @@
                     "method": "POST",
                     "header": [
                       {
+                        "key": "X-Business-ID",
+                        "value": "{{business_id}}"
+                      },
+                      {
                         "key": "Accept",
-                        "value": "application/json",
-                        "type": "text"
+                        "value": "application/json"
                       }
                     ],
                     "body": {
@@ -1795,9 +1860,12 @@
                 "method": "POST",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "body": {
@@ -1862,7 +1930,7 @@
                   },
                   "status": "Created",
                   "code": 201,
-                  "_postman_previewlanguage": "Text",
+                  "_postman_previewlanguage": null,
                   "header": [
                     {
                       "key": "Content-Security-Policy",
@@ -1912,9 +1980,12 @@
                 "method": "GET",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "url": {
@@ -1959,7 +2030,7 @@
                   },
                   "status": "OK",
                   "code": 200,
-                  "_postman_previewlanguage": "Text",
+                  "_postman_previewlanguage": null,
                   "header": [
                     {
                       "key": "Content-Security-Policy",
@@ -2009,9 +2080,12 @@
                 "method": "PUT",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "body": {
@@ -2046,9 +2120,12 @@
                 "method": "DELETE",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "url": {
@@ -2079,9 +2156,12 @@
                 "method": "GET",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "url": {
@@ -2128,7 +2208,7 @@
                   },
                   "status": "OK",
                   "code": 200,
-                  "_postman_previewlanguage": "Text",
+                  "_postman_previewlanguage": null,
                   "header": [
                     {
                       "key": "Content-Security-Policy",
@@ -2178,9 +2258,12 @@
                 "method": "GET",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "url": {
@@ -2227,7 +2310,7 @@
                   },
                   "status": "OK",
                   "code": 200,
-                  "_postman_previewlanguage": "Text",
+                  "_postman_previewlanguage": null,
                   "header": [
                     {
                       "key": "Content-Security-Policy",
@@ -2277,9 +2360,12 @@
                 "method": "GET",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "url": {
@@ -2326,7 +2412,7 @@
                   },
                   "status": "OK",
                   "code": 200,
-                  "_postman_previewlanguage": "Text",
+                  "_postman_previewlanguage": null,
                   "header": [
                     {
                       "key": "Content-Security-Policy",
@@ -2376,9 +2462,12 @@
                 "method": "GET",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "url": {
@@ -2425,7 +2514,7 @@
                   },
                   "status": "OK",
                   "code": 200,
-                  "_postman_previewlanguage": "Text",
+                  "_postman_previewlanguage": null,
                   "header": [
                     {
                       "key": "Content-Security-Policy",
@@ -2475,9 +2564,12 @@
                 "method": "GET",
                 "header": [
                   {
+                    "key": "X-Business-ID",
+                    "value": "{{business_id}}"
+                  },
+                  {
                     "key": "Accept",
-                    "value": "application/json",
-                    "type": "text"
+                    "value": "application/json"
                   }
                 ],
                 "url": {
@@ -2524,7 +2616,7 @@
                   },
                   "status": "OK",
                   "code": 200,
-                  "_postman_previewlanguage": "Text",
+                  "_postman_previewlanguage": null,
                   "header": [
                     {
                       "key": "Content-Security-Policy",
@@ -2654,7 +2746,7 @@
               },
               "status": "OK",
               "code": 200,
-              "_postman_previewlanguage": "Text",
+              "_postman_previewlanguage": null,
               "header": [
                 {
                   "key": "Content-Security-Policy",
@@ -2759,7 +2851,7 @@
               },
               "status": "OK",
               "code": 200,
-              "_postman_previewlanguage": "Text",
+              "_postman_previewlanguage": null,
               "header": [
                 {
                   "key": "Content-Security-Policy",
@@ -2880,7 +2972,7 @@
               },
               "status": "OK",
               "code": 200,
-              "_postman_previewlanguage": "Text",
+              "_postman_previewlanguage": null,
               "header": [
                 {
                   "key": "Content-Security-Policy",
@@ -2956,7 +3048,7 @@
               },
               "status": "OK",
               "code": 200,
-              "_postman_previewlanguage": "Text",
+              "_postman_previewlanguage": null,
               "header": [
                 {
                   "key": "Content-Security-Policy",
@@ -3059,7 +3151,7 @@
               },
               "status": "OK",
               "code": 200,
-              "_postman_previewlanguage": "Text",
+              "_postman_previewlanguage": null,
               "header": [
                 {
                   "key": "Content-Security-Policy",

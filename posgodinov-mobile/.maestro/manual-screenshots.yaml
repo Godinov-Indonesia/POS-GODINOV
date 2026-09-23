@@ -1,0 +1,212 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Pemanen tangkapan layar — Manual Book Mobile
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Berkas ini BUKAN suite UAT. Ia tidak membuktikan satu pun aturan bisnis; ia
+# hanya berjalan melintasi tiga layar dan memotretnya untuk
+# `docs/manuals/cashier-manual-mobile.md`.
+#
+# Dipisahkan dari `M13-void-threshold.yaml` dengan sengaja. Menumpangkan
+# pemotretan pada suite validasi membuat dua hal yang punya alasan gagal
+# berbeda hidup dalam satu berkas: alur yang merah karena tombol pindah tempat
+# akan terbaca sebagai "aturan Void Threshold rusak", dan sebaliknya, orang yang
+# merapikan alur pemotretan dapat melemahkan asersi tanpa menyadarinya.
+#
+# ── URUTANNYA MENGIKAT ────────────────────────────────────────────────────────
+#
+# Layar "Buka Shift" hanya ada ketika shift BELUM terbuka, sementara layar
+# "Tutup Shift" hanya ada ketika shift SEDANG terbuka. Keduanya tidak dapat
+# dipotret pada keadaan yang sama, jadi alur ini menempuh siklus penuh:
+#
+#     bar bawah  →  Tutup Shift  →  (tutup)  →  Buka Shift  →  (buka lagi)
+#
+# Langkah terakhir mengembalikan perangkat ke keadaan siap pakai, supaya
+# eksekusi berikutnya — termasuk UAT M13 — tidak mewarisi shift yang tertutup.
+#
+# ⚠️ `takeScreenshot` ditulis relatif terhadap direktori run Maestro. Maestro
+#    MENOLAK path yang keluar dari folder keluarannya, jadi berkasnya ditulis ke
+#    sub-folder `manual/` dan `build_manuals.sh` yang memanennya ke
+#    `docs/manuals/assets/` beserta penggantian namanya.
+# ══════════════════════════════════════════════════════════════════════════════
+
+appId: id.godinov.pos
+name: Manual Book · pemanen tangkapan layar mobile
+tags:
+  - manual
+  - screenshots
+env:
+  STAFF_ID: kasir01
+  STAFF_PIN: "123456"
+  OPENING_CASH_PRESET: Rp 500rb
+
+  # Nominal deklarasi yang diketik saat menutup shift. Nilainya tidak penting
+  # bagi manual — yang dipotret adalah formulir KOSONG, sebelum angka ini
+  # diketik. Ia hanya perlu ada supaya tombol tutup shift dapat aktif.
+  CLOSING_CASH: "544000"
+---
+
+- launchApp:
+    appId: id.godinov.pos
+
+- extendedWaitUntil:
+    visible:
+      text: "(?s).*(Pemasangan Perangkat|Sinkronisasi Data|MASUK SEBAGAI KASIR|Modal Awal Laci|KERANJANG).*"
+    timeout: 60000
+
+- assertNotVisible: "Pemasangan Perangkat"
+
+- runFlow:
+    when:
+      visible: "Sinkronisasi Data"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: "(?s).*(MASUK SEBAGAI KASIR|Modal Awal Laci|KERANJANG|Lanjut dengan Data Tersimpan|Coba Lagi).*"
+          timeout: 120000
+
+# ── Login bila sesi sebelumnya sudah habis ───────────────────────────────────
+- runFlow:
+    when:
+      visible: "MASUK SEBAGAI KASIR"
+    commands:
+      - tapOn: "kasir01"
+      - inputText: "${STAFF_ID}"
+      # BUKAN `hideKeyboard`: di Android ia menekan BACK, dan P-03 adalah rute
+      # pertama — backnya menutup aplikasi.
+      - pressKey: Enter
+      - tapOn: "${STAFF_PIN[0]}"
+      - tapOn: "${STAFF_PIN[1]}"
+      - tapOn: "${STAFF_PIN[2]}"
+      - tapOn: "${STAFF_PIN[3]}"
+      - tapOn: "${STAFF_PIN[4]}"
+      - tapOn: "${STAFF_PIN[5]}"
+      - tapOn:
+          text: "MASUK"
+          below: "Kosongkan PIN"
+      - extendedWaitUntil:
+          visible:
+            text: "(?s).*(Modal Awal Laci|KERANJANG).*"
+          timeout: 60000
+
+# ── Bila shift kebetulan sudah tertutup, kita sudah berdiri di layar Buka
+#    Shift. Potret sekarang juga — kesempatan ini tidak datang dua kali dalam
+#    satu eksekusi — lalu buka shiftnya agar alur di bawah dapat berjalan.
+- runFlow:
+    when:
+      visible: "Modal Awal Laci"
+    commands:
+      - takeScreenshot: manual/open-shift-mobile
+      - tapOn: "${OPENING_CASH_PRESET}"
+      - tapOn:
+          text: "Buka Shift"
+          below: "Pilih cepat"
+      - extendedWaitUntil:
+          visible: "KERANJANG"
+          timeout: 60000
+
+# ══ 1. Bar bawah — layar Kasir utama ═════════════════════════════════════════
+#
+# Keranjang sengaja dibiarkan KOSONG: bar ringkasan keranjang hanya muncul saat
+# ada isinya, dan manual bagian ini menjelaskan bar NAVIGASI, bukan ringkasan
+# belanja. Keranjang kosong membuat kelima slot terlihat utuh tanpa terhalang.
+- extendedWaitUntil:
+    visible: "KERANJANG"
+    timeout: 60000
+- assertVisible: "Keranjang kosong"
+
+- takeScreenshot: manual/bottom-bar-mobile
+
+# ══ 2. Layar Tutup Shift ═════════════════════════════════════════════════════
+- tapOn: "(?s).*Lainnya.*"
+- extendedWaitUntil:
+    visible: "(?s).*Tutup Shift.*"
+    timeout: 20000
+- tapOn: "(?s).*Tutup Shift.*"
+
+- extendedWaitUntil:
+    visible: "Uang Fisik di Laci"
+    timeout: 30000
+- assertVisible: "Total Settle EDC"
+- assertVisible: "Total Settle QRIS"
+
+# Dipotret SEBELUM diisi. Yang dijelaskan manual adalah formulir sebagaimana
+# kasir pertama kali melihatnya — ketiga kolom masih kosong, dan tidak ada satu
+# pun angka sistem di layar. Formulir yang sudah terisi justru mengaburkan hal
+# yang paling ingin ditunjukkan bagian itu.
+- takeScreenshot: manual/close-shift-mobile
+
+# ══ 3. Layar Buka Shift ══════════════════════════════════════════════════════
+#
+# Satu-satunya jalan menuju layar ini adalah menutup shift yang sedang berjalan.
+- tapOn:
+    below: "Uang Fisik di Laci"
+- inputText: "${CLOSING_CASH}"
+- pressKey: Enter
+
+- tapOn:
+    text: "(?s).*Tutup Shift.*"
+    below: "Total Settle QRIS"
+
+# Dialog konfirmasi — judulnya berhuruf kecil ("Tutup shift sekarang?"),
+# sehingga tidak bertabrakan dengan tombol "Tutup Shift" di belakangnya.
+- extendedWaitUntil:
+    visible: "Tutup shift sekarang?"
+    timeout: 20000
+- tapOn:
+    text: "(?s).*Tutup Shift.*"
+    below: "Tutup shift sekarang?"
+
+# ⚠️ TEMUAN: layar "Shift ditutup" TIDAK berpindah sendiri ke Login.
+#
+#    `close_shift_page.dart` menunggu 1.500 ms lalu memanggil
+#    `CashierAuthCubit.clearSession()`, yang seharusnya memancarkan
+#    `CashierLoggedOut` dan membuat `AppGate` mengalihkan ke P-03. Pada build
+#    ini pengalihan itu tidak pernah terjadi — layar menetap tanpa satu pun
+#    galat di logcat (diamati > 30 menit). Bertentangan dengan `UAT-MV2-19`
+#    ("tampil ±1,5 detik lalu berpindah") dan `UAT-MV2-20` ("≤ 8 detik").
+#
+#    Pemanen gambar TIDAK menunggu perilaku yang tidak dapat diandalkan, dan
+#    juga tidak menutupinya: aplikasi diluncurkan ulang, dan sesi kasir — yang
+#    hanya hidup di memori — ikut hilang bersamanya. Hasil akhirnya sama
+#    (mendarat di Login), tetapi tidak bergantung pada jalur yang sedang rusak.
+- extendedWaitUntil:
+    visible: "Shift ditutup"
+    timeout: 60000
+
+- launchApp:
+    appId: id.godinov.pos
+- extendedWaitUntil:
+    visible: "MASUK SEBAGAI KASIR"
+    timeout: 60000
+
+- tapOn: "kasir01"
+- inputText: "${STAFF_ID}"
+- pressKey: Enter
+- tapOn: "${STAFF_PIN[0]}"
+- tapOn: "${STAFF_PIN[1]}"
+- tapOn: "${STAFF_PIN[2]}"
+- tapOn: "${STAFF_PIN[3]}"
+- tapOn: "${STAFF_PIN[4]}"
+- tapOn: "${STAFF_PIN[5]}"
+- tapOn:
+    text: "MASUK"
+    below: "Kosongkan PIN"
+
+- extendedWaitUntil:
+    visible: "Modal Awal Laci"
+    timeout: 60000
+
+- takeScreenshot: manual/open-shift-mobile
+
+# ══ Kembalikan perangkat ke keadaan siap pakai ═══════════════════════════════
+#
+# Tanpa langkah ini, eksekusi berikutnya — termasuk UAT M13 — mewarisi shift
+# yang tertutup, dan alurnya harus membuka shift sendiri sebelum dapat menguji
+# apa pun.
+- tapOn: "${OPENING_CASH_PRESET}"
+- tapOn:
+    text: "Buka Shift"
+    below: "Pilih cepat"
+- extendedWaitUntil:
+    visible: "KERANJANG"
+    timeout: 60000

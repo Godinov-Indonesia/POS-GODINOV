@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Kebijakan yang diminta aplikasi sebagai Device Owner.
+
+  Sengaja MINIMAL: hanya yang benar-benar dibutuhkan mode Kiosk. Meminta
+  kebijakan lebih luas (hapus data, ubah sandi, kunci perangkat) memperbesar
+  kewenangan tanpa menambah kemampuan yang dipakai.
+-->
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-policies>
+        <force-lock />
+    </uses-policies>
+</device-admin>

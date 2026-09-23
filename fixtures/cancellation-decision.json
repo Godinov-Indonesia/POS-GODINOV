@@ -1,0 +1,160 @@
+{
+  "$comment": [
+    "MATRIKS KEPUTUSAN PEMBATALAN — kontrak bersama Web, Flutter, dan Go.",
+    "Dirujuk Definisi Selesai M13 butir 1: ketiga platform WAJIB menghasilkan",
+    "keputusan yang sama untuk kasus-kasus di bawah.",
+    "",
+    "Mengapa satu berkas, bukan tiga tabel uji yang ditulis terpisah: tiga tabel",
+    "yang ditulis terpisah akan menyimpang, dan penyimpangannya baru terlihat",
+    "ketika satu platform mengizinkan Void atas transaksi yang sudah tercetak.",
+    "",
+    "Implementasi: posgodinov-fe/lib/pos/cancellation/decide.ts",
+    "              posgodinov-mobile/lib/core/pos/cancellation_policy.dart"
+  ],
+  "policy": {
+    "requireSupervisorForVoid": true,
+    "requireSupervisorForReturn": true
+  },
+  "cases": [
+    {
+      "name": "belum tercetak → VOID",
+      "why": "Inti butir 15. Transaksi belum menjadi dokumen, jadi boleh dinyatakan tidak pernah terjadi.",
+      "transaction": {
+        "id": "t1", "status": "COMPLETED", "receipt_printed_at": null,
+        "items": [{ "id": "i1", "product_id": "p1", "quantity": 2, "unit_price": 27500 }]
+      },
+      "alreadyReturned": {},
+      "expect": { "kind": "VOID", "requiresAuth": true, "requiresPrint": true }
+    },
+    {
+      "name": "receipt_printed_at absen sama sekali → VOID",
+      "why": "Baris yang lahir sebelum kolomnya ada tidak boleh diperlakukan sebagai tercetak hanya karena field-nya hilang.",
+      "transaction": {
+        "id": "t2", "status": "COMPLETED",
+        "items": [{ "id": "i1", "product_id": "p1", "quantity": 1, "unit_price": 10000 }]
+      },
+      "alreadyReturned": {},
+      "expect": { "kind": "VOID", "requiresAuth": true, "requiresPrint": true }
+    },
+    {
+      "name": "string kosong diperlakukan sebagai belum tercetak → VOID",
+      "why": "Nilai kosong dari serialisasi yang ceroboh tidak boleh menutup jalur Void.",
+      "transaction": {
+        "id": "t3", "status": "COMPLETED", "receipt_printed_at": "",
+        "items": [{ "id": "i1", "product_id": "p1", "quantity": 1, "unit_price": 10000 }]
+      },
+      "alreadyReturned": {},
+      "expect": { "kind": "VOID", "requiresAuth": true, "requiresPrint": true }
+    },
+    {
+      "name": "sudah tercetak → RETURN penuh",
+      "why": "Dokumen sudah berpindah tangan; transaksi asal beku selamanya.",
+      "transaction": {
+        "id": "t4", "status": "COMPLETED", "receipt_printed_at": "2026-08-20T10:14:22Z",
+        "items": [{ "id": "i1", "product_id": "p1", "quantity": 3, "unit_price": 27500 }]
+      },
+      "alreadyReturned": {},
+      "expect": {
+        "kind": "RETURN", "requiresAuth": true, "requiresPrint": true,
+        "returnableItems": [
+          { "transaction_item_id": "i1", "original_quantity": 3, "already_returned": 0, "returnable": 3 }
+        ]
+      }
+    },
+    {
+      "name": "sudah tercetak, sebagian sudah diretur → RETURN sisa",
+      "why": "Sisa dihitung per BARIS, bukan per transaksi.",
+      "transaction": {
+        "id": "t5", "status": "COMPLETED", "receipt_printed_at": "2026-08-20T10:14:22Z",
+        "items": [
+          { "id": "i1", "product_id": "p1", "quantity": 3, "unit_price": 27500 },
+          { "id": "i2", "product_id": "p2", "quantity": 2, "unit_price": 15000 }
+        ]
+      },
+      "alreadyReturned": { "i1": 1 },
+      "expect": {
+        "kind": "RETURN", "requiresAuth": true, "requiresPrint": true,
+        "returnableItems": [
+          { "transaction_item_id": "i1", "original_quantity": 3, "already_returned": 1, "returnable": 2 },
+          { "transaction_item_id": "i2", "original_quantity": 2, "already_returned": 0, "returnable": 2 }
+        ]
+      }
+    },
+    {
+      "name": "baris habis diretur TETAP muncul dengan returnable 0",
+      "why": "Menyembunyikannya membuat kasir mengira barisnya tidak pernah ada dan bertanya-tanya mengapa total tidak cocok.",
+      "transaction": {
+        "id": "t6", "status": "COMPLETED", "receipt_printed_at": "2026-08-20T10:14:22Z",
+        "items": [
+          { "id": "i1", "product_id": "p1", "quantity": 2, "unit_price": 27500 },
+          { "id": "i2", "product_id": "p2", "quantity": 1, "unit_price": 15000 }
+        ]
+      },
+      "alreadyReturned": { "i1": 2 },
+      "expect": {
+        "kind": "RETURN", "requiresAuth": true, "requiresPrint": true,
+        "returnableItems": [
+          { "transaction_item_id": "i1", "original_quantity": 2, "already_returned": 2, "returnable": 0 },
+          { "transaction_item_id": "i2", "original_quantity": 1, "already_returned": 0, "returnable": 1 }
+        ]
+      }
+    },
+    {
+      "name": "seluruh item habis diretur → FORBIDDEN",
+      "transaction": {
+        "id": "t7", "status": "COMPLETED", "receipt_printed_at": "2026-08-20T10:14:22Z",
+        "items": [{ "id": "i1", "product_id": "p1", "quantity": 2, "unit_price": 27500 }]
+      },
+      "alreadyReturned": { "i1": 2 },
+      "expect": { "kind": "FORBIDDEN", "reason": "FULLY_RETURNED" }
+    },
+    {
+      "name": "retur melebihi qty asal (balapan sync) tetap FORBIDDEN, bukan negatif",
+      "why": "Sebuah retur dapat tersinkron dari perangkat lain di antara dua pembacaan.",
+      "transaction": {
+        "id": "t8", "status": "COMPLETED", "receipt_printed_at": "2026-08-20T10:14:22Z",
+        "items": [{ "id": "i1", "product_id": "p1", "quantity": 2, "unit_price": 27500 }]
+      },
+      "alreadyReturned": { "i1": 5 },
+      "expect": { "kind": "FORBIDDEN", "reason": "FULLY_RETURNED" }
+    },
+    {
+      "name": "status VOIDED → FORBIDDEN",
+      "transaction": {
+        "id": "t9", "status": "VOIDED", "receipt_printed_at": null,
+        "items": [{ "id": "i1", "product_id": "p1", "quantity": 1, "unit_price": 10000 }]
+      },
+      "alreadyReturned": {},
+      "expect": { "kind": "FORBIDDEN", "reason": "ALREADY_VOIDED" }
+    },
+    {
+      "name": "status CANCELLED (warisan v1) → FORBIDDEN",
+      "why": "Memeriksa VOIDED saja membuat transaksi lama dapat di-void dua kali, dan server memotong stok dua kali.",
+      "transaction": {
+        "id": "t10", "status": "CANCELLED", "receipt_printed_at": "2026-08-20T10:14:22Z",
+        "items": [{ "id": "i1", "product_id": "p1", "quantity": 1, "unit_price": 10000 }]
+      },
+      "alreadyReturned": {},
+      "expect": { "kind": "FORBIDDEN", "reason": "ALREADY_VOIDED" }
+    },
+    {
+      "name": "sudah tercetak tanpa item → FORBIDDEN",
+      "why": "Retur menuntut item yang dikembalikan; ini data rusak, bukan kasus operasional.",
+      "transaction": {
+        "id": "t11", "status": "COMPLETED", "receipt_printed_at": "2026-08-20T10:14:22Z",
+        "items": []
+      },
+      "alreadyReturned": {},
+      "expect": { "kind": "FORBIDDEN", "reason": "NOTHING_TO_CANCEL" }
+    },
+    {
+      "name": "belum tercetak DAN tanpa item → tetap VOID",
+      "why": "Yang dibatalkan adalah baris keuangannya, bukan isinya. Urutan pemeriksaan mengikat.",
+      "transaction": {
+        "id": "t12", "status": "COMPLETED", "receipt_printed_at": null, "items": []
+      },
+      "alreadyReturned": {},
+      "expect": { "kind": "VOID", "requiresAuth": true, "requiresPrint": true }
+    }
+  ]
+}

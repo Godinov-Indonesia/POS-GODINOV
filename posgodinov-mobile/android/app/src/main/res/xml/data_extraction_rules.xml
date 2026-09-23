@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ (API 31) memakai berkas ini alih-alih `allowBackup`.
+  Keduanya dideklarasikan supaya seluruh rentang versi tertutup.
+
+  Basis data lokal memuat `pin_hash` bcrypt seluruh kasir outlet ([03 §2.2]).
+  Tidak ada satu pun berkas aplikasi yang boleh keluar dari perangkat —
+  baik lewat cloud backup maupun transfer perangkat-ke-perangkat.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="file" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="file" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>

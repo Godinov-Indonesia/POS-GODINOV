@@ -27,7 +27,7 @@ func SecurityHeaders(next http.Handler) http.Handler {
 
 // SetupCORS returns a standard CORS handler wrapper
 func SetupCORS(appEnv string, allowedOrigins string) *cors.Cors {
-	origins := []string{"*"}
+	origins := []string{"http://localhost:3000", "http://127.0.0.1:3000"}
 	if appEnv == "production" {
 		// Di mode production, hanya izinkan domain yang secara eksplisit didaftarkan
 		origins = strings.Split(allowedOrigins, ",")
@@ -48,6 +48,9 @@ func SetupCORS(appEnv string, allowedOrigins string) *cors.Cors {
 			"Authorization",
 			"Content-Type",
 			"X-CSRF-Token",
+			"X-Business-ID",
+			"X-Staff-Id",
+			"X-POS-Contract-Version",
 		},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,

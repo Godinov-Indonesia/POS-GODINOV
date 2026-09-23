@@ -1,0 +1,44 @@
+# Penegakan batas lapisan Clean Architecture — [09 §2.2].
+#
+# Ini GERBANG CI, bukan konvensi. Jalankan: `dart run import_lint`
+#
+#    presentation ──────► domain ◄────── data
+#         │                                │
+#         └──────────────► core ◄──────────┘
+
+import_lint:
+  rules:
+    # domain adalah Dart MURNI. Tidak boleh tahu apa pun soal Flutter,
+    # basis data, HTTP, maupun lapisan luar.
+    - name: domain_is_pure_dart
+      target:
+        path: "package:posgodinov_mobile/features/*/domain/**"
+      not_allow_imports:
+        - path: "package:flutter/**"
+        - path: "package:drift/**"
+        - path: "package:dio/**"
+        - path: "package:flutter_bloc/**"
+        - path: "package:posgodinov_mobile/features/*/data/**"
+        - path: "package:posgodinov_mobile/features/*/presentation/**"
+
+    # core dipakai semua orang, jadi core tidak boleh bergantung pada siapa pun.
+    - name: core_never_depends_on_features
+      target:
+        path: "package:posgodinov_mobile/core/**"
+      not_allow_imports:
+        - path: "package:posgodinov_mobile/features/**"
+
+    # Lapis 1 palette haram di luar lapisan tema. Widget memakai
+    # `context.tokens.accent`, bukan `GodinovColors.blue600` ([09 §3.3]).
+    - name: no_raw_palette_outside_theme
+      target:
+        path: "package:posgodinov_mobile/features/**"
+      not_allow_imports:
+        - path: "package:posgodinov_mobile/shared/theme/godinov_colors.dart"
+
+    # presentation tidak boleh memotong jalur ke data/ — harus lewat kontrak domain.
+    - name: presentation_goes_through_domain
+      target:
+        path: "package:posgodinov_mobile/features/*/presentation/**"
+      not_allow_imports:
+        - path: "package:posgodinov_mobile/features/*/data/**"

@@ -13,6 +13,9 @@ type productService struct {
 	rmRepo     domain.RawMaterialRepository
 	outletRepo domain.OutletRepository
 	txManager  database.TransactionManager
+
+	// v2 · butir 10 — dinaikkan bersama setiap mutasi produk & resep.
+	versions masterVersionBumper
 }
 
 func NewProductService(
@@ -20,13 +23,26 @@ func NewProductService(
 	rmRepo domain.RawMaterialRepository,
 	outletRepo domain.OutletRepository,
 	txManager database.TransactionManager,
+	opts ...ProductServiceOption,
 ) domain.ProductService {
-	return &productService{
+	svc := &productService{
 		repo:       repo,
 		rmRepo:     rmRepo,
 		outletRepo: outletRepo,
 		txManager:  txManager,
+		versions:   masterVersionBumper{txManager: txManager},
 	}
+	for _, opt := range opts {
+		opt(svc)
+	}
+	return svc
+}
+
+// ProductServiceOption menyuntikkan dependensi v2 tanpa memecah pemanggil lama.
+type ProductServiceOption func(*productService)
+
+func WithProductMasterVersion(r domain.MasterVersionRepository) ProductServiceOption {
+	return func(s *productService) { s.versions.repo = r }
 }
 
 func (s *productService) Create(ctx context.Context, businessID, outletID string, req *domain.CreateProductRequest) (*domain.Product, error) {
@@ -83,6 +99,13 @@ func (s *productService) Create(ctx context.Context, businessID, outletID string
 
 		if err := s.repo.CreateProductWithRecipes(txCtx, product); err != nil {
 			return errors.New("gagal menyimpan data produk dan resep")
+		}
+
+		// Butir 10 — versi naik DI DALAM transaksi yang sama. Menaikkannya di
+		// luar membuka jendela saat perangkat menarik produk lama tetapi
+		// menerima nomor versi baru, dan gerbang Buka Shift meloloskannya.
+		if err := s.versions.bump(txCtx, outletID); err != nil {
+			return errors.New("gagal memperbarui versi master data")
 		}
 
 		createdProduct = product
@@ -170,6 +193,10 @@ func (s *productService) CreateBulk(ctx context.Context, businessID, outletID st
 			return errors.New("gagal menyimpan data produk secara massal")
 		}
 
+		if err := s.versions.bump(txCtx, outletID); err != nil {
+			return errors.New("gagal memperbarui versi master data")
+		}
+
 		createdProducts = products
 		return nil
 	})
@@ -255,6 +282,10 @@ func (s *productService) Update(ctx context.Context, businessID, productID strin
 			return errors.New("gagal mengupdate produk dan resep")
 		}
 
+		if err := s.versions.bump(txCtx, product.OutletID); err != nil {
+			return errors.New("gagal memperbarui versi master data")
+		}
+
 		updatedProduct = product
 		return nil
 	})
@@ -280,8 +311,18 @@ func (s *productService) Delete(ctx context.Context, businessID, productID strin
 		return errors.New("akses ditolak: produk ini bukan milik bisnis Anda")
 	}
 
-	if err := s.repo.DeleteProduct(ctx, productID); err != nil {
-		return errors.New("gagal menghapus produk")
+	// Penghapusan WAJIB menaikkan versi: produk yang lenyap tidak menyentuh
+	// `updated_at` mana pun, sehingga tanpa penghitung eksplisit perangkat tidak
+	// pernah tahu daftar produknya sudah berubah dan terus menjual barang yang
+	// sudah ditarik pemilik.
+	err = s.versions.run(ctx, product.OutletID, func(txCtx context.Context) error {
+		if err := s.repo.DeleteProduct(txCtx, productID); err != nil {
+			return errors.New("gagal menghapus produk")
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	return nil

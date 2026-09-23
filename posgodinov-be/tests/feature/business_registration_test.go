@@ -52,7 +52,7 @@ func TestFeatureBusinessRegistration(t *testing.T) {
 	repo := &MockBusinessRepository{}
 	tokenMaker, _ := token.NewPasetoMaker("01234567890123456789012345678901")
 	txManager := database.NewMockTransactionManager()
-	svc := service.NewBusinessService(repo, tokenMaker, txManager)
+	svc := service.NewBusinessService(repo, tokenMaker, txManager, nil)
 	h := handler.NewBusinessHandler(svc)
 
 	// 2. Router Setup

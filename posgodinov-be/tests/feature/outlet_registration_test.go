@@ -50,7 +50,7 @@ func (m *MockFeatureOutletRepository) GetByID(ctx context.Context, id string) (*
 	return nil, errors.New("outlet not found")
 }
 
-func (m *MockFeatureOutletRepository) GetBySerialTenant(ctx context.Context, businessID string, serial string) (*domain.Outlet, error) {
+func (m *MockFeatureOutletRepository) GetBySerialOutlet(ctx context.Context, businessID string, serial string) (*domain.Outlet, error) {
 	return nil, nil
 }
 

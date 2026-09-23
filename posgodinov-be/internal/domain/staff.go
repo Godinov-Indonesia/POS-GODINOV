@@ -21,6 +21,9 @@ type Staff struct {
 	Name            string    `json:"name" gorm:"column:name"`
 	PINHash         string    `json:"-" gorm:"column:pin_hash"` // Never return PIN in JSON
 	Role            StaffRole `json:"role" gorm:"column:role"`
+	// v2 · butir 4, 12, 14 — izin granular di atas peran. Dikirim ke perangkat
+	// lewat master data agar otorisasi dapat diputuskan OFFLINE ([11 §4.4]).
+	Permissions     StringList `json:"permissions" gorm:"column:permissions"`
 	IsActive        bool      `json:"is_active" gorm:"column:is_active"`
 	IsDeleted       bool      `json:"-" gorm:"column:is_deleted;default:false"`
 	CreatedAt       time.Time `json:"created_at,omitzero" gorm:"column:created_at"`

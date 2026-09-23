@@ -1,0 +1,1 @@
+ALTER TABLE outlets ALTER COLUMN serial_outlet TYPE VARCHAR(10);

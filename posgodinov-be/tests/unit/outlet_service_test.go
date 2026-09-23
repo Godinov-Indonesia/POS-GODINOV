@@ -48,7 +48,7 @@ func (m *MockOutletRepository) GetByID(ctx context.Context, id string) (*domain.
 	return nil, errors.New("outlet not found")
 }
 
-func (m *MockOutletRepository) GetBySerialTenant(ctx context.Context, businessID string, serial string) (*domain.Outlet, error) {
+func (m *MockOutletRepository) GetBySerialOutlet(ctx context.Context, businessID string, serial string) (*domain.Outlet, error) {
 	return nil, nil
 }
 
@@ -83,8 +83,8 @@ func TestRegisterOutlet(t *testing.T) {
 		t.Errorf("expected business ID to be b1, got %s", outlet.BusinessID)
 	}
 
-	if outlet.SerialTenant != "POSXX180726001" {
-		t.Errorf("expected serial tenant POSXX180726001, got %s", outlet.SerialTenant)
+	if outlet.SerialOutlet != "POSXX180726001" {
+		t.Errorf("expected serial tenant POSXX180726001, got %s", outlet.SerialOutlet)
 	}
 
 	// Invalid Business ID

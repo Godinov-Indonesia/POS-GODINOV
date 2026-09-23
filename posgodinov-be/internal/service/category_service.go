@@ -4,21 +4,43 @@ import (
 	"context"
 	"errors"
 
+	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/domain"
 )
 
 type productCategoryService struct {
 	repo       domain.ProductCategoryRepository
 	outletRepo domain.OutletRepository
+
+	// v2 · butir 10 — dinaikkan bersama setiap mutasi kategori.
+	versions masterVersionBumper
 }
 
 func NewProductCategoryService(
 	repo domain.ProductCategoryRepository,
 	outletRepo domain.OutletRepository,
+	opts ...ProductCategoryServiceOption,
 ) domain.ProductCategoryService {
-	return &productCategoryService{
-		repo:       repo,
-		outletRepo: outletRepo,
+	svc := &productCategoryService{repo: repo, outletRepo: outletRepo}
+	for _, opt := range opts {
+		opt(svc)
+	}
+	return svc
+}
+
+// ProductCategoryServiceOption menyuntikkan dependensi v2 tanpa memecah
+// pemanggil lama.
+//
+// Keduanya wajib hadir bersama: menaikkan versi di luar transaksi mutasinya
+// justru menciptakan jendela yang hendak ditutup butir 10.
+type ProductCategoryServiceOption func(*productCategoryService)
+
+func WithCategoryMasterVersion(
+	txManager database.TransactionManager,
+	repo domain.MasterVersionRepository,
+) ProductCategoryServiceOption {
+	return func(s *productCategoryService) {
+		s.versions = masterVersionBumper{txManager: txManager, repo: repo}
 	}
 }
 
@@ -41,8 +63,14 @@ func (s *productCategoryService) Create(ctx context.Context, businessID, outletI
 		Description: req.Description,
 	}
 
-	if err := s.repo.Create(ctx, category); err != nil {
-		return nil, errors.New("gagal menyimpan kategori")
+	err = s.versions.run(ctx, outletID, func(txCtx context.Context) error {
+		if err := s.repo.Create(txCtx, category); err != nil {
+			return errors.New("gagal menyimpan kategori")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return category, nil
@@ -73,8 +101,14 @@ func (s *productCategoryService) CreateBulk(ctx context.Context, businessID, out
 		return nil, errors.New("data kategori kosong")
 	}
 
-	if err := s.repo.CreateBulk(ctx, categories); err != nil {
-		return nil, errors.New("gagal menyimpan kategori secara massal")
+	err = s.versions.run(ctx, outletID, func(txCtx context.Context) error {
+		if err := s.repo.CreateBulk(txCtx, categories); err != nil {
+			return errors.New("gagal menyimpan kategori secara massal")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return categories, nil

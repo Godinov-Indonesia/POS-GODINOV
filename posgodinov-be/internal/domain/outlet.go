@@ -8,7 +8,7 @@ import (
 type Outlet struct {
 	ID           string    `json:"id" gorm:"primaryKey;column:id"`
 	BusinessID   string    `json:"business_id" gorm:"column:business_id"`
-	SerialTenant string    `json:"serial_tenant" gorm:"column:serial_tenant"`
+	SerialOutlet string    `json:"serial_outlet" gorm:"column:serial_outlet"`
 	Name         string    `json:"name" gorm:"column:name"`
 	Address      string    `json:"address" gorm:"column:address"`
 	IsDeleted    bool      `json:"-" gorm:"column:is_deleted;default:false"`
@@ -24,7 +24,7 @@ type OutletRepository interface {
 	Create(ctx context.Context, outlet *Outlet) error
 	CountByBusinessID(ctx context.Context, businessID string) (int64, error)
 	GetAllByBusinessID(ctx context.Context, businessID string) ([]*Outlet, error)
-	GetBySerialTenant(ctx context.Context, businessID, serial string) (*Outlet, error)
+	GetBySerialOutlet(ctx context.Context, businessID, serial string) (*Outlet, error)
 	GetByID(ctx context.Context, id string) (*Outlet, error)
 }
 

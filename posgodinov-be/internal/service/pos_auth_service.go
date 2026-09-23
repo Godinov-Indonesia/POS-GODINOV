@@ -7,25 +7,29 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/pkg/token"
 )
 
 type posAuthService struct {
 	businessRepo domain.BusinessRepository
-	outletRepo   domain.OutletRepository
-	tokenMaker   token.TokenMaker
+	outletRepo      domain.OutletRepository
+	tokenMaker      token.TokenMaker
+	businessManager *database.BusinessDBManager
 }
 
 func NewPOSAuthService(
 	businessRepo domain.BusinessRepository,
 	outletRepo domain.OutletRepository,
 	tokenMaker token.TokenMaker,
+	businessManager *database.BusinessDBManager,
 ) domain.POSAuthService {
 	return &posAuthService{
-		businessRepo: businessRepo,
-		outletRepo:   outletRepo,
-		tokenMaker:   tokenMaker,
+		businessRepo:    businessRepo,
+		outletRepo:      outletRepo,
+		tokenMaker:      tokenMaker,
+		businessManager: businessManager,
 	}
 }
 
@@ -42,17 +46,41 @@ func (s *posAuthService) BindDevice(ctx context.Context, req *domain.DeviceBindR
 		return nil, errors.New("kredensial bisnis tidak valid")
 	}
 
-	// 3. Get Outlet by Serial Tenant
-	outlet, err := s.outletRepo.GetBySerialTenant(ctx, business.ID, req.SerialOutlet)
+	businessCtx := ctx
+	if s.businessManager != nil {
+		businessDB, err := s.businessManager.GetBusinessDB(ctx, business.ID)
+		if err != nil {
+			return nil, errors.New("gagal terhubung ke database bisnis")
+		}
+		businessCtx = context.WithValue(ctx, database.BusinessDBKey, businessDB)
+	}
+
+	// 3. Get Outlet by Serial Outlet
+	outlet, err := s.outletRepo.GetBySerialOutlet(businessCtx, business.ID, req.SerialOutlet)
 	if err != nil {
 		return nil, errors.New("serial outlet tidak valid untuk bisnis ini")
 	}
 
-	// 4. Generate Device Token (Long lived token, e.g. 10 years ~ 87600 hours)
+	// 4. Tentukan scope perangkat — butir 4 ([11 §M16.1]).
+	//
+	// Hanya dua nilai yang diterima. Scope yang tidak dikenal DITOLAK, bukan
+	// dijatuhkan ke bawaan: teknisi yang salah ketik `OPNAM` akan memasang
+	// perangkat gudang dengan hak akses kasir penuh, dan tidak ada yang
+	// menyadarinya sampai ada yang memakainya.
+	scope := req.Scope
+	if scope == "" {
+		scope = token.ScopePOS
+	}
+	if scope != token.ScopePOS && scope != token.ScopeOpname {
+		return nil, errors.New("scope perangkat tidak dikenal: harus 'POS' atau 'OPNAME'")
+	}
+
+	// 5. Generate Device Token (Long lived token, e.g. 10 years ~ 87600 hours)
 	deviceToken, err := s.tokenMaker.CreateToken(token.Payload{
 		ID:    outlet.ID,
 		Email: business.ID, // We store BusinessID in Email field for convenience in middleware
 		Type:  "device",
+		Scope: scope,
 	}, 87600*time.Hour)
 	
 	if err != nil {
