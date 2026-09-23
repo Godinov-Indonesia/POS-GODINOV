@@ -32,14 +32,11 @@ func PanicRecovery(appEnv string) func(http.Handler) http.Handler {
 					}
 
 					jsonBody, _ := json.Marshal(resp)
-
-					// 3. SET HEADER TERLEBIH DAHULU sebelum WriteHeader
+					// SET HEADER sebelum WriteHeader
 					w.Header().Set("Content-Type", "application/json")
-					
-					// 4. Tulis HTTP Status Code
+					// Tulis HTTP Status Code
 					w.WriteHeader(http.StatusInternalServerError)
-					
-					// 5. Tulis Body
+					// Tulis Body
 					w.Write(jsonBody)
 				}
 			}()
