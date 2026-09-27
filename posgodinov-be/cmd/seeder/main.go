@@ -598,7 +598,6 @@ func (s *seeder) seedInventoryLogs(od *outletData) error {
 
 	var restocks []*domain.RestockLog
 	var wastes []*domain.WasteLog
-	var opnames []*domain.StockOpname
 
 	// Kiriman supplier tidak datang tiap hari.
 	for d := s.days; d >= 1; d-- {
@@ -645,42 +644,6 @@ func (s *seeder) seedInventoryLogs(od *outletData) error {
 		}
 	}
 
-	// Opname gaya lama (tabel stock_opnames) tetap diisi: laporan v1 masih
-	// membacanya, dan QA perlu melihat kedua jalur berdampingan.
-	for d := s.days; d >= 1; d -= 7 {
-		day := s.dayStart(d)
-		for _, rm := range od.rms {
-			if s.rng.Float64() > 0.5 {
-				continue
-			}
-			system := rm.Stock
-			actual := math.Max(0, round2(system+(s.rng.Float64()-0.55)*system*0.03))
-			inputType := "base_unit"
-			var sysPkg, actPkg float64
-			if rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
-				if s.rng.Float64() < 0.4 {
-					inputType = "package_unit"
-				}
-				sysPkg = round2(system / *rm.QuantityPerPackage)
-				actPkg = round2(actual / *rm.QuantityPerPackage)
-			}
-			diffValue := round2((actual - system) * rm.CostPerUnit)
-			opnames = append(opnames, &domain.StockOpname{
-				ID: utils.NewUUID(), OutletID: od.bp.ID, RawMaterialID: rm.ID,
-				SystemStock: system, ActualStock: actual,
-				Difference:            round2(actual - system),
-				FraudFlag:             isFraud(diffValue, system, actual),
-				RecordedBy:            keeper.ID,
-				InputType:             inputType,
-				SystemPackageQuantity: sysPkg,
-				ActualPackageQuantity: actPkg,
-				DifferenceValue:       diffValue,
-				Notes:                 "Opname mingguan",
-				CreatedAt:             day.Add(22 * time.Hour),
-			})
-		}
-	}
-
 	if len(restocks) > 0 {
 		if err := s.db.CreateInBatches(restocks, 200).Error; err != nil {
 			return err
@@ -692,12 +655,6 @@ func (s *seeder) seedInventoryLogs(od *outletData) error {
 			return err
 		}
 		s.add("waste_logs", len(wastes))
-	}
-	if len(opnames) > 0 {
-		if err := s.db.CreateInBatches(opnames, 200).Error; err != nil {
-			return err
-		}
-		s.add("stock_opnames", len(opnames))
 	}
 	return nil
 }
@@ -1233,20 +1190,19 @@ func (s *seeder) flushOperations() error {
 func (s *seeder) seedOpnameSessions(od *outletData) error {
 	keeper := od.staffOf("stok01")
 	manager := od.staffOf("manager01")
-	device := od.bp.Devices[0]
 
-	// Tiga status sekaligus supaya QA dapat menguji ketiga cabang layar tanpa
-	// harus menyiapkan sesi sendiri: DRAFT masih bisa diubah, LOCKED menunggu
-	// persetujuan, APPROVED sudah menyesuaikan stok.
+	// Tiga status sekaligus supaya QA dapat menguji ketiga cabang layar:
+	// OPEN masih bisa diubah, CLOSED menunggu persetujuan, APPROVED sudah
+	// menyesuaikan stok.
 	specs := []struct {
 		status  string
 		dayBack int
 		scope   string
 		notes   string
 	}{
-		{domain.OpnameStatusApproved, 5, domain.OpnameScopeFull, "Opname bulanan, disetujui manager"},
-		{domain.OpnameStatusLocked, 2, domain.OpnameScopeCategory, "Menunggu persetujuan manager"},
-		{domain.OpnameStatusDraft, 0, domain.OpnameScopePartial, "Hitungan berjalan"},
+		{domain.SOStatusApproved, 5, domain.SOScopeFull, "Opname bulanan, disetujui manager"},
+		{domain.SOStatusClosed, 2, domain.SOScopeCategory, "Menunggu persetujuan manager"},
+		{domain.SOStatusOpen, 0, domain.SOScopePartial, "Form SO baru"},
 	}
 
 	var sessions []*domain.OpnameSession
@@ -1259,24 +1215,25 @@ func (s *seeder) seedOpnameSessions(od *outletData) error {
 		}
 		sess := &domain.OpnameSession{
 			ID: utils.NewUUID(), OutletID: od.bp.ID, BusinessID: businessID,
-			DeviceID: device, Scope: sp.scope, Status: sp.status,
-			CountedBy: keeper.ID, Notes: sp.notes,
-			ClientCreatedAt: at, CreatedAt: at.Add(time.Minute),
+			Scope: sp.scope, Status: sp.status,
+			CreatedBy: keeper.ID, Notes: sp.notes,
+			CreatedAt: at.Add(time.Minute),
 		}
-		// ck_opname_locked_ts: DRAFT wajib locked_at NULL, selain DRAFT wajib terisi.
-		if sp.status != domain.OpnameStatusDraft {
-			sess.LockedAt = ptrT(at.Add(30 * time.Minute))
+		// Sesi yang sudah CLOSED ke atas harus punya closed_at.
+		if sp.status != domain.SOStatusOpen && sp.status != domain.SOStatusPublished && sp.status != domain.SOStatusCounting {
+			sess.ClosedAt = ptrT(at.Add(30 * time.Minute))
+			sess.ClosedBy = ptrS(manager.ID)
 		}
-		if sp.status == domain.OpnameStatusApproved {
+		if sp.status == domain.SOStatusApproved {
 			sess.ApprovedBy = ptrS(manager.ID)
 			sess.ApprovedAt = ptrT(at.Add(50 * time.Minute))
 		}
 
 		count := len(od.rms)
 		switch sp.scope {
-		case domain.OpnameScopeCategory:
+		case domain.SOScopeCategory:
 			count = 8
-		case domain.OpnameScopePartial:
+		case domain.SOScopePartial:
 			count = 5
 		}
 		for i := 0; i < count && i < len(od.rms); i++ {
@@ -1300,7 +1257,7 @@ func (s *seeder) seedOpnameSessions(od *outletData) error {
 			}
 			// Nilai sistem baru dibekukan saat sesi dikunci; sesi DRAFT memang
 			// belum memilikinya, dan layar harus tahan terhadap itu.
-			if sp.status != domain.OpnameStatusDraft {
+			if sp.status != domain.SOStatusOpen && sp.status != domain.SOStatusPublished && sp.status != domain.SOStatusCounting {
 				diff := round2(actual - system)
 				diffValue := round2(diff * rm.CostPerUnit)
 				it.SystemStock = ptrF(system)
@@ -1313,7 +1270,7 @@ func (s *seeder) seedOpnameSessions(od *outletData) error {
 
 			// Persetujuan opname adalah satu-satunya hal yang memindahkan stok
 			// ke angka hasil hitung fisik.
-			if sp.status == domain.OpnameStatusApproved {
+			if sp.status == domain.SOStatusApproved {
 				s.stockAdj[rm.ID] = actual
 			}
 		}

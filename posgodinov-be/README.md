@@ -116,8 +116,33 @@ Sistem migrasi sudah terintegrasi penuh menggunakan library `golang-migrate` dan
 | POST | `/v1/business/outlets/{id}/restock/bulk` | Mencatat banyak pembelian barang (inbound) sekaligus |
 | POST | `/v1/business/outlets/{id}/raw-materials/{rm_id}/waste` | Melaporkan barang rusak/basi/tumpah (Log Waste) tunggal |
 | POST | `/v1/business/outlets/{id}/waste/bulk` | Melaporkan banyak barang rusak/basi sekaligus |
-| POST | `/v1/business/outlets/{id}/raw-materials/{rm_id}/opnames` | Melakukan Stock Opname tunggal (**Support `package_unit` & deteksi fraud rupiah otomatis**) |
-| POST | `/v1/business/outlets/{id}/opnames/bulk` | Melakukan banyak Stock Opname sekaligus |
+
+### Stock Opname (SO) — Admin (Token Bisnis)
+
+Modul SO menggunakan alur form terkelola: Admin membuat form → pilih material → publish → kasir menghitung via app mobile SO → admin tutup form → review selisih → approve/reject.
+
+| Method | Endpoint | Keterangan |
+| ------ | -------- | ---------- |
+| POST | `/v1/business/outlets/{id}/so/forms` | Membuat form SO baru (pilih material yang akan dihitung) |
+| GET | `/v1/business/outlets/{id}/so/forms` | Melihat daftar form SO (filter `?status=OPEN\|PUBLISHED\|...`) |
+| GET | `/v1/business/outlets/{id}/so/forms/{fid}` | Detail form: lembar per kasir + lembar final gabungan (setelah close) |
+| PUT | `/v1/business/outlets/{id}/so/forms/{fid}/items` | Mengubah daftar material (hanya saat status `OPEN`) |
+| POST | `/v1/business/outlets/{id}/so/forms/{fid}/publish` | Publish form → terlihat di app SO kasir |
+| POST | `/v1/business/outlets/{id}/so/forms/{fid}/close` | Menutup form: snapshot stok sistem, hitung selisih & flag fraud |
+| POST | `/v1/business/outlets/{id}/so/forms/{fid}/approve` | Menyetujui & menyesuaikan stok bahan baku |
+| POST | `/v1/business/outlets/{id}/so/forms/{fid}/reject` | Menolak tanpa mengubah stok |
+| POST | `/v1/business/outlets/{id}/so/forms/{fid}/recount` | Membuat form recount baru (Recount ke-N), link historis ke parent |
+
+### Stock Opname (SO) — App Mobile SO (Device Token scope `OPNAME`)
+
+Endpoint untuk aplikasi mobile **posgodinov-so**. Auth menggunakan device binding sama seperti POS, dengan scope `OPNAME`.
+
+| Method | Endpoint | Keterangan |
+| ------ | -------- | ---------- |
+| GET | `/v1/so/available` | Melihat daftar SO yang bisa dikerjakan (`PUBLISHED`/`COUNTING`) |
+| GET | `/v1/so/{form_id}` | Detail form + daftar material (tanpa stok sistem — blind opname) |
+| PUT | `/v1/so/{form_id}/counts` | Mengirim hasil hitungan (header `X-Staff-Id` wajib). Multi-kasir: bisa diisi banyak kasir, final = SUM |
+| GET | `/v1/so/{form_id}/my-counts` | Melihat hitungan sendiri pada suatu form |
 
 ### Laporan & Analitik (Reports)
 | Method | Endpoint | Keterangan |
@@ -126,7 +151,6 @@ Sistem migrasi sudah terintegrasi penuh menggunakan library `golang-migrate` dan
 | GET | `/v1/business/outlets/{id}/reports/transactions` | Riwayat transaksi secara mendetail |
 | GET | `/v1/business/outlets/{id}/reports/restock` | Laporan riwayat pembelian barang (restock) |
 | GET | `/v1/business/outlets/{id}/reports/waste` | Laporan riwayat barang terbuang (waste) |
-| GET | `/v1/business/outlets/{id}/reports/opnames` | Laporan riwayat stock opname dan selisih fraud |
 
 ---
 
