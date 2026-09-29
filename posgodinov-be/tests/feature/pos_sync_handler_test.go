@@ -179,6 +179,10 @@ func (m *MockStaffRepoForSync) GetByID(ctx context.Context, id string) (*domain.
 }
 func (m *MockStaffRepoForSync) Update(ctx context.Context, staff *domain.Staff) error { return nil }
 func (m *MockStaffRepoForSync) Delete(ctx context.Context, id string) error           { return nil }
+func (m *MockStaffRepoForSync) HasActiveShift(ctx context.Context, staffID string) (bool, error) {
+	return false, nil
+}
+
 
 type MockProductCategoryRepoForSync struct{}
 

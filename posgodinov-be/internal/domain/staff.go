@@ -71,6 +71,7 @@ type StaffRepository interface {
 	GetAllByBusinessID(ctx context.Context, businessID string) ([]*Staff, error)
 	Update(ctx context.Context, staff *Staff) error
 	Delete(ctx context.Context, id string) error
+	HasActiveShift(ctx context.Context, staffID string) (bool, error)
 }
 
 type UpdateStaffRequest struct {
@@ -82,10 +83,17 @@ type UpdateStaffRequest struct {
 	IsActive        *bool       `json:"is_active"`
 }
 
+type TransferStaffRequest struct {
+	TargetOutletID  string  `json:"target_outlet_id"`
+	StaffIdentifier *string `json:"staff_identifier,omitempty"`
+}
+
 type StaffService interface {
 	RegisterStaff(ctx context.Context, businessID string, req *CreateStaffRequest) (*Staff, error)
 	GetAllByOutlet(ctx context.Context, businessID, outletID string) ([]*Staff, error)
 	UpdateStaff(ctx context.Context, businessID, staffID string, req *UpdateStaffRequest) (*Staff, error)
+	TransferStaff(ctx context.Context, businessID, staffID string, req *TransferStaffRequest) (*Staff, error)
 	GetAllByBusiness(ctx context.Context, businessID string) ([]*Staff, error)
 	DeleteStaff(ctx context.Context, businessID, staffID string) error
 }
+

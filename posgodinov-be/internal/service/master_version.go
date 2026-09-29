@@ -47,6 +47,29 @@ func (b masterVersionBumper) run(ctx context.Context, outletID string, mutate fu
 	})
 }
 
+// runMulti menjalankan mutasi lalu menaikkan versi beberapa outlet dalam satu transaksi.
+// Dipakai misalnya saat memindahkan staff dari satu outlet ke outlet lain.
+func (b masterVersionBumper) runMulti(ctx context.Context, outletIDs []string, mutate func(ctx context.Context) error) error {
+	if b.repo == nil || b.txManager == nil || len(outletIDs) == 0 {
+		return mutate(ctx)
+	}
+
+	return b.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := mutate(txCtx); err != nil {
+			return err
+		}
+		for _, oid := range outletIDs {
+			if oid != "" {
+				if _, err := b.repo.Bump(txCtx, oid); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
+
+
 // bump menaikkan versi tanpa mutasi pendamping.
 //
 // Dipakai jalur yang sudah berada di dalam transaksinya sendiri, sehingga

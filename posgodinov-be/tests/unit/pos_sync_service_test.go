@@ -143,6 +143,8 @@ func (m *MockStaffRepository_Sync) GetAllByBusinessID(ctx context.Context, busin
 func (m *MockStaffRepository_Sync) GetByID(ctx context.Context, id string) (*domain.Staff, error) { return nil, nil }
 func (m *MockStaffRepository_Sync) Update(ctx context.Context, staff *domain.Staff) error { return nil }
 func (m *MockStaffRepository_Sync) Delete(ctx context.Context, id string) error { return nil }
+func (m *MockStaffRepository_Sync) HasActiveShift(ctx context.Context, staffID string) (bool, error) { return false, nil }
+
 
 // Mock ProductCategoryRepository
 type MockProductCategoryRepository_Sync struct{}

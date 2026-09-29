@@ -11,8 +11,10 @@ import (
 )
 
 type MockStaffRepository struct {
-	staffs []*domain.Staff
+	staffs         []*domain.Staff
+	hasActiveShift map[string]bool
 }
+
 
 func (m *MockStaffRepository) Create(ctx context.Context, staff *domain.Staff) error {
 	m.staffs = append(m.staffs, staff)
@@ -55,6 +57,14 @@ func (m *MockStaffRepository) Update(ctx context.Context, staff *domain.Staff) e
 func (m *MockStaffRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
+
+func (m *MockStaffRepository) HasActiveShift(ctx context.Context, staffID string) (bool, error) {
+	if m.hasActiveShift != nil && m.hasActiveShift[staffID] {
+		return true, nil
+	}
+	return false, nil
+}
+
 
 func TestRegisterStaff(t *testing.T) {
 	ctx := context.Background()
@@ -180,3 +190,140 @@ func TestUpdateStaffRoleAndPermissions(t *testing.T) {
 		}
 	})
 }
+
+func TestTransferStaff(t *testing.T) {
+	ctx := context.Background()
+
+	setup := func() (domain.StaffService, *MockStaffRepository) {
+		staffRepo := &MockStaffRepository{
+			staffs: []*domain.Staff{
+				{
+					ID:              "staff-1",
+					OutletID:        "outlet-A",
+					StaffIdentifier: "101",
+					Name:            "Budi Staff",
+					Role:            domain.RoleCashier,
+					IsActive:        true,
+				},
+				{
+					ID:              "staff-2",
+					OutletID:        "outlet-B",
+					StaffIdentifier: "102",
+					Name:            "Ani Staff",
+					Role:            domain.RoleCashier,
+					IsActive:        true,
+				},
+			},
+			hasActiveShift: make(map[string]bool),
+		}
+		outletRepo := &MockOutletRepository{
+			outlets: []*domain.Outlet{
+				{ID: "outlet-A", BusinessID: "biz-1", Name: "Outlet A"},
+				{ID: "outlet-B", BusinessID: "biz-1", Name: "Outlet B"},
+				{ID: "outlet-C", BusinessID: "biz-2", Name: "Outlet C (Lain)"},
+			},
+		}
+		svc := service.NewStaffService(staffRepo, outletRepo)
+		return svc, staffRepo
+	}
+
+	t.Run("Success Transfer - Same Identifier", func(t *testing.T) {
+		svc, staffRepo := setup()
+		req := &domain.TransferStaffRequest{
+			TargetOutletID: "outlet-B",
+		}
+		transferred, err := svc.TransferStaff(ctx, "biz-1", "staff-1", req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if transferred.OutletID != "outlet-B" {
+			t.Errorf("expected outlet-B, got %s", transferred.OutletID)
+		}
+		if transferred.StaffIdentifier != "101" {
+			t.Errorf("expected identifier 101, got %s", transferred.StaffIdentifier)
+		}
+		// Check in repo
+		st, _ := staffRepo.GetByID(ctx, "staff-1")
+		if st.OutletID != "outlet-B" {
+			t.Errorf("expected repo to reflect outlet-B, got %s", st.OutletID)
+		}
+	})
+
+	t.Run("Success Transfer - New Identifier", func(t *testing.T) {
+		svc, _ := setup()
+		newId := "999"
+		req := &domain.TransferStaffRequest{
+			TargetOutletID:  "outlet-B",
+			StaffIdentifier: &newId,
+		}
+		transferred, err := svc.TransferStaff(ctx, "biz-1", "staff-1", req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if transferred.OutletID != "outlet-B" {
+			t.Errorf("expected outlet-B, got %s", transferred.OutletID)
+		}
+		if transferred.StaffIdentifier != "999" {
+			t.Errorf("expected identifier 999, got %s", transferred.StaffIdentifier)
+		}
+	})
+
+	t.Run("Fail - Target Same Outlet", func(t *testing.T) {
+		svc, _ := setup()
+		req := &domain.TransferStaffRequest{
+			TargetOutletID: "outlet-A",
+		}
+		_, err := svc.TransferStaff(ctx, "biz-1", "staff-1", req)
+		if err == nil {
+			t.Error("expected error for same outlet transfer, got nil")
+		}
+	})
+
+	t.Run("Fail - Target Other Business", func(t *testing.T) {
+		svc, _ := setup()
+		req := &domain.TransferStaffRequest{
+			TargetOutletID: "outlet-C",
+		}
+		_, err := svc.TransferStaff(ctx, "biz-1", "staff-1", req)
+		if err == nil {
+			t.Error("expected error for other business outlet, got nil")
+		}
+	})
+
+	t.Run("Fail - Target Not Found", func(t *testing.T) {
+		svc, _ := setup()
+		req := &domain.TransferStaffRequest{
+			TargetOutletID: "non-existent",
+		}
+		_, err := svc.TransferStaff(ctx, "biz-1", "staff-1", req)
+		if err == nil {
+			t.Error("expected error for non-existent outlet, got nil")
+		}
+	})
+
+	t.Run("Fail - Has Active Shift", func(t *testing.T) {
+		svc, staffRepo := setup()
+		staffRepo.hasActiveShift["staff-1"] = true
+		req := &domain.TransferStaffRequest{
+			TargetOutletID: "outlet-B",
+		}
+		_, err := svc.TransferStaff(ctx, "biz-1", "staff-1", req)
+		if err == nil {
+			t.Error("expected error when staff has active shift, got nil")
+		}
+	})
+
+	t.Run("Fail - Identifier Collision in Target Outlet", func(t *testing.T) {
+		svc, _ := setup()
+		collisionId := "102" // staff-2 already has 102 in outlet-B
+		req := &domain.TransferStaffRequest{
+			TargetOutletID:  "outlet-B",
+			StaffIdentifier: &collisionId,
+		}
+		_, err := svc.TransferStaff(ctx, "biz-1", "staff-1", req)
+		if err == nil {
+			t.Error("expected error for identifier collision, got nil")
+		}
+	})
+}
+

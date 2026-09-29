@@ -144,6 +144,7 @@ func SetupRouter(
 	mux.HandleFunc("GET /v1/business/staff", chain(staffHandler.GetAllByBusiness))
 	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/staff", chain(staffHandler.GetAll))
 	mux.HandleFunc("PUT /v1/business/staff/{staff_id}", chain(staffHandler.Update))
+	mux.HandleFunc("POST /v1/business/staff/{staff_id}/transfer", chain(staffHandler.Transfer))
 	mux.HandleFunc("DELETE /v1/business/staff/{staff_id}", chain(staffHandler.Delete))
 	
 	// Raw Material Routes
