@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/internal/middleware"
@@ -283,7 +284,7 @@ func (h *OpnameSessionHandler) SubmitCounts(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	staffID := r.Header.Get("X-Staff-Id")
+	staffID := strings.TrimSpace(r.Header.Get("X-Staff-Id"))
 	if staffID == "" {
 		response.Error(w, http.StatusBadRequest, "X-Staff-Id diperlukan", nil)
 		return
@@ -312,7 +313,7 @@ func (h *OpnameSessionHandler) GetMyCounts(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	staffID := r.Header.Get("X-Staff-Id")
+	staffID := strings.TrimSpace(r.Header.Get("X-Staff-Id"))
 	if staffID == "" {
 		response.Error(w, http.StatusBadRequest, "X-Staff-Id diperlukan", nil)
 		return
