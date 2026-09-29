@@ -144,7 +144,7 @@ func (s *opnameSessionService) buildFormResponse(ctx context.Context, session *d
 			}
 		}
 
-		var counters []string
+		counters := make([]string, 0)
 		for k := range countersMap {
 			counters = append(counters, k)
 		}
@@ -619,6 +619,9 @@ func (s *opnameSessionService) ListAvailable(ctx context.Context, businessID, ou
 		if err != nil {
 			return nil, err
 		}
+		// Di list available, sembunyikan detail materials agar response ringkas
+		// Kasir akan melihat detail materials saat membuka form spesifik via GET /v1/so/{form_id}
+		resp.Materials = nil
 		responses = append(responses, resp)
 	}
 
