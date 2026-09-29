@@ -19,14 +19,26 @@ var (
 	ErrSOFormForbidden   = errors.New("form SO bukan milik outlet ini")
 	ErrSOFormNoItems     = errors.New("form SO tidak memiliki material")
 	ErrSOFormNoCounts    = errors.New("belum ada hitungan yang disubmit")
+	ErrSOStaffNotFound  = errors.New("staff tidak ditemukan")
+	ErrSOStaffForbidden = errors.New("staff bukan anggota outlet ini")
+	ErrSOStaffInactive  = errors.New("staff tidak aktif")
 )
 
 type opnameSessionService struct {
 	repo       domain.OpnameSessionRepository
 	rmRepo     domain.RawMaterialRepository
 	outletRepo domain.OutletRepository
+	staffRepo  domain.StaffRepository
 	txManager  database.TransactionManager
 	now        func() time.Time
+}
+
+type OpnameSessionOption func(*opnameSessionService)
+
+func WithSOStaffRepository(repo domain.StaffRepository) OpnameSessionOption {
+	return func(s *opnameSessionService) {
+		s.staffRepo = repo
+	}
 }
 
 func NewOpnameSessionService(
@@ -34,9 +46,15 @@ func NewOpnameSessionService(
 	rmRepo domain.RawMaterialRepository,
 	outletRepo domain.OutletRepository,
 	txManager database.TransactionManager,
+	opts ...OpnameSessionOption,
 ) domain.OpnameSessionService {
-	return &opnameSessionService{repo: repo, rmRepo: rmRepo, outletRepo: outletRepo, txManager: txManager, now: time.Now}
+	s := &opnameSessionService{repo: repo, rmRepo: rmRepo, outletRepo: outletRepo, txManager: txManager, now: time.Now}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
+
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -50,6 +68,24 @@ func (s *opnameSessionService) assertOutlet(ctx context.Context, businessID, out
 	}
 	return nil
 }
+
+func (s *opnameSessionService) assertStaff(ctx context.Context, outletID, staffID string) (*domain.Staff, error) {
+	if s.staffRepo == nil || staffID == "" {
+		return nil, nil
+	}
+	staff, err := s.staffRepo.GetByID(ctx, staffID)
+	if err != nil || staff == nil {
+		return nil, ErrSOStaffNotFound
+	}
+	if staff.OutletID != outletID {
+		return nil, ErrSOStaffForbidden
+	}
+	if !staff.IsActive || staff.IsDeleted {
+		return nil, ErrSOStaffInactive
+	}
+	return staff, nil
+}
+
 
 func (s *opnameSessionService) loadSession(ctx context.Context, businessID, outletID, formID string) (*domain.OpnameSession, error) {
 	if err := s.assertOutlet(ctx, businessID, outletID); err != nil {
@@ -174,9 +210,15 @@ func (s *opnameSessionService) buildClosedResponse(ctx context.Context, session 
 	for _, entry := range entries {
 		sheet, ok := sheetsMap[entry.CountedBy]
 		if !ok {
+			staffName := entry.CountedBy
+			if s.staffRepo != nil {
+				if st, err := s.staffRepo.GetByID(ctx, entry.CountedBy); err == nil && st != nil {
+					staffName = st.Name
+				}
+			}
 			sheet = &domain.SOCountSheet{
 				CountedBy: entry.CountedBy,
-				StaffName: entry.CountedBy,
+				StaffName: staffName,
 				Items:     []*domain.SOCountSheetItem{},
 			}
 			sheetsMap[entry.CountedBy] = sheet
@@ -647,6 +689,10 @@ func (s *opnameSessionService) SubmitCounts(ctx context.Context, businessID, out
 		return err
 	}
 
+	if _, err := s.assertStaff(ctx, outletID, staffID); err != nil {
+		return err
+	}
+
 	if session.Status != domain.SOStatusPublished && session.Status != domain.SOStatusCounting {
 		return errors.New("form SO tidak dalam status yang dapat disubmit")
 	}
@@ -710,6 +756,11 @@ func (s *opnameSessionService) GetMyCounts(ctx context.Context, businessID, outl
 		return nil, err
 	}
 
+	staff, err := s.assertStaff(ctx, outletID, staffID)
+	if err != nil {
+		return nil, err
+	}
+
 	entries, err := s.repo.ListCountEntriesByStaff(ctx, session.ID, staffID)
 	if err != nil {
 		return nil, err
@@ -720,11 +771,17 @@ func (s *opnameSessionService) GetMyCounts(ctx context.Context, businessID, outl
 		return nil, err
 	}
 
+	staffName := staffID
+	if staff != nil {
+		staffName = staff.Name
+	}
+
 	sheet := &domain.SOCountSheet{
 		CountedBy: staffID,
-		StaffName: staffID,
+		StaffName: staffName,
 		Items:     []*domain.SOCountSheetItem{},
 	}
+
 
 	for _, entry := range entries {
 		rmName := "Unknown"

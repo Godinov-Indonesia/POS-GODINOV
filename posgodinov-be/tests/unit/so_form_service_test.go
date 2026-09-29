@@ -404,4 +404,73 @@ func TestOpnameSessionService(t *testing.T) {
 			t.Error("expected error recounting approved form, got nil")
 		}
 	})
+
+	t.Run("Submit Counts - Staff Validation", func(t *testing.T) {
+		staffRepo := &MockStaffRepository{
+			staffs: []*domain.Staff{
+				{ID: "staff-valid", OutletID: "o1", Name: "Siti Kasir", IsActive: true},
+				{ID: "staff-inactive", OutletID: "o1", Name: "Budi Nonaktif", IsActive: false},
+				{ID: "staff-other-outlet", OutletID: "o2", Name: "Joko Cabang Lain", IsActive: true},
+			},
+		}
+
+		svcWithStaff := service.NewOpnameSessionService(
+			repo, rmRepo, outletRepo, txManager,
+			service.WithSOStaffRepository(staffRepo),
+		)
+
+		// Create and publish a form for testing
+		formRes, err := svcWithStaff.CreateForm(ctx, "b1", "o1", "admin1", &domain.CreateSOFormRequest{
+			Scope:          domain.SOScopeFull,
+			RawMaterialIDs: []string{"rm1"},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error creating form: %v", err)
+		}
+		if err := svcWithStaff.PublishForm(ctx, "b1", "o1", formRes.ID); err != nil {
+			t.Fatalf("unexpected error publishing form: %v", err)
+		}
+
+		// 1. Staff does not exist
+		err = svcWithStaff.SubmitCounts(ctx, "b1", "o1", formRes.ID, "staff-ghost", []*domain.SubmitCountItemRequest{
+			{RawMaterialID: "rm1", ActualStock: 10, InputType: "base_unit"},
+		})
+		if !errors.Is(err, service.ErrSOStaffNotFound) {
+			t.Errorf("expected ErrSOStaffNotFound, got %v", err)
+		}
+
+		// 2. Staff from other outlet
+		err = svcWithStaff.SubmitCounts(ctx, "b1", "o1", formRes.ID, "staff-other-outlet", []*domain.SubmitCountItemRequest{
+			{RawMaterialID: "rm1", ActualStock: 10, InputType: "base_unit"},
+		})
+		if !errors.Is(err, service.ErrSOStaffForbidden) {
+			t.Errorf("expected ErrSOStaffForbidden, got %v", err)
+		}
+
+		// 3. Inactive staff
+		err = svcWithStaff.SubmitCounts(ctx, "b1", "o1", formRes.ID, "staff-inactive", []*domain.SubmitCountItemRequest{
+			{RawMaterialID: "rm1", ActualStock: 10, InputType: "base_unit"},
+		})
+		if !errors.Is(err, service.ErrSOStaffInactive) {
+			t.Errorf("expected ErrSOStaffInactive, got %v", err)
+		}
+
+		// 4. Valid staff
+		err = svcWithStaff.SubmitCounts(ctx, "b1", "o1", formRes.ID, "staff-valid", []*domain.SubmitCountItemRequest{
+			{RawMaterialID: "rm1", ActualStock: 10, InputType: "base_unit"},
+		})
+		if err != nil {
+			t.Errorf("unexpected error with valid staff: %v", err)
+		}
+
+		// 5. GetMyCounts with valid staff returns staff name
+		myCounts, err := svcWithStaff.GetMyCounts(ctx, "b1", "o1", formRes.ID, "staff-valid")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if myCounts.StaffName != "Siti Kasir" {
+			t.Errorf("expected StaffName 'Siti Kasir', got %s", myCounts.StaffName)
+		}
+	})
 }
+

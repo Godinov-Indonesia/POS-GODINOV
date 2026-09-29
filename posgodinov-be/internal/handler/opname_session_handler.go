@@ -58,6 +58,12 @@ func writeServiceError(w http.ResponseWriter, err error, fallback string) {
 		response.Error(w, http.StatusBadRequest, "Form SO tidak memiliki material", map[string]string{"code": "SO_NO_ITEMS"})
 	case errors.Is(err, service.ErrSOFormNoCounts):
 		response.Error(w, http.StatusBadRequest, "Belum ada hitungan yang disubmit", map[string]string{"code": "SO_NO_COUNTS"})
+	case errors.Is(err, service.ErrSOStaffNotFound):
+		response.Error(w, http.StatusNotFound, "Staff tidak ditemukan", map[string]string{"code": "STAFF_NOT_FOUND"})
+	case errors.Is(err, service.ErrSOStaffForbidden):
+		response.Error(w, http.StatusForbidden, "Staff bukan anggota outlet ini", map[string]string{"code": "STAFF_FORBIDDEN"})
+	case errors.Is(err, service.ErrSOStaffInactive):
+		response.Error(w, http.StatusForbidden, "Staff tidak aktif", map[string]string{"code": "STAFF_INACTIVE"})
 	default:
 		response.Error(w, http.StatusInternalServerError, fallback, map[string]string{"error": err.Error()})
 	}

@@ -127,6 +127,7 @@ func main() {
 	// Admin buat form → publish → kasir submit → admin close → approve/reject.
 	opnameSessionSvc := service.NewOpnameSessionService(
 		opnameSessionRepo, rawMaterialRepo, outletRepo, txManager,
+		service.WithSOStaffRepository(staffRepo),
 	)
 
 	posSyncSvc := service.NewPOSSyncService(
