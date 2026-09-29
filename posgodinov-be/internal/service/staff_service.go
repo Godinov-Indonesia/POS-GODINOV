@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -75,13 +76,31 @@ func (s *staffService) RegisterStaff(ctx context.Context, businessID string, req
 		return nil, errors.New("gagal memproses PIN kasir")
 	}
 
+	role := req.Role
+	if role == "" {
+		role = domain.RoleCashier
+	} else if !domain.IsValidRole(role) {
+		return nil, fmt.Errorf("role tidak valid: %s", role)
+	}
+
+	for _, p := range req.Permissions {
+		if !domain.IsValidPermission(p) {
+			return nil, fmt.Errorf("permission tidak valid: %s", p)
+		}
+	}
+	perms := req.Permissions
+	if perms == nil {
+		perms = domain.StringList{}
+	}
+
 	staff := &domain.Staff{
 		OutletID:        req.OutletID,
 		StaffIdentifier: req.StaffIdentifier,
 		Email:           req.Email,
 		Name:            req.Name,
 		PINHash:         string(hashedPin),
-		Role:            domain.RoleCashier,
+		Role:            role,
+		Permissions:     perms,
 		IsActive:        true,
 	}
 
@@ -146,6 +165,20 @@ func (s *staffService) UpdateStaff(ctx context.Context, businessID, staffID stri
 	}
 	if req.Email != nil {
 		staff.Email = req.Email
+	}
+	if req.Role != nil && *req.Role != "" {
+		if !domain.IsValidRole(*req.Role) {
+			return nil, fmt.Errorf("role tidak valid: %s", *req.Role)
+		}
+		staff.Role = *req.Role
+	}
+	if req.Permissions != nil {
+		for _, p := range *req.Permissions {
+			if !domain.IsValidPermission(p) {
+				return nil, fmt.Errorf("permission tidak valid: %s", p)
+			}
+		}
+		staff.Permissions = *req.Permissions
 	}
 	if req.IsActive != nil {
 		staff.IsActive = *req.IsActive

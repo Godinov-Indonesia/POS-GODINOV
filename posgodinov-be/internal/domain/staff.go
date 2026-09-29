@@ -8,9 +8,28 @@ import (
 type StaffRole string
 
 const (
-	RoleCashier StaffRole = "CASHIER"
-	RoleAdmin   StaffRole = "ADMIN"
+	RoleCashier     StaffRole = "CASHIER"
+	RoleSupervisor  StaffRole = "SUPERVISOR"
+	RoleManager     StaffRole = "MANAGER"
+	RoleStockKeeper StaffRole = "STOCK_KEEPER"
+	RoleAdmin       StaffRole = "ADMIN"
 )
+
+func IsValidRole(r StaffRole) bool {
+	switch r {
+	case RoleCashier, RoleSupervisor, RoleManager, RoleStockKeeper, RoleAdmin:
+		return true
+	}
+	return false
+}
+
+func IsValidPermission(p string) bool {
+	switch p {
+	case PermissionVoidApprove, PermissionReturnApprove, PermissionKioskExit, PermissionOpnameCount, PermissionForceClose:
+		return true
+	}
+	return false
+}
 
 // Staff maps to the 'users' table in database
 type Staff struct {
@@ -35,11 +54,13 @@ func (Staff) TableName() string {
 }
 
 type CreateStaffRequest struct {
-	OutletID        string  `json:"outlet_id"`
-	StaffIdentifier string  `json:"staff_identifier"`
-	Email           *string `json:"email"`
-	Name            string  `json:"name"`
-	PIN             string  `json:"pin"`
+	OutletID        string     `json:"outlet_id"`
+	StaffIdentifier string     `json:"staff_identifier"`
+	Email           *string    `json:"email"`
+	Name            string     `json:"name"`
+	PIN             string     `json:"pin"`
+	Role            StaffRole  `json:"role"`
+	Permissions     StringList `json:"permissions"`
 }
 
 type StaffRepository interface {
@@ -53,10 +74,12 @@ type StaffRepository interface {
 }
 
 type UpdateStaffRequest struct {
-	StaffIdentifier string  `json:"staff_identifier"`
-	Email           *string `json:"email"`
-	Name            string  `json:"name"`
-	IsActive        *bool   `json:"is_active"`
+	StaffIdentifier string      `json:"staff_identifier"`
+	Email           *string     `json:"email"`
+	Name            string      `json:"name"`
+	Role            *StaffRole  `json:"role"`
+	Permissions     *StringList `json:"permissions"`
+	IsActive        *bool       `json:"is_active"`
 }
 
 type StaffService interface {

@@ -29,6 +29,11 @@ func (m *MockStaffRepository) GetByStaffIdentifier(ctx context.Context, outletID
 }
 
 func (m *MockStaffRepository) GetByID(ctx context.Context, id string) (*domain.Staff, error) {
+	for _, s := range m.staffs {
+		if s.ID == id {
+			return s, nil
+		}
+	}
 	return nil, errors.New("not found")
 }
 func (m *MockStaffRepository) GetAllByOutletID(ctx context.Context, outletID string) ([]*domain.Staff, error) {
@@ -39,7 +44,13 @@ func (m *MockStaffRepository) GetAllByBusinessID(ctx context.Context, businessID
 	return nil, nil
 }
 func (m *MockStaffRepository) Update(ctx context.Context, staff *domain.Staff) error {
-	return nil
+	for i, s := range m.staffs {
+		if s.ID == staff.ID {
+			m.staffs[i] = staff
+			return nil
+		}
+	}
+	return errors.New("not found")
 }
 func (m *MockStaffRepository) Delete(ctx context.Context, id string) error {
 	return nil
@@ -108,6 +119,64 @@ func TestRegisterStaff(t *testing.T) {
 		_, err := svc.RegisterStaff(ctx, "b1", req)
 		if err == nil {
 			t.Error("expected error for duplicate staff identifier, got nil")
+		}
+	})
+}
+
+func TestUpdateStaffRoleAndPermissions(t *testing.T) {
+	ctx := context.Background()
+
+	staffRepo := &MockStaffRepository{
+		staffs: []*domain.Staff{
+			{ID: "s1", OutletID: "o1", StaffIdentifier: "staf1", Name: "Staf Satu", Role: domain.RoleCashier, Permissions: domain.StringList{}},
+		},
+	}
+	outletRepo := &MockOutletRepository{
+		outlets: []*domain.Outlet{
+			{ID: "o1", BusinessID: "b1"},
+		},
+	}
+	svc := service.NewStaffService(staffRepo, outletRepo)
+
+	t.Run("Valid Role and Permissions Update", func(t *testing.T) {
+		newRole := domain.RoleSupervisor
+		newPerms := domain.StringList{domain.PermissionVoidApprove, domain.PermissionOpnameCount}
+		req := &domain.UpdateStaffRequest{
+			Role:        &newRole,
+			Permissions: &newPerms,
+		}
+
+		updated, err := svc.UpdateStaff(ctx, "b1", "s1", req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if updated.Role != domain.RoleSupervisor {
+			t.Errorf("expected role SUPERVISOR, got %s", updated.Role)
+		}
+		if len(updated.Permissions) != 2 || !updated.Permissions.Has(domain.PermissionOpnameCount) {
+			t.Errorf("expected permissions to contain OPNAME_COUNT, got %v", updated.Permissions)
+		}
+	})
+
+	t.Run("Invalid Role Update", func(t *testing.T) {
+		invalidRole := domain.StaffRole("HACKER")
+		req := &domain.UpdateStaffRequest{
+			Role: &invalidRole,
+		}
+		_, err := svc.UpdateStaff(ctx, "b1", "s1", req)
+		if err == nil {
+			t.Error("expected error for invalid role, got nil")
+		}
+	})
+
+	t.Run("Invalid Permission Update", func(t *testing.T) {
+		invalidPerms := domain.StringList{"DO_ANYTHING"}
+		req := &domain.UpdateStaffRequest{
+			Permissions: &invalidPerms,
+		}
+		_, err := svc.UpdateStaff(ctx, "b1", "s1", req)
+		if err == nil {
+			t.Error("expected error for invalid permission, got nil")
 		}
 	})
 }
