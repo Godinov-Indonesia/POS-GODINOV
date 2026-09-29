@@ -302,6 +302,20 @@ func (s *opnameSessionService) CreateForm(ctx context.Context, businessID, outle
 		return nil, err
 	}
 
+	if req.Scope == "" {
+		req.Scope = domain.SOScopeFull
+	}
+
+	if req.Scope == domain.SOScopeFull && len(req.RawMaterialIDs) == 0 {
+		for id := range catalog {
+			req.RawMaterialIDs = append(req.RawMaterialIDs, id)
+		}
+	}
+
+	if len(req.RawMaterialIDs) == 0 {
+		return nil, errors.New("daftar material tidak boleh kosong")
+	}
+
 	for _, id := range req.RawMaterialIDs {
 		if _, ok := catalog[id]; !ok {
 			return nil, fmt.Errorf("material dengan ID %s tidak ditemukan di outlet ini", id)
@@ -566,7 +580,7 @@ func (s *opnameSessionService) ListForms(ctx context.Context, businessID, outlet
 		return nil, err
 	}
 
-	var responses []*domain.SOFormResponse
+	responses := make([]*domain.SOFormResponse, 0)
 	for _, session := range sessions {
 		responses = append(responses, &domain.SOFormResponse{
 			ID:            session.ID,
@@ -599,7 +613,7 @@ func (s *opnameSessionService) ListAvailable(ctx context.Context, businessID, ou
 		return nil, err
 	}
 
-	var responses []*domain.SOFormResponse
+	responses := make([]*domain.SOFormResponse, 0)
 	for _, session := range sessions {
 		resp, err := s.buildFormResponse(ctx, session)
 		if err != nil {
