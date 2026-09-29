@@ -13,11 +13,21 @@
 --   5. Recount: form baru berdasarkan parent, chain historis
 -- ============================================================================
 
--- ── 1. Tambah kolom baru ke opname_sessions ─────────────────────────────────
+-- ── 1. Relaksasi kolom v2 & tambah kolom baru ke opname_sessions ─────────────
+
+-- Drop foreign keys ke users(id) karena admin/owner ID (seperti "66SP9MO9") bukan record di users(id)
+ALTER TABLE opname_sessions DROP CONSTRAINT IF EXISTS opname_sessions_approved_by_fkey;
+ALTER TABLE opname_sessions DROP CONSTRAINT IF EXISTS opname_sessions_counted_by_fkey;
+
+-- Kolom lama dari v2 dibuat nullable karena di flow v3 tidak selalu diisi saat create
+ALTER TABLE opname_sessions ALTER COLUMN counted_by DROP NOT NULL;
+ALTER TABLE opname_sessions ALTER COLUMN client_created_at DROP NOT NULL;
+ALTER TABLE opname_sessions ALTER COLUMN counted_by TYPE VARCHAR(64);
+ALTER TABLE opname_sessions ALTER COLUMN approved_by TYPE VARCHAR(64);
 
 ALTER TABLE opname_sessions
-    ADD COLUMN IF NOT EXISTS created_by      UUID,
-    ADD COLUMN IF NOT EXISTS closed_by       UUID REFERENCES users(id),
+    ADD COLUMN IF NOT EXISTS created_by      VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS closed_by       VARCHAR(64),
     ADD COLUMN IF NOT EXISTS closed_at       TIMESTAMP WITH TIME ZONE,
     ADD COLUMN IF NOT EXISTS published_at    TIMESTAMP WITH TIME ZONE,
     ADD COLUMN IF NOT EXISTS recount_of      UUID REFERENCES opname_sessions(id),
@@ -57,7 +67,7 @@ CREATE TABLE IF NOT EXISTS opname_count_entries (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id              UUID NOT NULL REFERENCES opname_sessions(id) ON DELETE CASCADE,
     raw_material_id         UUID NOT NULL REFERENCES raw_materials(id) ON DELETE CASCADE,
-    counted_by              UUID NOT NULL REFERENCES users(id),
+    counted_by              VARCHAR(64) NOT NULL,
     actual_stock            DECIMAL(12,4) NOT NULL,
     actual_package_quantity FLOAT,
     input_type              VARCHAR(50) NOT NULL DEFAULT 'base_unit',
