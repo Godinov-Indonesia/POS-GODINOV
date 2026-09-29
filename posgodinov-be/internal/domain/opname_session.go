@@ -156,7 +156,7 @@ type SOFormResponse struct {
 	PublishedAt   *time.Time          `json:"published_at"`
 	ClosedAt      *time.Time          `json:"closed_at"`
 	CreatedAt     time.Time           `json:"created_at"`
-	Materials     []*SOFormMaterialDTO `json:"materials"`
+	Materials     []*SOFormMaterialDTO `json:"materials,omitempty"`
 	CountProgress *SOCountProgress    `json:"count_progress,omitempty"`
 }
 
