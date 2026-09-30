@@ -25,6 +25,7 @@ import { Banner, EmptyState, Skeleton } from '@/components/ui/feedback'
 import { Money, formatQuantity } from '@/components/ui/money'
 import { TBody, TD, TH, THead, TR, Table } from '@/components/ui/table'
 import { toast, toastApiError } from '@/components/ui/toaster'
+import { useRawMaterials } from '@/features/admin/inventory/hooks/useRawMaterials'
 import {
   useApproveSOForm,
   useCloseSOForm,
@@ -67,6 +68,7 @@ function SOFormDetailInner({
 }) {
   const router = useRouter()
   const { data, isPending, error } = useSOFormDetail(outletId, formId)
+  const { data: rawMaterials } = useRawMaterials(outletId)
 
   const publishMutation = usePublishSOForm(outletId)
   const closeMutation = useCloseSOForm(outletId)
@@ -87,6 +89,24 @@ function SOFormDetailInner({
   React.useEffect(() => {
     if (error) toastApiError(error, 'Gagal memuat detail form SO')
   }, [error])
+
+  const rmMap = React.useMemo(() => {
+    return new Map((rawMaterials ?? []).map((m) => [m.id, m]))
+  }, [rawMaterials])
+
+  const getItemDiffMinor = React.useCallback(
+    (it: SOFinalSheetItem): number => {
+      if (typeof it.difference_value === 'number' && Math.abs(it.difference_value) > 0.0001) {
+        return toMinor(it.difference_value)
+      }
+      const rm = rmMap.get(it.raw_material_id)
+      if (rm && rm.cost_per_unit_minor > 0 && Math.abs(it.difference) > 0.0001) {
+        return Math.round(it.difference * rm.cost_per_unit_minor)
+      }
+      return 0
+    },
+    [rmMap],
+  )
 
   if (isPending) return <Skeleton className="h-96 w-full max-w-5xl" />
   if (!data) return <Banner tone="danger">Form SO tidak ditemukan.</Banner>
@@ -111,10 +131,16 @@ function SOFormDetailInner({
   const fraudFlaggedItems =
     closedData?.final_sheet?.summary?.fraud_flagged_items ??
     finalItems.filter((it) => it.fraud_flag).length
-  const totalDifferenceValue =
-    closedData?.final_sheet?.summary?.total_difference_value ??
-    closedData?.final_sheet?.summary?.total_variance_value ??
-    finalItems.reduce((acc, it) => acc + (it.difference_value ?? 0), 0)
+
+  const totalDifferenceMinor = (() => {
+    const backendVal =
+      closedData?.final_sheet?.summary?.total_difference_value ??
+      closedData?.final_sheet?.summary?.total_variance_value
+    if (typeof backendVal === 'number' && Math.abs(backendVal) > 0.0001) {
+      return toMinor(backendVal)
+    }
+    return finalItems.reduce((acc, it) => acc + getItemDiffMinor(it), 0)
+  })()
 
   const handlePublish = async () => {
     try {
@@ -318,10 +344,16 @@ function SOFormDetailInner({
               title="Total Nilai Selisih"
               value={
                 <Money
-                  minor={toMinor(totalDifferenceValue)}
+                  minor={totalDifferenceMinor}
                   size="md"
                   signed
-                  tone={totalDifferenceValue < 0 ? 'danger' : 'success'}
+                  tone={
+                    totalDifferenceMinor < 0
+                      ? 'danger'
+                      : totalDifferenceMinor > 0
+                      ? 'success'
+                      : 'default'
+                  }
                 />
               }
               subtitle="Dihitung dari selisih × HPP"
@@ -392,7 +424,10 @@ function SOFormDetailInner({
           {reviewTab === 'FINAL' ? (
             <Card>
               <CardContent className="pt-4 overflow-x-auto">
-                <FinalSheetTable items={closedData.final_sheet.items} />
+                <FinalSheetTable
+                  items={closedData.final_sheet.items}
+                  getItemDiffMinor={getItemDiffMinor}
+                />
               </CardContent>
             </Card>
           ) : null}
@@ -661,7 +696,13 @@ function MaterialListTable({
   )
 }
 
-function FinalSheetTable({ items }: { items: SOFinalSheetItem[] }) {
+function FinalSheetTable({
+  items,
+  getItemDiffMinor,
+}: {
+  items: SOFinalSheetItem[]
+  getItemDiffMinor: (it: SOFinalSheetItem) => number
+}) {
   return (
     <Table>
       <THead>
@@ -677,6 +718,7 @@ function FinalSheetTable({ items }: { items: SOFinalSheetItem[] }) {
       <TBody>
         {items.map((it) => {
           const shortage = it.difference < 0
+          const diffMinor = getItemDiffMinor(it)
           return (
             <TR key={it.raw_material_id} className={cn(it.fraud_flag && 'bg-danger-subtle/30')}>
               <TD className="font-medium">
@@ -717,10 +759,10 @@ function FinalSheetTable({ items }: { items: SOFinalSheetItem[] }) {
               </TD>
               <TD numeric>
                 <Money
-                  minor={toMinor(it.difference_value)}
+                  minor={diffMinor}
                   size="sm"
                   signed
-                  tone={shortage ? 'danger' : it.difference === 0 ? 'muted' : 'success'}
+                  tone={diffMinor < 0 ? 'danger' : diffMinor > 0 ? 'success' : 'muted'}
                 />
               </TD>
               <TD>
