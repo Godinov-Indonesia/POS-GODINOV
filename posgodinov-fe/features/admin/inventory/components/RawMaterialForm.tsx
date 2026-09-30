@@ -24,7 +24,8 @@ type FormState = {
   unit: string
   package_unit: string
   quantity_per_package: string
-  stock: string
+  package_stock: string
+  loose_stock: string
   cost_per_unit: string
 }
 
@@ -33,7 +34,8 @@ const EMPTY: FormState = {
   unit: '',
   package_unit: '',
   quantity_per_package: '',
-  stock: '',
+  package_stock: '',
+  loose_stock: '',
   cost_per_unit: '',
 }
 
@@ -67,12 +69,15 @@ function CreateInner({ outletId }: { outletId: string }) {
 
     try {
       const costMajor = parseNumber(form.cost_per_unit)
+      const pkgStock = Math.floor(parseNumber(form.package_stock) ?? 0)
+      const looseStock = parseNumber(form.loose_stock) ?? 0
       await createRawMaterial.mutateAsync({
         name: form.name.trim(),
         unit: form.unit.trim(),
         package_unit: form.package_unit.trim() || undefined,
         quantity_per_package: parseNumber(form.quantity_per_package),
-        stock: parseNumber(form.stock),
+        package_stock: pkgStock,
+        loose_stock: looseStock,
         // Input diisi dalam Rupiah; state internal & API layer bekerja dalam sen.
         cost_per_unit_minor: costMajor === undefined ? undefined : toMinor(costMajor),
       })
@@ -133,7 +138,8 @@ function EditFormLoaded({
     unit: material.unit,
     package_unit: material.package_unit ?? '',
     quantity_per_package: material.quantity_per_package?.toString() ?? '',
-    stock: '',
+    package_stock: '',
+    loose_stock: '',
     cost_per_unit: toMajor(material.cost_per_unit_minor).toString(),
   }))
   const [error, setError] = React.useState<string | null>(null)
@@ -251,31 +257,68 @@ function FormShell({
               </Field>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              {showStock ? (
-                <Field label="Stok awal" htmlFor="stock" hint="Dalam base unit. Default 0.">
-                  <NumericInput
-                    id="stock"
-                    inputMode="decimal"
-                    value={form.stock}
-                    onChange={set('stock')}
-                  />
-                </Field>
-              ) : null}
+            {showStock ? (
+              <div className="flex flex-col gap-3 rounded-card border border-border bg-surface-subtle p-3.5">
+                <p className="text-pos-xs font-semibold uppercase tracking-wider text-fg-muted">
+                  Stok Awal (Dual-Stock)
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {form.package_unit ? (
+                    <Field
+                      label={`Stok Kemasan (${form.package_unit})`}
+                      htmlFor="package_stock"
+                      hint="Jumlah kemasan utuh (bilangan bulat). Default 0."
+                    >
+                      <NumericInput
+                        id="package_stock"
+                        inputMode="numeric"
+                        value={form.package_stock}
+                        onChange={set('package_stock')}
+                      />
+                    </Field>
+                  ) : null}
 
-              <Field
-                label="HPP per base unit (Rp)"
-                htmlFor="cost_per_unit"
-                hint="Dihitung ulang otomatis sebagai moving average setiap restock."
-              >
-                <NumericInput
-                  id="cost_per_unit"
-                  inputMode="decimal"
-                  value={form.cost_per_unit}
-                  onChange={set('cost_per_unit')}
-                />
-              </Field>
-            </div>
+                  <Field
+                    label={`Stok Eceran (${form.unit || 'unit'})`}
+                    htmlFor="loose_stock"
+                    hint="Bahan eceran terbuka dalam base unit. Default 0."
+                  >
+                    <NumericInput
+                      id="loose_stock"
+                      inputMode="decimal"
+                      value={form.loose_stock}
+                      onChange={set('loose_stock')}
+                    />
+                  </Field>
+                </div>
+                {form.package_unit && form.quantity_per_package ? (
+                  <p className="text-pos-xs text-fg-muted">
+                    Total estimasi stok sistem:{' '}
+                    <strong className="font-medium text-fg">
+                      {(
+                        Math.floor(parseNumber(form.package_stock) ?? 0) *
+                          (parseNumber(form.quantity_per_package) ?? 0) +
+                        (parseNumber(form.loose_stock) ?? 0)
+                      ).toLocaleString('id-ID')}{' '}
+                      {form.unit}
+                    </strong>
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <Field
+              label="HPP per base unit (Rp)"
+              htmlFor="cost_per_unit"
+              hint="Dihitung ulang otomatis sebagai moving average setiap restock."
+            >
+              <NumericInput
+                id="cost_per_unit"
+                inputMode="decimal"
+                value={form.cost_per_unit}
+                onChange={set('cost_per_unit')}
+              />
+            </Field>
 
             {error ? (
               <p role="alert" className="flex items-center gap-1 text-pos-sm text-danger">

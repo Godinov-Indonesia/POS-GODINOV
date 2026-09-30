@@ -618,8 +618,14 @@ export type RawMaterial = {
   package_unit: string | null
   /** Isi per kemasan. Wajib bila ingin opname dengan `package_unit`. */
   quantity_per_package: number | null
-  /** ⚠️ **Boleh bernilai negatif** — konsekuensi disengaja dari sync POS offline. */
-  stock: number
+  /** Jumlah kemasan utuh. */
+  package_stock: number
+  /** Jumlah bahan eceran terbuka dalam base unit. */
+  loose_stock: number
+  /** Total stok sistem dalam base unit (Postgres GENERATED STORED). */
+  unit_stock: number
+  /** Alias kompatibilitas mundur untuk unit_stock. */
+  stock?: number
   /** HPP per base unit — moving average, dihitung ulang saat restock. */
   cost_per_unit: number
   created_at: IsoDateTime
@@ -631,7 +637,8 @@ export type CreateRawMaterialRequest = {
   unit: string
   package_unit?: string
   quantity_per_package?: number
-  /** Stok awal dalam base unit. Default `0`. */
+  package_stock?: number
+  loose_stock?: number
   stock?: number
   cost_per_unit?: number
 }

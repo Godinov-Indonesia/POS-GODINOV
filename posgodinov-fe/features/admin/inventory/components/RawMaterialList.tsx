@@ -89,37 +89,53 @@ function RawMaterialTable({ outletId }: { outletId: string }) {
       <Table>
         <THead>
           <TR>
-            <TH>Nama</TH>
-            <TH>Base Unit</TH>
-            <TH>Kemasan</TH>
-            <TH numeric>Stok</TH>
+            <TH>Bahan Baku</TH>
+            <TH>Kemasan Utuh</TH>
+            <TH>Eceran Terbuka</TH>
+            <TH numeric>Total Stok</TH>
             <TH numeric>HPP / unit</TH>
             <TH>Aksi</TH>
           </TR>
         </THead>
         <TBody>
           {data.map((material) => {
-            const negative = material.stock < 0
+            const totalStock = material.unit_stock ?? material.stock
+            const negative = totalStock < 0
             return (
               <TR key={material.id}>
-                <TD className="font-medium">{material.name}</TD>
-                <TD className="text-fg-muted">{material.unit}</TD>
+                <TD className="font-medium">
+                  <div>{material.name}</div>
+                  <div className="text-pos-xs text-fg-muted">
+                    {material.package_unit && material.quantity_per_package
+                      ? `1 ${material.package_unit} = ${formatQuantity(material.quantity_per_package)} ${material.unit}`
+                      : `Satuan: ${material.unit}`}
+                  </div>
+                </TD>
                 <TD className="text-fg-muted">
-                  {material.package_unit
-                    ? `${material.package_unit} · ${formatQuantity(material.quantity_per_package ?? 0)} ${material.unit}`
-                    : '—'}
+                  {material.package_unit ? (
+                    <span>
+                      <strong className="font-semibold text-fg">{formatQuantity(material.package_stock)}</strong>{' '}
+                      {material.package_unit}
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </TD>
+                <TD className="text-fg-muted">
+                  <strong className="font-semibold text-fg">{formatQuantity(material.loose_stock)}</strong>{' '}
+                  {material.unit}
                 </TD>
                 <TD numeric>
                   {/* Warna + ikon + teks — penanda kedua wajib ([06 §1.5]). */}
                   <span
                     className={
-                      negative ? 'inline-flex items-center gap-1 font-semibold text-danger' : ''
+                      negative ? 'inline-flex items-center gap-1 font-semibold text-danger' : 'font-medium'
                     }
                   >
                     {negative ? (
                       <AlertTriangle className="size-3.5" aria-hidden="true" />
                     ) : null}
-                    <Num>{formatQuantity(material.stock)}</Num>
+                    <Num>{formatQuantity(totalStock)}</Num> {material.unit}
                     {negative ? <span className="sr-only">(stok minus)</span> : null}
                   </span>
                 </TD>

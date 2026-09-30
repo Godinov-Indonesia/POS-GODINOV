@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
 
-import { OpnameSheet } from '@/features/admin/inventory/components/OpnameSheet'
+import { SOFormList } from '@/features/admin/so/components/SOFormList'
 
 export const metadata: Metadata = { title: 'Stock Opname' }
 
-/** D-19 — docs/04 §B.1. */
 export default function OpnamePage() {
-  return <OpnameSheet />
+  return <SOFormList />
 }

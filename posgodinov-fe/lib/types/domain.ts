@@ -21,7 +21,13 @@ export type RawMaterialView = {
   unit: string
   package_unit: string | null
   quantity_per_package: number | null
-  /** ⚠️ Boleh negatif — konsekuensi disengaja dari sinkronisasi POS offline. */
+  /** Jumlah kemasan utuh. */
+  package_stock: number
+  /** Jumlah eceran terbuka dalam base unit. */
+  loose_stock: number
+  /** Total ketersediaan dalam base unit (Postgres generated stored column). */
+  unit_stock: number
+  /** ⚠️ Boleh negatif — alias kompatibilitas mundur untuk unit_stock. */
   stock: number
   /** HPP per base unit, dalam **sen**. */
   cost_per_unit_minor: number
