@@ -96,6 +96,26 @@ function SOFormDetailInner({
   const closedData = isClosed ? data : null
   const status = data.status
 
+  const finalItems = closedData?.final_sheet?.items ?? []
+  const totalItems =
+    closedData?.final_sheet?.summary?.total_items ??
+    closedData?.final_sheet?.summary?.items_counted ??
+    finalItems.length
+  const differentItems =
+    closedData?.final_sheet?.summary?.different_items ??
+    closedData?.final_sheet?.summary?.items_with_variance ??
+    finalItems.filter((it) => Math.abs(it.difference) > 0.0001).length
+  const matchedItems =
+    closedData?.final_sheet?.summary?.matched_items ??
+    Math.max(0, totalItems - differentItems)
+  const fraudFlaggedItems =
+    closedData?.final_sheet?.summary?.fraud_flagged_items ??
+    finalItems.filter((it) => it.fraud_flag).length
+  const totalDifferenceValue =
+    closedData?.final_sheet?.summary?.total_difference_value ??
+    closedData?.final_sheet?.summary?.total_variance_value ??
+    finalItems.reduce((acc, it) => acc + (it.difference_value ?? 0), 0)
+
   const handlePublish = async () => {
     try {
       await publishMutation.mutateAsync(formId)
@@ -278,30 +298,30 @@ function SOFormDetailInner({
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <KPICard
               title="Total Bahan Diaudit"
-              value={`${closedData.final_sheet.summary.total_items} bahan`}
-              subtitle={`${closedData.final_sheet.summary.matched_items} bahan sesuai`}
+              value={`${totalItems} bahan`}
+              subtitle={`${matchedItems} bahan sesuai`}
             />
             <KPICard
               title="Bahan Berselisih"
-              value={`${closedData.final_sheet.summary.different_items} bahan`}
+              value={`${differentItems} bahan`}
               subtitle="Terdapat deviasi fisik"
-              tone={closedData.final_sheet.summary.different_items > 0 ? 'warning' : 'neutral'}
+              tone={differentItems > 0 ? 'warning' : 'neutral'}
             />
             <KPICard
               title="Flag Fraud / Selisih Kritis"
-              value={`${closedData.final_sheet.summary.fraud_flagged_items} bahan`}
+              value={`${fraudFlaggedItems} bahan`}
               subtitle="Selisih > 10% atau > Rp 50.000"
-              tone={closedData.final_sheet.summary.fraud_flagged_items > 0 ? 'danger' : 'neutral'}
-              icon={closedData.final_sheet.summary.fraud_flagged_items > 0 ? ShieldAlert : undefined}
+              tone={fraudFlaggedItems > 0 ? 'danger' : 'neutral'}
+              icon={fraudFlaggedItems > 0 ? ShieldAlert : undefined}
             />
             <KPICard
               title="Total Nilai Selisih"
               value={
                 <Money
-                  minor={toMinor(closedData.final_sheet.summary.total_difference_value)}
+                  minor={toMinor(totalDifferenceValue)}
                   size="md"
                   signed
-                  tone={closedData.final_sheet.summary.total_difference_value < 0 ? 'danger' : 'success'}
+                  tone={totalDifferenceValue < 0 ? 'danger' : 'success'}
                 />
               }
               subtitle="Dihitung dari selisih × HPP"

@@ -250,7 +250,7 @@ func (s *opnameSessionService) buildClosedResponse(ctx context.Context, session 
 	}
 
 	var finalItems []*domain.SOFinalSheetItem
-	var itemsCounted, itemsWithVariance int
+	var itemsCounted, itemsWithVariance, fraudFlaggedItems int
 	var totalVarianceValue float64
 
 	for _, item := range sessionItems {
@@ -278,17 +278,25 @@ func (s *opnameSessionService) buildClosedResponse(ctx context.Context, session 
 
 		finalItems = append(finalItems, fItem)
 		itemsCounted++
-		if math.Abs(fItem.Difference) > 0 {
+		if math.Abs(fItem.Difference) > 0.0001 {
 			itemsWithVariance++
+		}
+		if fItem.FraudFlag {
+			fraudFlaggedItems++
 		}
 		totalVarianceValue += fItem.DifferenceValue
 	}
 
 	finalSheet := &domain.SOFinalSheet{
 		Summary: domain.SOFinalSummary{
-			ItemsCounted:       itemsCounted,
-			ItemsWithVariance:  itemsWithVariance,
-			TotalVarianceValue: totalVarianceValue,
+			TotalItems:           itemsCounted,
+			MatchedItems:         itemsCounted - itemsWithVariance,
+			DifferentItems:       itemsWithVariance,
+			FraudFlaggedItems:    fraudFlaggedItems,
+			TotalDifferenceValue: totalVarianceValue,
+			ItemsCounted:         itemsCounted,
+			ItemsWithVariance:    itemsWithVariance,
+			TotalVarianceValue:   totalVarianceValue,
 		},
 		Items: finalItems,
 	}

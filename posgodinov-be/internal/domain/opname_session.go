@@ -220,6 +220,13 @@ type SOFinalSheet struct {
 
 // SOFinalSummary — ringkasan selisih.
 type SOFinalSummary struct {
+	TotalItems           int     `json:"total_items"`
+	MatchedItems         int     `json:"matched_items"`
+	DifferentItems       int     `json:"different_items"`
+	FraudFlaggedItems    int     `json:"fraud_flagged_items"`
+	TotalDifferenceValue float64 `json:"total_difference_value"`
+
+	// Backward compatibility alias
 	ItemsCounted       int     `json:"items_counted"`
 	ItemsWithVariance  int     `json:"items_with_variance"`
 	TotalVarianceValue float64 `json:"total_variance_value"`

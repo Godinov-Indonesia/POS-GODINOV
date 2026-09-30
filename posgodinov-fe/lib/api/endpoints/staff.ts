@@ -9,7 +9,13 @@
  */
 
 import { adminRequest, adminRequestList } from '@/lib/api/admin-client'
-import type { CreateStaffRequest, OutletId, Staff, UpdateStaffRequest } from '@/lib/types/api'
+import type {
+  CreateStaffRequest,
+  OutletId,
+  Staff,
+  TransferStaffRequest,
+  UpdateStaffRequest,
+} from '@/lib/types/api'
 
 /** Seluruh staff di semua outlet milik bisnis. Diurutkan `created_at DESC`. */
 export const listAllStaff = (): Promise<Staff[]> => adminRequestList<Staff>('/v1/business/staff')
@@ -24,6 +30,13 @@ export const createStaff = (body: CreateStaffRequest): Promise<Staff> =>
 export const updateStaff = (staffId: string, body: UpdateStaffRequest): Promise<Staff> =>
   adminRequest<Staff>(`/v1/business/staff/${staffId}`, {
     method: 'PUT',
+    body: JSON.stringify(body),
+  })
+
+/** Transfer staff ke outlet lain dalam bisnis yang sama. */
+export const transferStaff = (staffId: string, body: TransferStaffRequest): Promise<Staff> =>
+  adminRequest<Staff>(`/v1/business/staff/${staffId}/transfer`, {
+    method: 'POST',
     body: JSON.stringify(body),
   })
 

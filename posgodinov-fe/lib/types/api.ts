@@ -493,8 +493,19 @@ export type CreateOutletRequest = {
 
 /* ═══════════════════════ 4. Staff Management ═══════════════════════ */
 
-/** Selalu `"CASHIER"` — tidak dapat ditentukan saat pembuatan ([03 §4.1]). */
-export type StaffRole = 'CASHIER'
+export type StaffRole =
+  | 'CASHIER'
+  | 'SUPERVISOR'
+  | 'MANAGER'
+  | 'STOCK_KEEPER'
+  | 'ADMIN'
+
+export type StaffPermission =
+  | 'VOID_APPROVE'
+  | 'RETURN_APPROVE'
+  | 'KIOSK_EXIT'
+  | 'OPNAME_COUNT'
+  | 'FORCE_CLOSE_SHIFT'
 
 export type Staff = {
   id: string
@@ -503,6 +514,7 @@ export type Staff = {
   email: string | null
   name: string
   role: StaffRole
+  permissions?: StaffPermission[] | string[] | null
   is_active: boolean
   created_at: IsoDateTime
 }
@@ -516,6 +528,8 @@ export type CreateStaffRequest = {
   /** Panjang 4-6 karakter; tidak wajib angka. Di-hash bcrypt oleh backend. */
   pin: string
   email?: string
+  role?: StaffRole
+  permissions?: string[]
 }
 
 /**
@@ -527,8 +541,15 @@ export type UpdateStaffRequest = {
   name?: string
   /** Kirim `null` untuk mengosongkan; hilangkan field untuk membiarkan. */
   email?: string | null
+  role?: StaffRole
+  permissions?: string[]
   /** Hilangkan field untuk membiarkan. */
   is_active?: boolean
+}
+
+export type TransferStaffRequest = {
+  target_outlet_id: OutletId
+  staff_identifier?: string
 }
 
 /* ═══════════════════════ 5. Product Categories ═══════════════════════ */

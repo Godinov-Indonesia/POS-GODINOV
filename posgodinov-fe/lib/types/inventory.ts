@@ -173,11 +173,14 @@ export type SOFinalSheetItem = {
 }
 
 export type SOFinalSummary = {
-  total_items: number
-  matched_items: number
-  different_items: number
-  fraud_flagged_items: number
-  total_difference_value: number
+  total_items?: number
+  matched_items?: number
+  different_items?: number
+  fraud_flagged_items?: number
+  total_difference_value?: number
+  items_counted?: number
+  items_with_variance?: number
+  total_variance_value?: number
 }
 
 export type SOHistoryEntry = {
