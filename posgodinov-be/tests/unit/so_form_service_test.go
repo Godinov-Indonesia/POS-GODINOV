@@ -86,9 +86,9 @@ func (m *mockOpnameSessionRepo) UpsertCountEntries(ctx context.Context, entries 
 		found := false
 		for i, e := range existing {
 			if e.RawMaterialID == entry.RawMaterialID && e.CountedBy == entry.CountedBy {
+				existing[i].ActualPackages = entry.ActualPackages
+				existing[i].ActualLoose = entry.ActualLoose
 				existing[i].ActualStock = entry.ActualStock
-				existing[i].ActualPackageQuantity = entry.ActualPackageQuantity
-				existing[i].InputType = entry.InputType
 				existing[i].Notes = entry.Notes
 				found = true
 				break
@@ -162,10 +162,14 @@ func (m *mockOpnameSessionRepo) Close(ctx context.Context, sessionID string, clo
 		sys := 100.0 // mock system stock
 		diff := totalActual - sys
 		diffVal := diff * 1000.0
+		loose := totalActual
+		zero := 0
 		items = append(items, &domain.OpnameSessionItem{
 			ID:              rmID + "_res",
 			SessionID:       sessionID,
 			RawMaterialID:   rmID,
+			ActualPackages:  &zero,
+			ActualLoose:     &loose,
 			ActualStock:     totalActual,
 			SystemStock:     &sys,
 			Difference:      &diff,
@@ -221,8 +225,8 @@ func TestOpnameSessionService(t *testing.T) {
 	}
 	rmRepo := &MockRawMaterialRepository{
 		rawMaterials: []*domain.RawMaterial{
-			{ID: "rm1", OutletID: "o1", Name: "Kopi", Stock: 100, CostPerUnit: 1000},
-			{ID: "rm2", OutletID: "o1", Name: "Gula", Stock: 100, CostPerUnit: 500},
+			{ID: "rm1", OutletID: "o1", Name: "Kopi", LooseStock: 100, CostPerUnit: 1000},
+			{ID: "rm2", OutletID: "o1", Name: "Gula", LooseStock: 100, CostPerUnit: 500},
 		},
 	}
 
@@ -303,8 +307,8 @@ func TestOpnameSessionService(t *testing.T) {
 	t.Run("Submit Counts - Multi-cashier with status transition to COUNTING", func(t *testing.T) {
 		// Kasir 1 hitung
 		err := svc.SubmitCounts(ctx, "b1", "o1", formID, "staff_kasir1", []*domain.SubmitCountItemRequest{
-			{RawMaterialID: "rm1", ActualStock: 40, InputType: "base_unit"},
-			{RawMaterialID: "rm2", ActualStock: 50, InputType: "base_unit"},
+			{RawMaterialID: "rm1", ActualLoose: 40},
+			{RawMaterialID: "rm2", ActualLoose: 50},
 		})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -318,7 +322,7 @@ func TestOpnameSessionService(t *testing.T) {
 
 		// Kasir 2 hitung partial (hanya rm1)
 		err = svc.SubmitCounts(ctx, "b1", "o1", formID, "staff_kasir2", []*domain.SubmitCountItemRequest{
-			{RawMaterialID: "rm1", ActualStock: 55, InputType: "base_unit"},
+			{RawMaterialID: "rm1", ActualLoose: 55},
 		})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -393,8 +397,8 @@ func TestOpnameSessionService(t *testing.T) {
 		// System stock was 100, actual was 95 (diff = -5)
 		// adjusted = 100 + (-5) = 95
 		rm1, _ := rmRepo.GetByID(ctx, "rm1")
-		if rm1.Stock != 95 {
-			t.Errorf("expected stock adjusted to 95, got %f", rm1.Stock)
+		if rm1.LooseStock != 95 {
+			t.Errorf("expected stock adjusted to 95, got %f", rm1.LooseStock)
 		}
 	})
 
@@ -433,7 +437,7 @@ func TestOpnameSessionService(t *testing.T) {
 
 		// 1. Staff does not exist
 		err = svcWithStaff.SubmitCounts(ctx, "b1", "o1", formRes.ID, "staff-ghost", []*domain.SubmitCountItemRequest{
-			{RawMaterialID: "rm1", ActualStock: 10, InputType: "base_unit"},
+			{RawMaterialID: "rm1", ActualLoose: 10},
 		})
 		if !errors.Is(err, service.ErrSOStaffNotFound) {
 			t.Errorf("expected ErrSOStaffNotFound, got %v", err)
@@ -441,7 +445,7 @@ func TestOpnameSessionService(t *testing.T) {
 
 		// 2. Staff from other outlet
 		err = svcWithStaff.SubmitCounts(ctx, "b1", "o1", formRes.ID, "staff-other-outlet", []*domain.SubmitCountItemRequest{
-			{RawMaterialID: "rm1", ActualStock: 10, InputType: "base_unit"},
+			{RawMaterialID: "rm1", ActualLoose: 10},
 		})
 		if !errors.Is(err, service.ErrSOStaffForbidden) {
 			t.Errorf("expected ErrSOStaffForbidden, got %v", err)
@@ -449,7 +453,7 @@ func TestOpnameSessionService(t *testing.T) {
 
 		// 3. Inactive staff
 		err = svcWithStaff.SubmitCounts(ctx, "b1", "o1", formRes.ID, "staff-inactive", []*domain.SubmitCountItemRequest{
-			{RawMaterialID: "rm1", ActualStock: 10, InputType: "base_unit"},
+			{RawMaterialID: "rm1", ActualLoose: 10},
 		})
 		if !errors.Is(err, service.ErrSOStaffInactive) {
 			t.Errorf("expected ErrSOStaffInactive, got %v", err)
@@ -457,7 +461,7 @@ func TestOpnameSessionService(t *testing.T) {
 
 		// 4. Valid staff
 		err = svcWithStaff.SubmitCounts(ctx, "b1", "o1", formRes.ID, "staff-valid", []*domain.SubmitCountItemRequest{
-			{RawMaterialID: "rm1", ActualStock: 10, InputType: "base_unit"},
+			{RawMaterialID: "rm1", ActualLoose: 10},
 		})
 		if err != nil {
 			t.Errorf("unexpected error with valid staff: %v", err)

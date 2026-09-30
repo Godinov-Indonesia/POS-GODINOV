@@ -72,16 +72,16 @@ type OpnameFormItem struct {
 // Unique per (session, material, kasir). Final actual_stock per material =
 // SUM(actual_stock) dari semua kasir.
 type OpnameCountEntry struct {
-	ID                    string     `json:"id" gorm:"primaryKey;column:id"`
-	SessionID             string     `json:"-" gorm:"column:session_id"`
-	RawMaterialID         string     `json:"raw_material_id" gorm:"column:raw_material_id"`
-	CountedBy             string     `json:"counted_by" gorm:"column:counted_by"`
-	ActualStock           float64    `json:"actual_stock" gorm:"column:actual_stock"`
-	ActualPackageQuantity *float64   `json:"actual_package_quantity" gorm:"column:actual_package_quantity"`
-	InputType             string     `json:"input_type" gorm:"column:input_type"`
-	Notes                 string     `json:"notes" gorm:"column:notes"`
-	CreatedAt             time.Time  `json:"created_at,omitzero" gorm:"column:created_at"`
-	UpdatedAt             time.Time  `json:"updated_at,omitzero" gorm:"column:updated_at"`
+	ID             string    `json:"id" gorm:"primaryKey;column:id"`
+	SessionID      string    `json:"-" gorm:"column:session_id"`
+	RawMaterialID  string    `json:"raw_material_id" gorm:"column:raw_material_id"`
+	CountedBy      string    `json:"counted_by" gorm:"column:counted_by"`
+	ActualPackages int       `json:"actual_packages" gorm:"column:actual_packages"`
+	ActualLoose    float64   `json:"actual_loose" gorm:"column:actual_loose"`
+	ActualStock    float64   `json:"actual_stock" gorm:"column:actual_stock"`
+	Notes          string    `json:"notes" gorm:"column:notes"`
+	CreatedAt      time.Time `json:"created_at,omitzero" gorm:"column:created_at"`
+	UpdatedAt      time.Time `json:"updated_at,omitzero" gorm:"column:updated_at"`
 }
 
 // OpnameSessionItem — hasil aggregated per material, diisi saat Close.
@@ -93,16 +93,17 @@ type OpnameSessionItem struct {
 	SessionID     string `json:"-" gorm:"column:session_id"`
 	RawMaterialID string `json:"-" gorm:"column:raw_material_id"`
 
-	ActualStock           float64  `json:"-" gorm:"column:actual_stock"`
-	ActualPackageQuantity *float64 `json:"-" gorm:"column:actual_package_quantity"`
-	InputType             string   `json:"-" gorm:"column:input_type"`
+	ActualPackages *int     `json:"-" gorm:"column:actual_packages"`
+	ActualLoose    *float64 `json:"-" gorm:"column:actual_loose"`
+	ActualStock    float64  `json:"-" gorm:"column:actual_stock"`
 
 	// NULL selama status belum CLOSED.
-	SystemStock           *float64 `json:"-" gorm:"column:system_stock"`
-	SystemPackageQuantity *float64 `json:"-" gorm:"column:system_package_quantity"`
-	Difference            *float64 `json:"-" gorm:"column:difference"`
-	DifferenceValue       *float64 `json:"-" gorm:"column:difference_value"`
-	FraudFlag             bool     `json:"-" gorm:"column:fraud_flag"`
+	SystemPackageStock *int     `json:"-" gorm:"column:system_package_stock"`
+	SystemLooseStock   *float64 `json:"-" gorm:"column:system_loose_stock"`
+	SystemStock        *float64 `json:"-" gorm:"column:system_stock"`
+	Difference         *float64 `json:"-" gorm:"column:difference"`
+	DifferenceValue    *float64 `json:"-" gorm:"column:difference_value"`
+	FraudFlag          bool     `json:"-" gorm:"column:fraud_flag"`
 
 	RecountOf *string `json:"-" gorm:"column:recount_of"`
 	Notes     string  `json:"-" gorm:"column:notes"`
@@ -132,11 +133,10 @@ type SubmitCountRequest struct {
 
 // SubmitCountItemRequest — satu baris hitungan kasir.
 type SubmitCountItemRequest struct {
-	RawMaterialID         string   `json:"raw_material_id"`
-	ActualStock           float64  `json:"actual_stock"`
-	ActualPackageQuantity *float64 `json:"actual_package_quantity"`
-	InputType             string   `json:"input_type"`
-	Notes                 string   `json:"notes"`
+	RawMaterialID  string  `json:"raw_material_id"`
+	ActualPackages int     `json:"actual_packages"`
+	ActualLoose    float64 `json:"actual_loose"`
+	Notes          string  `json:"notes"`
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -203,18 +203,18 @@ type SOCountSheet struct {
 
 // SOCountSheetItem — satu baris di lembar kasir.
 type SOCountSheetItem struct {
-	RawMaterialID         string   `json:"raw_material_id"`
-	RawMaterialName       string   `json:"raw_material_name"`
-	Unit                  string   `json:"unit"`
-	ActualStock           float64  `json:"actual_stock"`
-	ActualPackageQuantity *float64 `json:"actual_package_quantity"`
-	InputType             string   `json:"input_type"`
-	Notes                 string   `json:"notes"`
+	RawMaterialID   string  `json:"raw_material_id"`
+	RawMaterialName string  `json:"raw_material_name"`
+	Unit            string  `json:"unit"`
+	ActualPackages  int     `json:"actual_packages"`
+	ActualLoose     float64 `json:"actual_loose"`
+	ActualStock     float64 `json:"actual_stock"`
+	Notes           string  `json:"notes"`
 }
 
 // SOFinalSheet — lembar final gabungan + diff.
 type SOFinalSheet struct {
-	Summary SOFinalSummary     `json:"summary"`
+	Summary SOFinalSummary      `json:"summary"`
 	Items   []*SOFinalSheetItem `json:"items"`
 }
 
@@ -227,18 +227,20 @@ type SOFinalSummary struct {
 
 // SOFinalSheetItem — satu baris di lembar final.
 type SOFinalSheetItem struct {
-	RawMaterialID         string   `json:"raw_material_id"`
-	RawMaterialName       string   `json:"raw_material_name"`
-	Unit                  string   `json:"unit"`
-	PackageUnit           *string  `json:"package_unit"`
-	QuantityPerPackage    *float64 `json:"quantity_per_package"`
-	SystemStock           float64  `json:"system_stock"`
-	SystemPackageQuantity *float64 `json:"system_package_quantity"`
-	ActualStock           float64  `json:"actual_stock"`
-	ActualPackageQuantity *float64 `json:"actual_package_quantity"`
-	Difference            float64  `json:"difference"`
-	DifferenceValue       float64  `json:"difference_value"`
-	FraudFlag             bool     `json:"fraud_flag"`
+	RawMaterialID      string   `json:"raw_material_id"`
+	RawMaterialName    string   `json:"raw_material_name"`
+	Unit               string   `json:"unit"`
+	PackageUnit        *string  `json:"package_unit"`
+	QuantityPerPackage *float64 `json:"quantity_per_package"`
+	SystemPackageStock int      `json:"system_package_stock"`
+	SystemLooseStock   float64  `json:"system_loose_stock"`
+	SystemStock        float64  `json:"system_stock"`
+	ActualPackages     int      `json:"actual_packages"`
+	ActualLoose        float64  `json:"actual_loose"`
+	ActualStock        float64  `json:"actual_stock"`
+	Difference         float64  `json:"difference"`
+	DifferenceValue    float64  `json:"difference_value"`
+	FraudFlag          bool     `json:"fraud_flag"`
 }
 
 // SOHistoryEntry — satu baris di chain recount.

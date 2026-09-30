@@ -198,7 +198,7 @@ func newContractHarness() *contractHarness {
 		"prod-1": {ID: "prod-1", Recipes: []*domain.ProductRecipe{{RawMaterialID: "rm-1", Quantity: 1}}},
 	}}
 	rawMaterials := &MockRawMaterialRepoForSync{
-		rms: map[string]*domain.RawMaterial{"rm-1": {ID: "rm-1", Stock: 100}},
+		rms: map[string]*domain.RawMaterial{"rm-1": {ID: "rm-1", LooseStock: 100}},
 	}
 	txManager := database.NewMockTransactionManager()
 
@@ -622,7 +622,7 @@ func TestSyncContractV2(t *testing.T) {
 
 		// `restock: true` → bahan baku kembali. Resepnya 1 rm-1 per unit,
 		// sehingga 1 unit retur mengembalikan 1 satuan dari stok awal 100.
-		if got := h.rawMaterials.rms["rm-1"].Stock; got != 101 {
+		if got := h.rawMaterials.rms["rm-1"].LooseStock; got != 101 {
 			t.Errorf("stok rm-1 = %v, diharapkan 101 (kembali 1 satuan)", got)
 		}
 		if len(h.posRepo.wastes) != 0 {
@@ -687,7 +687,7 @@ func TestSyncContractV2(t *testing.T) {
 		}
 
 		// Stok TIDAK bertambah: barangnya rusak dan tidak pernah kembali ke rak.
-		if got := h.rawMaterials.rms["rm-1"].Stock; got != 100 {
+		if got := h.rawMaterials.rms["rm-1"].LooseStock; got != 100 {
 			t.Errorf("stok rm-1 = %v, diharapkan tetap 100", got)
 		}
 

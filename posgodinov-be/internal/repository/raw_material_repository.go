@@ -91,15 +91,19 @@ func (r *postgresRawMaterialRepository) LockByIDs(ctx context.Context, ids []str
 	return rmMap, nil
 }
 
-func (r *postgresRawMaterialRepository) UpdateStock(ctx context.Context, id string, newStock float64) error {
-	db := database.GetDB(ctx, r.db)
-	return db.WithContext(ctx).Model(&domain.RawMaterial{}).Where("id = ?", id).Update("stock", newStock).Error
-}
-
-func (r *postgresRawMaterialRepository) UpdateStockAndCost(ctx context.Context, id string, newStock, newCost float64) error {
+func (r *postgresRawMaterialRepository) UpdateDualStock(ctx context.Context, id string, packageStock int, looseStock float64) error {
 	db := database.GetDB(ctx, r.db)
 	return db.WithContext(ctx).Model(&domain.RawMaterial{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"stock":         newStock,
+		"package_stock": packageStock,
+		"loose_stock":   looseStock,
+	}).Error
+}
+
+func (r *postgresRawMaterialRepository) UpdateDualStockAndCost(ctx context.Context, id string, packageStock int, looseStock, newCost float64) error {
+	db := database.GetDB(ctx, r.db)
+	return db.WithContext(ctx).Model(&domain.RawMaterial{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"package_stock": packageStock,
+		"loose_stock":   looseStock,
 		"cost_per_unit": newCost,
 	}).Error
 }

@@ -59,14 +59,8 @@ func NewOpnameSessionService(
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 func (s *opnameSessionService) assertOutlet(ctx context.Context, businessID, outletID string) error {
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return err
-	}
-	if outlet.BusinessID != businessID {
-		return errors.New("outlet tidak ditemukan atau bukan milik bisnis ini")
-	}
-	return nil
+	_, err := assertOutlet(ctx, s.outletRepo, businessID, outletID)
+	return err
 }
 
 func (s *opnameSessionService) assertStaff(ctx context.Context, outletID, staffID string) (*domain.Staff, error) {
@@ -114,9 +108,12 @@ func (s *opnameSessionService) rawMaterialCatalog(ctx context.Context, outletID 
 }
 
 func deref(v *float64) float64 {
-	if v == nil {
-		return 0
-	}
+	if v == nil { return 0 }
+	return *v
+}
+
+func derefInt(v *int) int {
+	if v == nil { return 0 }
 	return *v
 }
 
@@ -232,13 +229,13 @@ func (s *opnameSessionService) buildClosedResponse(ctx context.Context, session 
 		}
 
 		sheet.Items = append(sheet.Items, &domain.SOCountSheetItem{
-			RawMaterialID:         entry.RawMaterialID,
-			RawMaterialName:       rmName,
-			Unit:                  unit,
-			ActualStock:           entry.ActualStock,
-			ActualPackageQuantity: entry.ActualPackageQuantity,
-			InputType:             entry.InputType,
-			Notes:                 entry.Notes,
+			RawMaterialID:   entry.RawMaterialID,
+			RawMaterialName: rmName,
+			Unit:            unit,
+			ActualPackages:  entry.ActualPackages,
+			ActualLoose:     entry.ActualLoose,
+			ActualStock:     entry.ActualStock,
+			Notes:           entry.Notes,
 		})
 	}
 
@@ -263,18 +260,20 @@ func (s *opnameSessionService) buildClosedResponse(ctx context.Context, session 
 		}
 
 		fItem := &domain.SOFinalSheetItem{
-			RawMaterialID:         item.RawMaterialID,
-			RawMaterialName:       rm.Name,
-			Unit:                  rm.Unit,
-			PackageUnit:           rm.PackageUnit,
-			QuantityPerPackage:    rm.QuantityPerPackage,
-			SystemStock:           deref(item.SystemStock),
-			SystemPackageQuantity: item.SystemPackageQuantity,
-			ActualStock:           item.ActualStock,
-			ActualPackageQuantity: item.ActualPackageQuantity,
-			Difference:            deref(item.Difference),
-			DifferenceValue:       deref(item.DifferenceValue),
-			FraudFlag:             item.FraudFlag,
+			RawMaterialID:      item.RawMaterialID,
+			RawMaterialName:    rm.Name,
+			Unit:               rm.Unit,
+			PackageUnit:        rm.PackageUnit,
+			QuantityPerPackage: rm.QuantityPerPackage,
+			SystemPackageStock: derefInt(item.SystemPackageStock),
+			SystemLooseStock:   deref(item.SystemLooseStock),
+			SystemStock:        deref(item.SystemStock),
+			ActualPackages:     derefInt(item.ActualPackages),
+			ActualLoose:        deref(item.ActualLoose),
+			ActualStock:        item.ActualStock,
+			Difference:         deref(item.Difference),
+			DifferenceValue:    deref(item.DifferenceValue),
+			FraudFlag:          item.FraudFlag,
 		}
 
 		finalItems = append(finalItems, fItem)
@@ -504,8 +503,16 @@ func (s *opnameSessionService) ApproveForm(ctx context.Context, businessID, outl
 					return err
 				}
 
-				adjusted := rm.Stock + *it.Difference
-				if err := s.rmRepo.UpdateStock(txCtx, rm.ID, adjusted); err != nil {
+				newPackageStock := 0
+				newLooseStock := it.ActualStock
+				if it.ActualPackages != nil {
+					newPackageStock = *it.ActualPackages
+				}
+				if it.ActualLoose != nil {
+					newLooseStock = *it.ActualLoose
+				}
+
+				if err := s.rmRepo.UpdateDualStock(txCtx, rm.ID, newPackageStock, newLooseStock); err != nil {
 					return err
 				}
 
@@ -722,18 +729,25 @@ func (s *opnameSessionService) SubmitCounts(ctx context.Context, businessID, out
 			return fmt.Errorf("material dengan ID %s tidak ditemukan", reqItem.RawMaterialID)
 		}
 
+		rm := catalog[reqItem.RawMaterialID]
+		qtyPerPkg := 0.0
+		if rm.QuantityPerPackage != nil {
+			qtyPerPkg = *rm.QuantityPerPackage
+		}
+		actualStock := float64(reqItem.ActualPackages)*qtyPerPkg + reqItem.ActualLoose
+
 		entryID := utils.NewUUID()
 		entries = append(entries, &domain.OpnameCountEntry{
-			ID:                    entryID,
-			SessionID:             session.ID,
-			RawMaterialID:         reqItem.RawMaterialID,
-			CountedBy:             staffID,
-			ActualStock:           reqItem.ActualStock,
-			ActualPackageQuantity: reqItem.ActualPackageQuantity,
-			InputType:             reqItem.InputType,
-			Notes:                 reqItem.Notes,
-			CreatedAt:             s.now(),
-			UpdatedAt:             s.now(),
+			ID:             entryID,
+			SessionID:      session.ID,
+			RawMaterialID:  reqItem.RawMaterialID,
+			CountedBy:      staffID,
+			ActualPackages: reqItem.ActualPackages,
+			ActualLoose:    reqItem.ActualLoose,
+			ActualStock:    actualStock,
+			Notes:          reqItem.Notes,
+			CreatedAt:      s.now(),
+			UpdatedAt:      s.now(),
 		})
 	}
 
@@ -792,13 +806,13 @@ func (s *opnameSessionService) GetMyCounts(ctx context.Context, businessID, outl
 		}
 
 		sheet.Items = append(sheet.Items, &domain.SOCountSheetItem{
-			RawMaterialID:         entry.RawMaterialID,
-			RawMaterialName:       rmName,
-			Unit:                  unit,
-			ActualStock:           entry.ActualStock,
-			ActualPackageQuantity: entry.ActualPackageQuantity,
-			InputType:             entry.InputType,
-			Notes:                 entry.Notes,
+			RawMaterialID:   entry.RawMaterialID,
+			RawMaterialName: rmName,
+			Unit:            unit,
+			ActualPackages:  entry.ActualPackages,
+			ActualLoose:     entry.ActualLoose,
+			ActualStock:     entry.ActualStock,
+			Notes:           entry.Notes,
 		})
 	}
 

@@ -41,20 +41,22 @@ func (m *MockRawMaterialRepository) LockByID(ctx context.Context, id string) (*d
 	return m.GetByID(ctx, id)
 }
 
-func (m *MockRawMaterialRepository) UpdateStock(ctx context.Context, id string, newStock float64) error {
+func (m *MockRawMaterialRepository) UpdateDualStock(ctx context.Context, id string, packageStock int, looseStock float64) error {
 	for i, rm := range m.rawMaterials {
 		if rm.ID == id {
-			m.rawMaterials[i].Stock = newStock
+			m.rawMaterials[i].PackageStock = packageStock
+			m.rawMaterials[i].LooseStock = looseStock
 			return nil
 		}
 	}
 	return errors.New("not found")
 }
 
-func (m *MockRawMaterialRepository) UpdateStockAndCost(ctx context.Context, id string, newStock, newCost float64) error {
+func (m *MockRawMaterialRepository) UpdateDualStockAndCost(ctx context.Context, id string, packageStock int, looseStock, newCost float64) error {
 	for i, rm := range m.rawMaterials {
 		if rm.ID == id {
-			m.rawMaterials[i].Stock = newStock
+			m.rawMaterials[i].PackageStock = packageStock
+			m.rawMaterials[i].LooseStock = looseStock
 			m.rawMaterials[i].CostPerUnit = newCost
 			return nil
 		}
@@ -79,7 +81,7 @@ func TestRawMaterialService(t *testing.T) {
 		req := &domain.CreateRawMaterialRequest{
 			Name:        "Gula",
 			Unit:        "kg",
-			Stock:       10,
+			LooseStock:  10,
 			CostPerUnit: 15000,
 		}
 		res, err := svc.Create(ctx, "b1", "o1", req)

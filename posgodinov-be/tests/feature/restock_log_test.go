@@ -33,7 +33,7 @@ func TestFeatureRestockLog(t *testing.T) {
 	restockRepo := &MockFeatureRestockLogRepository{}
 	rmRepo := &MockFeatureRawMaterialRepository{
 		rawMaterials: []*domain.RawMaterial{
-			{ID: "rm1", OutletID: "o1", Name: "Susu", Stock: 50},
+			{ID: "rm1", OutletID: "o1", Name: "Susu", LooseStock: 50},
 		},
 	}
 	outletRepo := &MockFeatureOutletRepository{

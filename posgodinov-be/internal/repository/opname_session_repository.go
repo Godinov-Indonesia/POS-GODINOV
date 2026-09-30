@@ -87,9 +87,9 @@ func (r *opnameSessionRepository) UpsertCountEntries(ctx context.Context, entrie
 			{Name: "counted_by"},
 		},
 		DoUpdates: clause.AssignmentColumns([]string{
+			"actual_packages",
+			"actual_loose",
 			"actual_stock",
-			"actual_package_quantity",
-			"input_type",
 			"notes",
 			"updated_at",
 		}),
@@ -161,16 +161,17 @@ func (r *opnameSessionRepository) Close(ctx context.Context, sessionID string, c
 	
 	// a. Aggregate count_entries into session_items
 	aggregateQuery := `
-    INSERT INTO opname_session_items (id, session_id, raw_material_id, actual_stock, actual_package_quantity, input_type)
-    SELECT gen_random_uuid(), ce.session_id, ce.raw_material_id, SUM(ce.actual_stock),
-           CASE WHEN SUM(CASE WHEN ce.actual_package_quantity IS NOT NULL THEN 1 ELSE 0 END) > 0
-               THEN SUM(COALESCE(ce.actual_package_quantity, 0)) ELSE NULL END,
-           'base_unit'
+    INSERT INTO opname_session_items (id, session_id, raw_material_id, actual_packages, actual_loose, actual_stock)
+    SELECT gen_random_uuid(), ce.session_id, ce.raw_material_id,
+           SUM(ce.actual_packages),
+           SUM(ce.actual_loose),
+           SUM(ce.actual_stock)
     FROM opname_count_entries ce WHERE ce.session_id = ?
     GROUP BY ce.session_id, ce.raw_material_id
     ON CONFLICT (session_id, raw_material_id) DO UPDATE SET
-        actual_stock = EXCLUDED.actual_stock,
-        actual_package_quantity = EXCLUDED.actual_package_quantity;`
+        actual_packages = EXCLUDED.actual_packages,
+        actual_loose = EXCLUDED.actual_loose,
+        actual_stock = EXCLUDED.actual_stock;`
 	if err := db.WithContext(ctx).Exec(aggregateQuery, sessionID).Error; err != nil {
 		return err
 	}
@@ -187,11 +188,12 @@ func (r *opnameSessionRepository) Close(ctx context.Context, sessionID string, c
 	// c. Snapshot system_stock + compute diff + fraud_flag
 	snapshotQuery := `
     UPDATE opname_session_items i SET
-        system_stock = rm.stock,
-        system_package_quantity = CASE WHEN rm.quantity_per_package IS NULL OR rm.quantity_per_package = 0 THEN NULL ELSE rm.stock / rm.quantity_per_package END,
-        difference = i.actual_stock - rm.stock,
-        difference_value = (i.actual_stock - rm.stock) * rm.cost_per_unit,
-        fraud_flag = CASE WHEN rm.stock = 0 THEN i.actual_stock <> 0 ELSE abs(i.actual_stock - rm.stock) / abs(rm.stock) > ? OR abs((i.actual_stock - rm.stock) * rm.cost_per_unit) > ? END
+        system_stock = rm.unit_stock,
+        system_package_stock = rm.package_stock,
+        system_loose_stock = rm.loose_stock,
+        difference = i.actual_stock - rm.unit_stock,
+        difference_value = (i.actual_stock - rm.unit_stock) * rm.cost_per_unit,
+        fraud_flag = CASE WHEN rm.unit_stock = 0 THEN i.actual_stock <> 0 ELSE abs(i.actual_stock - rm.unit_stock) / abs(rm.unit_stock) > ? OR abs((i.actual_stock - rm.unit_stock) * rm.cost_per_unit) > ? END
     FROM raw_materials rm
     WHERE i.raw_material_id = rm.id AND i.session_id = ?;`
 	if err := db.WithContext(ctx).Exec(snapshotQuery, domain.OpnameFraudRatio, domain.OpnameFraudThreshold, sessionID).Error; err != nil {

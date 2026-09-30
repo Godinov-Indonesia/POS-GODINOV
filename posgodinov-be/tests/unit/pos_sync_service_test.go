@@ -126,8 +126,21 @@ func (m *MockRawMaterialRepository_Sync) LockByID(ctx context.Context, id string
 	return m.GetByID(ctx, id)
 }
 func (m *MockRawMaterialRepository_Sync) LockByIDs(ctx context.Context, ids []string) (map[string]*domain.RawMaterial, error) { return nil, nil }
-func (m *MockRawMaterialRepository_Sync) UpdateStock(ctx context.Context, id string, newStock float64) error { return nil }
-func (m *MockRawMaterialRepository_Sync) UpdateStockAndCost(ctx context.Context, id string, newStock, newCost float64) error { return nil }
+func (m *MockRawMaterialRepository_Sync) UpdateDualStock(ctx context.Context, id string, packageStock int, looseStock float64) error {
+	if rm, ok := m.rms[id]; ok {
+		rm.PackageStock = packageStock
+		rm.LooseStock = looseStock
+	}
+	return nil
+}
+func (m *MockRawMaterialRepository_Sync) UpdateDualStockAndCost(ctx context.Context, id string, packageStock int, looseStock, newCost float64) error {
+	if rm, ok := m.rms[id]; ok {
+		rm.PackageStock = packageStock
+		rm.LooseStock = looseStock
+		rm.CostPerUnit = newCost
+	}
+	return nil
+}
 func (m *MockRawMaterialRepository_Sync) Update(ctx context.Context, rawMaterial *domain.RawMaterial) error {
 	m.rms[rawMaterial.ID] = rawMaterial
 	return nil
@@ -172,7 +185,7 @@ func TestSyncUp(t *testing.T) {
 	posRepo := NewMockPOSRepository()
 	rmRepo := &MockRawMaterialRepository_Sync{
 		rms: map[string]*domain.RawMaterial{
-			"rm-1": {ID: "rm-1", Stock: 10},
+			"rm-1": {ID: "rm-1", LooseStock: 10},
 		},
 	}
 	txManager := database.NewMockTransactionManager()
@@ -201,8 +214,8 @@ func TestSyncUp(t *testing.T) {
 	}
 	
 	rm1, _ := rmRepo.GetByID(ctx, "rm-1")
-	if rm1.Stock != 8 {
-		t.Errorf("expected rm-1 stock to be 8, got %f", rm1.Stock)
+	if rm1.LooseStock != 8 {
+		t.Errorf("expected rm-1 stock to be 8, got %f", rm1.LooseStock)
 	}
 
 	// 2. Idempotency Check (Duplicate Transaction)
@@ -213,8 +226,8 @@ func TestSyncUp(t *testing.T) {
 	if res.TransactionsSynced != 1 { // Should still report 1 synced (handled silently)
 		t.Errorf("expected 1 transaction synced, got %d", res.TransactionsSynced)
 	}
-	if rm1.Stock != 8 { // Stock should NOT be deducted again
-		t.Errorf("expected rm-1 stock to still be 8, got %f", rm1.Stock)
+	if rm1.LooseStock != 8 { // Stock should NOT be deducted again
+		t.Errorf("expected rm-1 stock to still be 8, got %f", rm1.LooseStock)
 	}
 
 	// 3. Cancel Transaction (Reverse Deduction)
@@ -234,8 +247,8 @@ func TestSyncUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if rm1.Stock != 10 { // Stock should be returned
-		t.Errorf("expected rm-1 stock to be 10, got %f", rm1.Stock)
+	if rm1.LooseStock != 10 { // Stock should be returned
+		t.Errorf("expected rm-1 stock to be 10, got %f", rm1.LooseStock)
 	}
 	trx1, _ := posRepo.GetTransactionByID(ctx, "trx-1")
 	if trx1.Status != "CANCELLED" {
@@ -258,7 +271,7 @@ func TestSyncUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if rm1.Stock != -10 { // Allowed negative stock
-		t.Errorf("expected rm-1 stock to be -10, got %f", rm1.Stock)
+	if rm1.LooseStock != -10 { // Allowed negative stock
+		t.Errorf("expected rm-1 stock to be -10, got %f", rm1.LooseStock)
 	}
 }

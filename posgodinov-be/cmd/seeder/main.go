@@ -517,9 +517,15 @@ func (s *seeder) seedOutletMaster(bp outletBP) (*outletData, error) {
 	// ── Bahan baku ──────────────────────────────────────────────────────────
 	var rms []*domain.RawMaterial
 	for _, rb := range rawMaterialBlueprints() {
+		pkgStock := 0
+		looseStock := rb.Stock
+		if rb.PackageUnit != "" && rb.PerPackage > 0 {
+			pkgStock = int(rb.Stock / rb.PerPackage)
+			looseStock = rb.Stock - float64(pkgStock)*rb.PerPackage
+		}
 		rm := &domain.RawMaterial{
 			ID: utils.NewUUID(), OutletID: bp.ID, Name: rb.Name, Unit: rb.Unit,
-			Stock: rb.Stock, CostPerUnit: rb.CostPerUnit,
+			PackageStock: pkgStock, LooseStock: looseStock, CostPerUnit: rb.CostPerUnit,
 			CreatedAt: created, UpdatedAt: created,
 		}
 		if rb.PackageUnit != "" {
@@ -1240,20 +1246,17 @@ func (s *seeder) seedOpnameSessions(od *outletData) error {
 			rm := od.rms[i]
 			system := s.projectedStock(rm)
 			actual := math.Max(0, round2(system+(s.rng.Float64()-0.55)*system*0.04))
-			inputType := "base_unit"
-			var actPkg, sysPkg *float64
+
+			actPkgs, actLoose := ptrInt(0), ptrF(actual)
 			if rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
-				if s.rng.Float64() < 0.4 {
-					inputType = "package_unit"
-				}
-				actPkg = ptrF(round2(actual / *rm.QuantityPerPackage))
-				sysPkg = ptrF(round2(system / *rm.QuantityPerPackage))
+				pkgs := int(actual / *rm.QuantityPerPackage)
+				actPkgs = ptrInt(pkgs)
+				actLoose = ptrF(actual - float64(pkgs)*(*rm.QuantityPerPackage))
 			}
 
 			it := &domain.OpnameSessionItem{
 				ID: utils.NewUUID(), SessionID: sess.ID, RawMaterialID: rm.ID,
-				ActualStock: actual, ActualPackageQuantity: actPkg,
-				InputType: inputType,
+				ActualStock: actual, ActualPackages: actPkgs, ActualLoose: actLoose,
 			}
 			// Nilai sistem baru dibekukan saat sesi dikunci; sesi DRAFT memang
 			// belum memilikinya, dan layar harus tahan terhadap itu.
@@ -1261,7 +1264,11 @@ func (s *seeder) seedOpnameSessions(od *outletData) error {
 				diff := round2(actual - system)
 				diffValue := round2(diff * rm.CostPerUnit)
 				it.SystemStock = ptrF(system)
-				it.SystemPackageQuantity = sysPkg
+				if rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
+					sysPkgInt := int(system / *rm.QuantityPerPackage)
+					it.SystemPackageStock = ptrInt(sysPkgInt)
+					it.SystemLooseStock = ptrF(system - float64(sysPkgInt)*(*rm.QuantityPerPackage))
+				}
 				it.Difference = ptrF(diff)
 				it.DifferenceValue = ptrF(diffValue)
 				it.FraudFlag = isFraud(diffValue, system, actual)
@@ -1295,10 +1302,16 @@ func (s *seeder) seedOpnameSessions(od *outletData) error {
 // projectedStock adalah stok awal dikurangi pemakaian bersih (penjualan dan
 // pembuangan) ditambah restock.
 func (s *seeder) projectedStock(rm *domain.RawMaterial) float64 {
-	v := round2(rm.Stock - s.consumed[rm.ID])
+	initialStock := float64(rm.PackageStock)
+	if rm.QuantityPerPackage != nil {
+		initialStock = float64(rm.PackageStock)*(*rm.QuantityPerPackage) + rm.LooseStock
+	} else {
+		initialStock = rm.LooseStock
+	}
+	v := round2(initialStock - s.consumed[rm.ID])
 	// Lantai 5% menjaga stok tidak pernah negatif tanpa harus membesar-besarkan
 	// stok awal sampai tidak masuk akal.
-	if floor := round2(rm.Stock * 0.05); v < floor {
+	if floor := round2(initialStock * 0.05); v < floor {
 		return floor
 	}
 	return v
@@ -1312,12 +1325,23 @@ func (s *seeder) applyStock() error {
 			if adj, ok := s.stockAdj[rm.ID]; ok {
 				final = adj // sesi opname yang disetujui menang
 			}
+			pkgStock := 0
+			looseStock := final
+			if rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
+				pkgStock = int(final / *rm.QuantityPerPackage)
+				looseStock = final - float64(pkgStock)*(*rm.QuantityPerPackage)
+			}
 			if err := s.db.Model(&domain.RawMaterial{}).
 				Where("id = ?", rm.ID).
-				Updates(map[string]any{"stock": final, "updated_at": s.now}).Error; err != nil {
+				Updates(map[string]any{
+					"package_stock": pkgStock,
+					"loose_stock":   looseStock,
+					"updated_at":    s.now,
+				}).Error; err != nil {
 				return fmt.Errorf("gagal memperbarui stok %s: %w", rm.Name, err)
 			}
-			rm.Stock = final
+			rm.PackageStock = pkgStock
+			rm.LooseStock = looseStock
 			n++
 		}
 	}
@@ -1453,5 +1477,6 @@ func slug(v string) string {
 
 func ptrS(v string) *string       { return &v }
 func ptrF(v float64) *float64     { return &v }
+func ptrInt(v int) *int           { return &v }
 func ptrI64(v int64) *int64       { return &v }
 func ptrT(v time.Time) *time.Time { return &v }

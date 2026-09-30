@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"math"
 
 	"posgodinov-backend/internal/domain"
 )
@@ -60,7 +61,25 @@ func (a bomStockAdjuster) applyToProduct(
 			continue
 		}
 
-		rm.Stock += sign * recipe.Quantity * float64(quantity)
+		delta := recipe.Quantity * float64(quantity)
+
+		if sign < 0 {
+			// Pengurangan stok: potong dari loose_stock dulu, auto-unpack jika kurang
+			if rm.LooseStock < delta && rm.PackageStock > 0 && rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
+				deficit := delta - rm.LooseStock
+				qtyPerPkg := *rm.QuantityPerPackage
+				packagesNeeded := int(math.Ceil(deficit / qtyPerPkg))
+				if packagesNeeded > rm.PackageStock {
+					packagesNeeded = rm.PackageStock
+				}
+				rm.PackageStock -= packagesNeeded
+				rm.LooseStock += float64(packagesNeeded) * qtyPerPkg
+			}
+			rm.LooseStock -= delta
+		} else {
+			// Pengembalian stok (void / retur): kembalikan ke loose_stock
+			rm.LooseStock += delta
+		}
 
 		if err := a.rawMatRepo.Update(ctx, rm); err != nil {
 			return err

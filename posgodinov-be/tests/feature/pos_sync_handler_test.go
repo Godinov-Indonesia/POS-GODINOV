@@ -150,10 +150,19 @@ func (m *MockRawMaterialRepoForSync) LockByID(ctx context.Context, id string) (*
 func (m *MockRawMaterialRepoForSync) LockByIDs(ctx context.Context, ids []string) (map[string]*domain.RawMaterial, error) {
 	return nil, nil
 }
-func (m *MockRawMaterialRepoForSync) UpdateStock(ctx context.Context, id string, newStock float64) error {
+func (m *MockRawMaterialRepoForSync) UpdateDualStock(ctx context.Context, id string, packageStock int, looseStock float64) error {
+	if rm, ok := m.rms[id]; ok {
+		rm.PackageStock = packageStock
+		rm.LooseStock = looseStock
+	}
 	return nil
 }
-func (m *MockRawMaterialRepoForSync) UpdateStockAndCost(ctx context.Context, id string, newStock, newCost float64) error {
+func (m *MockRawMaterialRepoForSync) UpdateDualStockAndCost(ctx context.Context, id string, packageStock int, looseStock, newCost float64) error {
+	if rm, ok := m.rms[id]; ok {
+		rm.PackageStock = packageStock
+		rm.LooseStock = looseStock
+		rm.CostPerUnit = newCost
+	}
 	return nil
 }
 func (m *MockRawMaterialRepoForSync) Update(ctx context.Context, rm *domain.RawMaterial) error {
@@ -209,7 +218,7 @@ func TestPOSSyncHandler(t *testing.T) {
 	}
 	posRepo := NewMockPOSSyncRepository()
 	rmRepo := &MockRawMaterialRepoForSync{
-		rms: map[string]*domain.RawMaterial{"rm-1": {ID: "rm-1", Stock: 10}},
+		rms: map[string]*domain.RawMaterial{"rm-1": {ID: "rm-1", LooseStock: 10}},
 	}
 	txManager := database.NewMockTransactionManager()
 

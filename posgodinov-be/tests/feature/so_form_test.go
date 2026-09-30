@@ -94,9 +94,9 @@ func (m *mockFeatureSOOpnameRepo) UpsertCountEntries(ctx context.Context, entrie
 		found := false
 		for i, e := range existing {
 			if e.RawMaterialID == entry.RawMaterialID && e.CountedBy == entry.CountedBy {
+				existing[i].ActualPackages = entry.ActualPackages
+				existing[i].ActualLoose = entry.ActualLoose
 				existing[i].ActualStock = entry.ActualStock
-				existing[i].ActualPackageQuantity = entry.ActualPackageQuantity
-				existing[i].InputType = entry.InputType
 				existing[i].Notes = entry.Notes
 				found = true
 				break
@@ -170,10 +170,14 @@ func (m *mockFeatureSOOpnameRepo) Close(ctx context.Context, sessionID string, c
 		sys := 100.0
 		diff := totalActual - sys
 		diffVal := diff * 1000.0
+		zero := 0
+		loose := totalActual
 		items = append(items, &domain.OpnameSessionItem{
 			ID:              rmID + "_res",
 			SessionID:       sessionID,
 			RawMaterialID:   rmID,
+			ActualPackages:  &zero,
+			ActualLoose:     &loose,
 			ActualStock:     totalActual,
 			SystemStock:     &sys,
 			Difference:      &diff,
@@ -227,8 +231,8 @@ func TestSOFormFeatureFlow(t *testing.T) {
 	}
 	rmRepo := &MockFeatureRawMaterialRepository{
 		rawMaterials: []*domain.RawMaterial{
-			{ID: "rm-1", OutletID: "out-1", Name: "Kopi Arabika", Stock: 100, CostPerUnit: 1000},
-			{ID: "rm-2", OutletID: "out-1", Name: "Gula Pasir", Stock: 100, CostPerUnit: 500},
+			{ID: "rm-1", OutletID: "out-1", Name: "Kopi Arabika", LooseStock: 100, CostPerUnit: 1000},
+			{ID: "rm-2", OutletID: "out-1", Name: "Gula Pasir", LooseStock: 100, CostPerUnit: 500},
 		},
 	}
 	soRepo := newMockFeatureSOOpnameRepo()
@@ -385,8 +389,8 @@ func TestSOFormFeatureFlow(t *testing.T) {
 	t.Run("5. Cashier 1 Submits Partial Counts", func(t *testing.T) {
 		body := map[string]interface{}{
 			"items": []map[string]interface{}{
-				{"raw_material_id": "rm-1", "actual_stock": 45.0, "input_type": "base_unit"},
-				{"raw_material_id": "rm-2", "actual_stock": 60.0, "input_type": "base_unit"},
+				{"raw_material_id": "rm-1", "actual_loose": 45.0},
+				{"raw_material_id": "rm-2", "actual_loose": 60.0},
 			},
 		}
 		jsonBytes, _ := json.Marshal(body)
@@ -405,7 +409,7 @@ func TestSOFormFeatureFlow(t *testing.T) {
 	t.Run("6. Cashier 2 Submits Counts for same form", func(t *testing.T) {
 		body := map[string]interface{}{
 			"items": []map[string]interface{}{
-				{"raw_material_id": "rm-1", "actual_stock": 50.0, "input_type": "base_unit"},
+				{"raw_material_id": "rm-1", "actual_loose": 50.0},
 			},
 		}
 		jsonBytes, _ := json.Marshal(body)
@@ -529,8 +533,8 @@ func TestSOFormFeatureFlow(t *testing.T) {
 
 		// rm-1 stock was 100, actual was 95 (diff = -5), stock adjusted = 100 + (-5) = 95
 		rm1, _ := rmRepo.GetByID(context.Background(), "rm-1")
-		if rm1.Stock != 95 {
-			t.Errorf("expected rm-1 stock 95, got %f", rm1.Stock)
+		if rm1.LooseStock != 95 {
+			t.Errorf("expected rm-1 stock 95, got %f", rm1.LooseStock)
 		}
 	})
 }
