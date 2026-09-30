@@ -71,7 +71,7 @@ function WasteInner({ outletId }: { outletId: string }) {
       return
     }
     if (filled.some((r) => !r.reason.trim())) {
-      setError('Alasan wajib diisi untuk setiap baris — backend menolak yang kosong.')
+      setError('Alasan wajib diisi untuk setiap baris bahan baku.')
       return
     }
     setError(null)

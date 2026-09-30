@@ -61,7 +61,7 @@ function ReportContent({ outletId }: { outletId: string }) {
         <EmptyState
           icon={Receipt}
           title="Tidak ada transaksi pada rentang ini"
-          description="Ingat bahwa filter memakai waktu tiba di server. Transaksi kasir yang belum tersinkronisasi belum akan muncul di sini."
+          description="Tidak ada data transaksi yang tercatat pada rentang tanggal yang dipilih."
         />
       ) : (
         <Table>

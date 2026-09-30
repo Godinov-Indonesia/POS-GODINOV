@@ -24,7 +24,7 @@ export function RawMaterialList() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Bahan Baku"
-        description="Inventori dalam base unit. Stok hanya berubah lewat restock, waste, opname, atau sinkronisasi POS."
+        description="Kelola daftar bahan baku dan stok inventaris outlet."
         action={
           <Link href="/admin/inventory/new" className={buttonVariants({ variant: 'primary' })}>
             <Plus className="size-4" aria-hidden="true" />
@@ -66,7 +66,7 @@ function RawMaterialTable({ outletId }: { outletId: string }) {
       <EmptyState
         icon={Boxes}
         title="Belum ada bahan baku"
-        description="Resep produk (BOM) menghubungkan produk ke bahan baku. Tanpa bahan baku, penyusun resep akan kosong dan stok tidak akan terpotong saat transaksi tersinkronisasi."
+        description="Resep produk menghubungkan menu ke bahan baku. Tambahkan bahan baku agar resep produk dapat disusun untuk melacak pemotongan stok otomatis."
         action={
           <Link href="/admin/inventory/new" className={buttonVariants({ variant: 'primary' })}>
             Tambah Bahan Baku
@@ -80,9 +80,8 @@ function RawMaterialTable({ outletId }: { outletId: string }) {
     <>
       {negativeCount > 0 ? (
         <Banner tone="warning" icon={AlertTriangle} title={`${negativeCount} bahan baku bersaldo minus`}>
-          Stok negatif <strong>disengaja</strong>: saat sinkronisasi POS, pemotongan stok tidak
-          pernah ditolak — transaksi offline yang sudah benar-benar terjadi lebih penting daripada
-          konsistensi angka stok. Lakukan Stock Opname untuk mengoreksi.
+          Stok tercatat negatif karena transaksi penjualan melebihi estimasi stok yang ada.
+          Gunakan <strong>Stock Opname</strong> untuk menyesuaikan stok dengan jumlah fisik yang sebenarnya.
         </Banner>
       ) : null}
 
@@ -172,7 +171,7 @@ function RawMaterialTable({ outletId }: { outletId: string }) {
         onConfirm={confirmDelete}
         pending={deleteRawMaterial.isPending}
         title={`Hapus ${pendingDelete?.name ?? ''}?`}
-        description="Menghapus bahan baku TIDAK menghapus resep produk yang merujuknya. Resep yatim akan tetap ada dan dilewati secara diam-diam saat pemotongan stok — periksa BOM produk terkait setelah ini."
+        description="Menghapus bahan baku tidak otomatis menghapus resep produk yang menggunakannya. Pastikan Anda memeriksa kembali resep produk terkait setelah menghapus bahan ini."
       />
     </>
   )

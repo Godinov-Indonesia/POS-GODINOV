@@ -40,8 +40,7 @@ export function OutletList() {
       />
 
       <Banner tone="info">
-        Nama dan alamat outlet <strong>tidak dapat diubah</strong> setelah dibuat — backend belum
-        menyediakan endpoint pembaruan outlet.
+        Nama dan alamat outlet yang sudah dibuat bersifat permanen. Pastikan data yang dimasukkan sudah benar.
       </Banner>
 
       {isPending ? (

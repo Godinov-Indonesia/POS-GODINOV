@@ -26,7 +26,7 @@ export function SOCreateForm() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Buat Form Stock Opname"
-        description="Pilih cakupan bahan baku yang akan diaudit fisik oleh staf di aplikasi SO Mobile."
+        description="Pilih cakupan bahan baku yang akan dihitung fisiknya oleh staf outlet."
       />
       <OutletGuard>{(outletId) => <SOCreateFormInner outletId={outletId} />}</OutletGuard>
     </div>
@@ -123,9 +123,9 @@ function SOCreateFormInner({ outletId }: { outletId: string }) {
 
       if (publishImmediately) {
         await publishMutation.mutateAsync(created.id)
-        toast.success('Form SO berhasil dibuat dan diterbitkan ke mobile')
+        toast.success('Form SO berhasil dibuat dan diterbitkan')
       } else {
-        toast.success('Form SO berhasil disimpan sebagai Draft (OPEN)')
+        toast.success('Form SO berhasil disimpan sebagai Draft')
       }
 
       router.replace(`/admin/inventory/opname/${created.id}`)
@@ -160,15 +160,15 @@ function SOCreateFormInner({ outletId }: { outletId: string }) {
                 active={scope === 'FULL'}
                 onClick={() => setScope('FULL')}
                 icon={Layers}
-                title="FULL (Semua Bahan)"
-                description="Otomatis mencakup seluruh bahan baku aktif di outlet."
+                title="Semua Bahan Baku"
+                description="Mencakup seluruh bahan baku aktif di outlet."
               />
               <ScopeOption
                 active={scope === 'CATEGORY'}
                 onClick={() => setScope('CATEGORY')}
                 icon={Sparkles}
-                title="CATEGORY (Per Menu)"
-                description="Memfilter bahan berdasarkan resep BOM kategori produk."
+                title="Berdasarkan Kategori"
+                description="Memilih bahan baku berdasarkan menu pada kategori tertentu."
               />
               <ScopeOption
                 active={scope === 'PARTIAL'}
@@ -177,8 +177,8 @@ function SOCreateFormInner({ outletId }: { outletId: string }) {
                   setPartialSelectedIds(new Set(selectedIds))
                 }}
                 icon={ClipboardList}
-                title="PARTIAL (Manual)"
-                description="Pilih bahan baku spesifik satu per satu secara manual."
+                title="Pilih Manual"
+                description="Pilih bahan baku tertentu secara manual dari daftar."
               />
             </div>
           </div>
@@ -205,7 +205,7 @@ function SOCreateFormInner({ outletId }: { outletId: string }) {
               </select>
               {selectedCategory && (
                 <p className="mt-2 text-pos-xs text-fg-muted">
-                  {selectedIds.size} bahan baku resep BOM otomatis terpilih untuk kategori ini.
+                  {selectedIds.size} bahan baku otomatis terpilih untuk kategori ini.
                 </p>
               )}
             </div>
@@ -222,7 +222,7 @@ function SOCreateFormInner({ outletId }: { outletId: string }) {
                 Daftar Bahan Baku ({selectedIds.size} terpilih dari {materials?.length ?? 0})
               </h3>
               <p className="text-pos-xs text-fg-muted">
-                Bahan yang dicentang akan dikirim ke aplikasi mobile untuk dihitung kasir.
+                Bahan yang dicentang akan muncul pada lembar hitung staf outlet.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -252,7 +252,7 @@ function SOCreateFormInner({ outletId }: { outletId: string }) {
                   <TH className="w-12 text-center">Pilih</TH>
                   <TH>Bahan Baku</TH>
                   <TH>Satuan Kemasan</TH>
-                  <TH>Base Unit</TH>
+                  <TH>Satuan Dasar</TH>
                 </TR>
               </THead>
               <TBody>
@@ -304,7 +304,7 @@ function SOCreateFormInner({ outletId }: { outletId: string }) {
             disabled={isSubmitting || selectedIds.size === 0}
             onClick={() => handleSubmit(false)}
           >
-            Simpan Draft (OPEN)
+            Simpan sebagai Draft
           </Button>
           <Button
             variant="primary"

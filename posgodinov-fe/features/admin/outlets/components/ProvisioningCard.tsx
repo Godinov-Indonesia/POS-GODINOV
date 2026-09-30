@@ -51,11 +51,9 @@ export function ProvisioningCard({ outletId }: { outletId: string }) {
         </CardContent>
       </Card>
 
-      <Banner tone="warning" icon={ShieldAlert} title="Perangkat terikat permanen">
-        Proses binding meminta <strong>password pemilik bisnis</strong> dan menerbitkan token
-        perangkat berumur sekitar 10 tahun. Backend belum menyediakan endpoint pencabutan, sehingga
-        perangkat yang hilang atau dicuri mempertahankan akses sinkronisasi. Lakukan binding hanya
-        pada perangkat yang Anda kendalikan.
+      <Banner tone="warning" icon={ShieldAlert} title="Keamanan Perangkat Outlet">
+        Proses penghubungan perangkat kasir memerlukan autentikasi pemilik bisnis.
+        Pastikan hanya menghubungkan perangkat resmi yang berada di bawah pengawasan Anda.
       </Banner>
     </div>
   )

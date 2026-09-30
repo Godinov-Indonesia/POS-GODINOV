@@ -53,8 +53,7 @@ export function OutletForm() {
       <PageHeader title="Tambah Outlet" description="Cabang baru untuk bisnis Anda." />
 
       <Banner tone="warning">
-        Periksa penulisan dengan teliti. Backend belum menyediakan endpoint untuk mengubah atau
-        menghapus outlet, sehingga <strong>nama dan alamat bersifat permanen</strong>.
+        Periksa penulisan data outlet dengan teliti. <strong>Nama dan alamat outlet bersifat permanen</strong> setelah disimpan.
       </Banner>
 
       <Card>

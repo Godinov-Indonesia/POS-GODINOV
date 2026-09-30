@@ -186,7 +186,7 @@ export function StaffCreateForm() {
                 </button>
               </div>
               <p className="text-pos-xs text-fg-muted">
-                Izin granular yang dibawa ke perangkat POS untuk otorisasi offline (Void, Retur, Force Close).
+                Hak akses operasional kasir untuk otorisasi tindakan khusus (Void, Retur, Tutup Paksa Shift).
               </p>
               <div className="grid gap-2">
                 {STAFF_PERMISSIONS.map((perm) => {
@@ -328,7 +328,7 @@ export function StaffEditForm({ staffId }: { staffId: string }) {
       {/* Banner & Outlet Card */}
       <div className="flex flex-col gap-3">
         <Banner tone="info">
-          PIN tidak muncul di form ini karena backend tidak menyediakan cara mengubahnya.
+          PIN staf bersifat rahasia dan tidak dapat diubah dari form ini.
         </Banner>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border bg-surface-subtle p-4 shadow-sm">
@@ -409,7 +409,7 @@ export function StaffEditForm({ staffId }: { staffId: string }) {
                 </button>
               </div>
               <p className="text-pos-xs text-fg-muted">
-                Izin granular yang dibawa ke perangkat POS untuk otorisasi offline (Void, Retur, Force Close).
+                Hak akses operasional kasir untuk otorisasi tindakan khusus (Void, Retur, Tutup Paksa Shift).
               </p>
               <div className="grid gap-2">
                 {STAFF_PERMISSIONS.map((perm) => {

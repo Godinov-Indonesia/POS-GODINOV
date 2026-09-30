@@ -23,7 +23,7 @@ export function SOFormList() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Stock Opname (SO)"
-        description="Kelola siklus form audit fisik. Kasir menghitung fisik secara blind di aplikasi mobile SO, dan hasil ditinjau serta disetujui di sini."
+        description="Kelola jadwal dan pencatatan stock opname outlet. Pantau progres hitungan fisik staf serta setujui penyesuaian stok bahan baku."
         action={
           <Link
             href="/admin/inventory/opname/new"
@@ -51,7 +51,7 @@ function SOFormListInner({ outletId }: { outletId: string }) {
   const onQuickPublish = async (formId: string) => {
     try {
       await publishMutation.mutateAsync(formId)
-      toast.success('Form SO berhasil dipublish ke aplikasi mobile kasir')
+      toast.success('Form SO berhasil diterbitkan')
     } catch (err) {
       toastApiError(err, 'Gagal mempublish form SO')
     }
@@ -78,7 +78,7 @@ function SOFormListInner({ outletId }: { outletId: string }) {
           Draft ({(data ?? []).filter((f) => f.status === 'OPEN').length})
         </FilterButton>
         <FilterButton active={tab === 'ACTIVE'} onClick={() => setTab('ACTIVE')}>
-          Aktif di Mobile ({(data ?? []).filter((f) => f.status === 'PUBLISHED' || f.status === 'COUNTING').length})
+          Sedang Dihitung ({(data ?? []).filter((f) => f.status === 'PUBLISHED' || f.status === 'COUNTING').length})
         </FilterButton>
         <FilterButton active={tab === 'CLOSED'} onClick={() => setTab('CLOSED')}>
           Menunggu Review ({(data ?? []).filter((f) => f.status === 'CLOSED').length})
@@ -198,7 +198,7 @@ function SOFormRow({
       </TD>
       <TD>
         {form.status === 'OPEN' ? (
-          <span className="text-pos-xs text-fg-muted">Menunggu publish</span>
+          <span className="text-pos-xs text-fg-muted">Draft (Belum Terbit)</span>
         ) : form.status === 'PUBLISHED' ? (
           <span className="text-pos-xs text-fg-muted">Belum ada hitungan</span>
         ) : (
@@ -226,7 +226,7 @@ function SOFormRow({
               onClick={onPublish}
             >
               <Send className="size-3.5 mr-1" aria-hidden="true" />
-              Publish
+              Terbitkan
             </Button>
           ) : form.status === 'CLOSED' ? (
             <Link

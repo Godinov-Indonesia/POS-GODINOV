@@ -22,30 +22,30 @@ const STEPS: Step[] = [
   {
     title: '1. Buat outlet',
     description:
-      'Wadah bagi seluruh data lain. Catat serial_tenant-nya — teknisi membutuhkannya untuk memasang perangkat kasir.',
+      'Wadah bagi operasional cabang bisnis Anda. Simpan serial tenant untuk menghubungkan perangkat kasir.',
     href: '/admin/outlets/new',
   },
   {
     title: '2. Daftarkan staff',
-    description: 'Akun kasir beserta PIN. PIN tidak dapat diubah setelah dibuat.',
+    description: 'Daftarkan akun staf dan kasir outlet beserta PIN aksesnya.',
     href: '/admin/staff/new',
   },
   {
     title: '3. Buat kategori produk',
     description:
-      'Kategori bersifat per-outlet dan tidak dapat diubah atau dihapus. Periksa penulisan sebelum menyimpan.',
+      'Kategori menu bersifat per-outlet. Pastikan penulisan nama kategori sudah benar sebelum menyimpan.',
     href: '/admin/categories',
   },
   {
     title: '4. Masukkan bahan baku',
     description:
-      'Tentukan base unit dan stok awal. Setelah ini, stok hanya berubah lewat restock, waste, opname, atau sinkronisasi POS.',
+      'Tentukan satuan dasar dan stok awal bahan baku untuk pelacakan inventaris outlet.',
     href: '/admin/inventory/new',
   },
   {
-    title: '5. Buat produk beserta resep (BOM)',
+    title: '5. Buat produk beserta resep',
     description:
-      'Resep menghubungkan produk ke bahan baku, dan itulah dasar pemotongan stok otomatis saat transaksi kasir tersinkronisasi.',
+      'Resep menghubungkan produk ke bahan baku untuk pemotongan stok otomatis setiap kali produk terjual.',
     href: '/admin/products/new',
   },
 ]

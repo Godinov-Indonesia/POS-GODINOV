@@ -62,11 +62,9 @@ const NAV: NavGroup[] = [
     title: 'Laporan',
     items: [
       { href: '/admin/reports/transactions', label: 'Transaksi', icon: Receipt },
-      // Butir 9 — satu-satunya layar yang menampilkan selisih kas ([11 §M15.3]).
       { href: '/admin/reports/shift-reconciliation', label: 'Rekonsiliasi Shift', icon: Wallet },
       { href: '/admin/reports/restock', label: 'Restock', icon: FileBarChart },
       { href: '/admin/reports/waste', label: 'Waste', icon: Trash2 },
-      { href: '/admin/reports/opname', label: 'Opname', icon: ClipboardCheck },
     ],
   },
 ]

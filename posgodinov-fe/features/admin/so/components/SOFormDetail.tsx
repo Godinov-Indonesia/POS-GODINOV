@@ -155,7 +155,7 @@ function SOFormDetailInner({
   const handleClose = async () => {
     try {
       await closeMutation.mutateAsync(formId)
-      toast.success('Form SO ditutup, snapshot stok sistem berhasil diambil')
+      toast.success('Form SO ditutup, perhitungan selisih stok selesai')
       setConfirmClose(false)
     } catch (err) {
       toastApiError(err, 'Gagal menutup form SO')
@@ -231,7 +231,7 @@ function SOFormDetailInner({
               disabled={publishMutation.isPending}
             >
               <Send className="size-4 mr-1.5" aria-hidden="true" />
-              Publish Form ke Mobile
+              Terbitkan Form Opname
             </Button>
           ) : status === 'PUBLISHED' || status === 'COUNTING' ? (
             <Button
@@ -240,7 +240,7 @@ function SOFormDetailInner({
               disabled={closeMutation.isPending}
             >
               <Lock className="size-4 mr-1.5" aria-hidden="true" />
-              Tutup Form (Close & Rekonsiliasi)
+              Tutup Form & Hitung Selisih
             </Button>
           ) : null}
         </div>
@@ -254,8 +254,8 @@ function SOFormDetailInner({
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <Banner tone="info" icon={Clock}>
-              Form ini berstatus <strong>DRAFT (OPEN)</strong>. Bahan baku belum terlihat di aplikasi kasir.
-              Klik <strong>Publish Form</strong> bila sudah siap diaudit oleh staf.
+              Form ini berstatus <strong>Draft</strong>. Bahan baku belum dikirim ke lembar hitung staf.
+              Klik <strong>Terbitkan Form Opname</strong> bila sudah siap dihitung di outlet.
             </Banner>
             <MaterialListTable materials={openForm.materials ?? []} />
           </CardContent>
@@ -267,12 +267,12 @@ function SOFormDetailInner({
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Progres Penghitungan Lapangan (SO Mobile)</CardTitle>
+              <CardTitle>Progres Penghitungan Fisik oleh Staf</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <Banner tone="info" icon={Play}>
-                Form sedang aktif di aplikasi kasir/gudang. Staf menginput hitungan secara{' '}
-                <strong>blind opname</strong> (tanpa melihat stok sistem).
+                Form sedang aktif untuk penghitungan fisik oleh staf di outlet. Staf mencatat jumlah
+                fisik secara mandiri di lapangan tanpa melihat perkiraan stok sistem.
               </Banner>
 
               <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface-subtle p-4">
@@ -369,7 +369,7 @@ function SOFormDetailInner({
             </Banner>
           ) : status === 'APPROVED' ? (
             <Banner tone="info" icon={CheckCircle2} title="Form Telah Disetujui (Approved)">
-              Stok fisik telah berhasil diperbarui ke database raw materials. Form ini tersimpan sebagai
+              Stok bahan baku telah berhasil disesuaikan dengan hasil hitung fisik. Form ini tersimpan sebagai
               arsip audit historis.
             </Banner>
           ) : status === 'REJECTED' ? (
@@ -580,7 +580,7 @@ function SOFormDetailInner({
         onConfirm={handlePublish}
         pending={publishMutation.isPending}
         title="Terbitkan Form Stock Opname?"
-        description="Setelah dipublish, form ini akan muncul di aplikasi SO Mobile kasir dan staf dapat mulai menginput hitungan fisik."
+        description="Setelah diterbitkan, form ini akan muncul pada lembar hitung staf outlet dan staf dapat mulai menginput hitungan fisik."
         confirmLabel="Ya, Terbitkan"
       />
 
@@ -590,7 +590,7 @@ function SOFormDetailInner({
         onConfirm={handleClose}
         pending={closeMutation.isPending}
         title="Tutup Form SO dan Hitung Selisih?"
-        description="Menutup form akan mengunci input staf lapangan, mengagregasi hitungan fisik, dan mengambil snapshot stok sistem saat ini untuk mengkalkulasi selisih stok & fraud flag."
+        description="Menutup form akan mengunci input staf, menggabungkan seluruh hitungan fisik, dan menghitung selisih terhadap stok sistem saat ini."
         confirmLabel="Ya, Tutup & Hitung"
       />
 
@@ -600,7 +600,7 @@ function SOFormDetailInner({
         onConfirm={handleApprove}
         pending={approveMutation.isPending}
         title="Setujui dan Perbarui Stok Bahan Baku?"
-        description="Persetujuan ini akan LANGSUNG menimpa package_stock dan loose_stock pada database dengan hasil hitung fisik. Tindakan ini permanen."
+        description="Persetujuan ini akan langsung memperbarui saldo stok bahan baku pada sistem sesuai dengan hasil hitungan fisik. Tindakan ini permanen."
         confirmLabel="Ya, Setujui & Terapkan"
       />
 
@@ -620,7 +620,7 @@ function SOFormDetailInner({
         onConfirm={handleRecount}
         pending={recountMutation.isPending}
         title="Buka Hitung Ulang (Recount)?"
-        description="Sistem akan membuat Form SO baru bertautan (Recount ke-N) dengan daftar bahan baku yang sama dalam status OPEN untuk diaudit ulang."
+        description="Sistem akan membuat form stock opname baru dengan daftar bahan baku yang sama untuk dilakukan hitung ulang oleh staf."
         confirmLabel="Buat Form Recount"
       />
     </div>

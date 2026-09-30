@@ -212,9 +212,9 @@ function FormShell({
       <PageHeader title={title} />
 
       {showStock ? null : (
-        <Banner tone="info" title="Stok tidak dapat diubah di sini">
-          Ini desain yang disengaja: stok hanya berubah melalui restock, waste, opname, atau
-          sinkronisasi POS. Untuk mengoreksi angka stok, gunakan <strong>Stock Opname</strong>.
+        <Banner tone="info" title="Stok tidak dapat diubah langsung di sini">
+          Stok tercatat secara otomatis melalui aktivitas restock, waste/pembuangan, penjualan, atau
+          stock opname. Untuk memperbarui saldo stok fisik, gunakan menu <strong>Stock Opname</strong>.
         </Banner>
       )}
 
@@ -226,7 +226,7 @@ function FormShell({
             </Field>
 
             <Field
-              label="Base unit"
+              label="Satuan Dasar"
               htmlFor="unit"
               required
               hint="Satuan terkecil yang dipakai stok dan resep, mis. gram, ml, pcs."
@@ -260,7 +260,7 @@ function FormShell({
             {showStock ? (
               <div className="flex flex-col gap-3 rounded-card border border-border bg-surface-subtle p-3.5">
                 <p className="text-pos-xs font-semibold uppercase tracking-wider text-fg-muted">
-                  Stok Awal (Dual-Stock)
+                  Stok Awal
                 </p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   {form.package_unit ? (
@@ -281,7 +281,7 @@ function FormShell({
                   <Field
                     label={`Stok Eceran (${form.unit || 'unit'})`}
                     htmlFor="loose_stock"
-                    hint="Bahan eceran terbuka dalam base unit. Default 0."
+                    hint="Bahan eceran terbuka dalam satuan dasar. Default 0."
                   >
                     <NumericInput
                       id="loose_stock"

@@ -15,11 +15,10 @@ Proyek ini terbagi menjadi beberapa komponen utama:
    - Multi-tenancy dengan strategi *Database-per-Tenant* (Main DB `posgodinov` untuk akun & tenant registry, serta Business DB terisolasi `business_<id>` per tenant).
    - Sistem inventori **Dual-Stock** (`package_stock` INTEGER + `loose_stock` DECIMAL + generated column `unit_stock`) dengan *Auto-Unpack* otomatis pada pemotongan resep BOM.
 
-2. **`posgodinov-fe/` (Frontend & Web POS PWA)**:
+2. **`posgodinov-fe/` (Admin Dashboard Web)**:
    - Dibangun menggunakan **Next.js (React 19)** dan TailwindCSS.
-   - Menyediakan dua area kerja utama: **Admin Dashboard** (manajemen bisnis, outlet, katalog produk, dual-stock inventori, restock, waste, & approval SO) dan **Web POS PWA** (aplikasi kasir offline-first).
-   - Database lokal menggunakan **Dexie IndexedDB** untuk penyimpanan master data (produk, kategori, kasir) dan data transaksi lokal secara offline.
-   - Logika sinkronisasi dua arah yang tangguh (*sync engine*) dengan penanganan *partial success reconciliation* dan retensi UUID v4 client untuk menjamin idempotensi.
+   - Didedikasikan khusus sebagai **Admin Dashboard** untuk Business Owner: manajemen multi-outlet, akun staf & izin operasional, katalog produk & resep, inventaris Dual-Stock (kemasan utuh & eceran), restock, waste, serta persetujuan & rekonsiliasi Stock Opname (SO).
+   - Terintegrasi langsung dengan Backend REST API secara online.
 
 3. **`posgodinov-mobile/` (Aplikasi Kasir Flutter)**:
    - Aplikasi kasir **offline-first** untuk Tablet Android 10" (*landscape*) dan Handheld POS (Sunmi / iMin), termasuk mode Kiosk pesan mandiri.
@@ -152,7 +151,7 @@ docker compose up -d --build
 
 ---
 
-### 3. Frontend (Admin Dashboard + Web POS PWA)
+### 3. Frontend (Admin Dashboard)
 
 ```bash
 cd posgodinov-fe

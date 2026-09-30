@@ -76,10 +76,10 @@ function ImportInner({ outletId }: { outletId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Banner tone="warning" title="Impor massal bersifat all-or-nothing">
-        Satu baris yang ditolak server membatalkan <strong>seluruh</strong> batch. Produk hasil
-        impor juga dibuat <strong>tanpa resep (BOM)</strong> — stoknya tidak akan terpotong sampai
-        resep ditambahkan lewat form produk.
+      <Banner tone="warning" title="Perhatian untuk impor massal">
+        Jika ada satu baris data yang tidak valid, proses impor seluruh data akan dibatalkan. Produk hasil
+        impor dibuat <strong>tanpa resep</strong> — tambahkan resep bahan baku pada menu masing-masing agar
+        stok bahan dapat terpotong otomatis saat penjualan.
       </Banner>
 
       <Card>

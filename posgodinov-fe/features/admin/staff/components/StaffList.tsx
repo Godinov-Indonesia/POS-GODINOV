@@ -56,8 +56,7 @@ export function StaffList() {
       />
 
       <Banner tone="warning">
-        <strong>PIN tidak dapat diubah maupun direset.</strong> Backend tidak menyediakan
-        endpoint-nya. Staf yang lupa PIN harus dihapus lalu didaftarkan ulang.
+        <strong>PIN staf bersifat rahasia dan permanen.</strong> Jika staf lupa PIN, Anda dapat menonaktifkan atau menghapus akun staf lalu mendaftarkannya kembali.
       </Banner>
 
       <label className="flex max-w-xs items-center gap-2">

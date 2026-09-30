@@ -23,7 +23,7 @@ export function ProductList() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Produk"
-        description="Menu yang tampil di grid kasir, beserta resep (BOM) yang memotong stok."
+        description="Kelola daftar menu dan produk beserta resep bahan bakunya."
         action={
           <div className="flex items-center gap-2">
             <Link href="/admin/products/import" className={buttonVariants({ variant: 'neutral' })}>
@@ -147,7 +147,7 @@ function ProductTable({ outletId }: { outletId: string }) {
         onConfirm={confirmDelete}
         pending={deleteProduct.isPending}
         title={`Hapus produk ${pendingDelete?.name ?? ''}?`}
-        description="Penghapusan bersifat soft delete. Riwayat transaksi yang memuat produk ini tetap utuh. Perangkat kasir baru akan berhenti menampilkannya setelah menjalankan sinkronisasi master data penuh."
+        description="Produk yang dihapus tidak akan ditampilkan lagi pada daftar menu kasir. Riwayat transaksi masa lalu yang memuat produk ini tetap tersimpan dengan aman."
       />
     </>
   )

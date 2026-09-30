@@ -247,11 +247,7 @@ function ProductFormShell({
           <Field
             label="URL gambar"
             htmlFor="image_url"
-            hint={
-              editing
-                ? 'Tidak ada endpoint unggah file. Nilai ini tidak dapat dikosongkan lewat API — mengosongkannya akan diabaikan backend.'
-                : 'Opsional. Tidak ada endpoint unggah file — host gambar sendiri lalu tempel URL-nya.'
-            }
+            hint="Opsional. Masukkan tautan atau URL gambar produk jika tersedia."
           >
             <Input
               id="image_url"

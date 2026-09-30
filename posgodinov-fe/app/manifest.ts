@@ -13,13 +13,12 @@ import { BRAND_BACKGROUND_COLOR, BRAND_THEME_COLOR } from '@/lib/constants/brand
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'POS Godinov — Kasir',
-    short_name: 'Godinov POS',
-    description: 'Aplikasi kasir offline-first untuk outlet ritel.',
-    start_url: '/pos',
-    scope: '/pos',
+    name: 'POS Godinov — Admin Dashboard',
+    short_name: 'Godinov Admin',
+    description: 'Dashboard manajemen outlet dan inventori pemilik bisnis.',
+    start_url: '/admin',
+    scope: '/',
     display: 'standalone',
-    orientation: 'landscape',
     background_color: BRAND_BACKGROUND_COLOR,
     theme_color: BRAND_THEME_COLOR,
     lang: 'id',
