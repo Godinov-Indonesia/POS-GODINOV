@@ -128,6 +128,7 @@ export function BomBuilder({
                         .map((m) => (
                           <option key={m.id} value={m.id}>
                             {m.name}
+                            {m.sku ? ` [${m.sku}]` : ''}
                             {m.stock < 0 ? ' (stok minus)' : ''}
                           </option>
                         ))}

@@ -37,6 +37,7 @@ func (s *rawMaterialService) Create(ctx context.Context, businessID, outletID st
 	rm := &domain.RawMaterial{
 		OutletID:           outletID,
 		Name:               req.Name,
+		SKU:                req.SKU,
 		Unit:               req.Unit,
 		PackageUnit:        req.PackageUnit,
 		QuantityPerPackage: req.QuantityPerPackage,
@@ -69,6 +70,7 @@ func (s *rawMaterialService) CreateBulk(ctx context.Context, businessID, outletI
 		rm := &domain.RawMaterial{
 			OutletID:           outletID,
 			Name:               req.Name,
+			SKU:                req.SKU,
 			Unit:               req.Unit,
 			PackageUnit:        req.PackageUnit,
 			QuantityPerPackage: req.QuantityPerPackage,
@@ -116,6 +118,7 @@ func (s *rawMaterialService) Update(ctx context.Context, businessID, rmID string
 	if req.Name != "" {
 		rm.Name = req.Name
 	}
+	rm.SKU = req.SKU
 	if req.Unit != "" {
 		rm.Unit = req.Unit
 	}

@@ -30,6 +30,7 @@ type POSMasterCategory struct {
 type POSMasterProduct struct {
 	ID         string  `json:"id"`
 	Name       string  `json:"name"`
+	SKU        *string `json:"sku,omitempty"`
 	Price      float64 `json:"price"`
 	ImageURL   string  `json:"image_url"`
 	CategoryID *string `json:"category_id"`

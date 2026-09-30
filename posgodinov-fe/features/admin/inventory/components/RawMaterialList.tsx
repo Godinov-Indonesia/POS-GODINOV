@@ -104,6 +104,9 @@ function RawMaterialTable({ outletId }: { outletId: string }) {
               <TR key={material.id}>
                 <TD className="font-medium">
                   <div>{material.name}</div>
+                  {material.sku ? (
+                    <div className="font-mono text-xs font-normal text-fg-muted">{material.sku}</div>
+                  ) : null}
                   <div className="text-pos-xs text-fg-muted">
                     {material.package_unit && material.quantity_per_package
                       ? `1 ${material.package_unit} = ${formatQuantity(material.quantity_per_package)} ${material.unit}`

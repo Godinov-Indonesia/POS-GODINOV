@@ -98,7 +98,12 @@ function ProductTable({ outletId }: { outletId: string }) {
 
             return (
               <TR key={product.id}>
-                <TD className="font-medium">{product.name}</TD>
+                <TD className="font-medium">
+                  <div>{product.name}</div>
+                  {product.sku ? (
+                    <div className="font-mono text-xs font-normal text-fg-muted">{product.sku}</div>
+                  ) : null}
+                </TD>
                 <TD className="text-fg-muted">{product.category?.name ?? '—'}</TD>
                 <TD numeric>
                   <Money minor={product.price_minor} size="sm" tone={belowCost ? 'danger' : 'default'} />

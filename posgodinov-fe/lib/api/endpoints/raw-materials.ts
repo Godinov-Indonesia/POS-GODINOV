@@ -25,6 +25,7 @@ export const toRawMaterialView = (dto: RawMaterial): RawMaterialView => {
     id: dto.id,
     outlet_id: dto.outlet_id,
     name: dto.name,
+    sku: dto.sku ?? null,
     unit: dto.unit,
     package_unit: dto.package_unit,
     quantity_per_package: dto.quantity_per_package,
@@ -48,6 +49,7 @@ export async function listRawMaterials(outletId: OutletId): Promise<RawMaterialV
 
 export type RawMaterialInput = {
   name: string
+  sku?: string
   unit: string
   package_unit?: string
   quantity_per_package?: number
@@ -61,6 +63,7 @@ export type RawMaterialInput = {
 
 const toWire = (input: RawMaterialInput): CreateRawMaterialRequest => ({
   name: input.name,
+  sku: input.sku?.trim() || undefined,
   unit: input.unit,
   package_unit: input.package_unit,
   quantity_per_package: input.quantity_per_package,
@@ -100,6 +103,7 @@ export async function updateRawMaterial(
 ): Promise<RawMaterialView> {
   const body: UpdateRawMaterialRequest = {
     name: input.name,
+    sku: input.sku?.trim() || undefined,
     unit: input.unit,
     package_unit: input.package_unit,
     quantity_per_package: input.quantity_per_package,

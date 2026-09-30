@@ -27,6 +27,7 @@ import type { ProductView, RawMaterialView } from '@/lib/types/domain'
 
 type Values = {
   name: string
+  sku: string
   price: string
   image_url: string
   category_id: string
@@ -44,7 +45,7 @@ function CreateInner({ outletId }: { outletId: string }) {
     <ProductFormShell
       outletId={outletId}
       title="Tambah Produk"
-      initial={{ name: '', price: '', image_url: '', category_id: '', rows: [newBomRow()] }}
+      initial={{ name: '', sku: '', price: '', image_url: '', category_id: '', rows: [newBomRow()] }}
       pending={createProduct.isPending}
       onSubmit={(input) => createProduct.mutateAsync(input)}
     />
@@ -78,6 +79,7 @@ function EditLoaded({ outletId, product }: { outletId: string; product: ProductV
       editing
       initial={{
         name: product.name,
+        sku: product.sku ?? '',
         price: toMajor(product.price_minor).toString(),
         image_url: product.image_url ?? '',
         category_id: product.category_id ?? '',
@@ -110,6 +112,7 @@ function ProductFormShell({
   pending: boolean
   onSubmit: (input: {
     name: string
+    sku?: string
     price_minor: number
     image_url?: string
     category_id: string | null
@@ -177,6 +180,7 @@ function ProductFormShell({
     try {
       await onSubmit({
         name: values.name.trim(),
+        sku: values.sku.trim() || undefined,
         price_minor: priceMinor,
         image_url: values.image_url.trim() || undefined,
         // `category_id` SELALU ditimpa backend, termasuk dengan null ([03 §6.4]).
@@ -217,6 +221,15 @@ function ProductFormShell({
               value={values.name}
               onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
               autoFocus
+            />
+          </Field>
+
+          <Field label="SKU / Barcode" htmlFor="sku" hint="Opsional.">
+            <Input
+              id="sku"
+              value={values.sku}
+              onChange={(e) => setValues((v) => ({ ...v, sku: e.target.value }))}
+              placeholder="Contoh: PRD-001"
             />
           </Field>
 

@@ -12,6 +12,7 @@ export type CsvProductRow = {
   /** Nomor baris di berkas asal — dipakai pesan galat agar dapat ditelusuri. */
   line: number
   name: string
+  sku?: string
   /** Rupiah desimal sebagaimana diketik pengguna; konversi ke sen di pemanggil. */
   price: number
   categoryName: string
@@ -74,7 +75,7 @@ export function parseProductCsv(raw: string): CsvParseResult {
   const errors: string[] = []
 
   for (const entry of dataLines) {
-    const [name = '', priceRaw = '', categoryName = '', imageUrl = ''] = splitCsvLine(entry.text)
+    const [name = '', priceRaw = '', categoryName = '', imageUrl = '', sku = ''] = splitCsvLine(entry.text)
 
     if (!name) {
       errors.push(`Baris ${entry.line}: nama produk kosong.`)
@@ -94,7 +95,14 @@ export function parseProductCsv(raw: string): CsvParseResult {
       continue
     }
 
-    rows.push({ line: entry.line, name, price, categoryName, imageUrl })
+    rows.push({
+      line: entry.line,
+      name,
+      sku: sku.trim() || undefined,
+      price,
+      categoryName,
+      imageUrl,
+    })
   }
 
   return { rows, errors }

@@ -21,6 +21,7 @@ import type { RawMaterialView } from '@/lib/types/domain'
 
 type FormState = {
   name: string
+  sku: string
   unit: string
   package_unit: string
   quantity_per_package: string
@@ -31,6 +32,7 @@ type FormState = {
 
 const EMPTY: FormState = {
   name: '',
+  sku: '',
   unit: '',
   package_unit: '',
   quantity_per_package: '',
@@ -73,6 +75,7 @@ function CreateInner({ outletId }: { outletId: string }) {
       const looseStock = parseNumber(form.loose_stock) ?? 0
       await createRawMaterial.mutateAsync({
         name: form.name.trim(),
+        sku: form.sku.trim() || undefined,
         unit: form.unit.trim(),
         package_unit: form.package_unit.trim() || undefined,
         quantity_per_package: parseNumber(form.quantity_per_package),
@@ -135,6 +138,7 @@ function EditFormLoaded({
 
   const [form, setForm] = React.useState<FormState>(() => ({
     name: material.name,
+    sku: material.sku ?? '',
     unit: material.unit,
     package_unit: material.package_unit ?? '',
     quantity_per_package: material.quantity_per_package?.toString() ?? '',
@@ -158,6 +162,7 @@ function EditFormLoaded({
         id: material.id,
         input: {
           name: form.name.trim(),
+          sku: form.sku.trim() || undefined,
           unit: form.unit.trim(),
           package_unit: form.package_unit.trim() || undefined,
           quantity_per_package: parseNumber(form.quantity_per_package),
@@ -223,6 +228,10 @@ function FormShell({
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             <Field label="Nama" htmlFor="name" required>
               <Input id="name" value={form.name} onChange={set('name')} autoFocus />
+            </Field>
+
+            <Field label="SKU / Kode Bahan" htmlFor="sku" hint="Opsional.">
+              <Input id="sku" value={form.sku} onChange={set('sku')} placeholder="Contoh: RM-001" />
             </Field>
 
             <Field

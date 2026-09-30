@@ -22,6 +22,7 @@ export const toProductView = (dto: Product): ProductView => ({
   id: dto.id,
   outlet_id: dto.outlet_id,
   name: dto.name,
+  sku: dto.sku ?? null,
   price_minor: toMinor(dto.price),
   image_url: dto.image_url,
   category_id: dto.category_id,
@@ -45,6 +46,7 @@ export async function listProducts(outletId: OutletId): Promise<ProductView[]> {
 
 export type ProductInput = {
   name: string
+  sku?: string
   /** Harga jual dalam **sen**. */
   price_minor: number
   image_url?: string
@@ -55,6 +57,7 @@ export type ProductInput = {
 
 const toWire = (input: ProductInput): CreateProductRequest => ({
   name: input.name,
+  sku: input.sku?.trim() || undefined,
   price: toMajor(input.price_minor),
   image_url: input.image_url,
   category_id: input.category_id,

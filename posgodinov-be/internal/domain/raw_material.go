@@ -9,6 +9,7 @@ type RawMaterial struct {
 	ID                 string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	OutletID           string    `json:"outlet_id" gorm:"column:outlet_id"`
 	Name               string    `json:"name" gorm:"column:name"`
+	SKU                *string   `json:"sku,omitempty" gorm:"column:sku"`
 	Unit               string    `json:"unit" gorm:"column:unit"`                                 // Base unit, e.g., "gram"
 	PackageUnit        *string   `json:"package_unit" gorm:"column:package_unit"`                 // E.g., "kaleng"
 	QuantityPerPackage *float64  `json:"quantity_per_package" gorm:"column:quantity_per_package"` // E.g., 370
@@ -35,6 +36,7 @@ func (rm *RawMaterial) TotalStock() float64 {
 
 type CreateRawMaterialRequest struct {
 	Name               string   `json:"name"`
+	SKU                *string  `json:"sku"`
 	Unit               string   `json:"unit"`
 	PackageUnit        *string  `json:"package_unit"`
 	QuantityPerPackage *float64 `json:"quantity_per_package"`
@@ -59,6 +61,7 @@ type RawMaterialRepository interface {
 
 type UpdateRawMaterialRequest struct {
 	Name               string   `json:"name"`
+	SKU                *string  `json:"sku"`
 	Unit               string   `json:"unit"`
 	PackageUnit        *string  `json:"package_unit"`
 	QuantityPerPackage *float64 `json:"quantity_per_package"`

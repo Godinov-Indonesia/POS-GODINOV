@@ -17,6 +17,7 @@ export type RawMaterialView = {
   id: string
   outlet_id: OutletId
   name: string
+  sku: string | null
   /** Base unit — seluruh stok dan resep memakai satuan ini. */
   unit: string
   package_unit: string | null
@@ -47,6 +48,7 @@ export type ProductView = {
   id: string
   outlet_id: OutletId
   name: string
+  sku: string | null
   /** Harga jual dalam **sen**. */
   price_minor: number
   image_url: string | null

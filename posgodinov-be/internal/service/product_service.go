@@ -91,6 +91,7 @@ func (s *productService) Create(ctx context.Context, businessID, outletID string
 		product := &domain.Product{
 			OutletID:   outletID,
 			Name:       req.Name,
+			SKU:        req.SKU,
 			Price:      req.Price,
 			ImageURL:   req.ImageURL,
 			CategoryID: req.CategoryID,
@@ -178,6 +179,7 @@ func (s *productService) CreateBulk(ctx context.Context, businessID, outletID st
 			products = append(products, &domain.Product{
 				OutletID:   outletID,
 				Name:       req.Name,
+				SKU:        req.SKU,
 				Price:      req.Price,
 				ImageURL:   req.ImageURL,
 				CategoryID: req.CategoryID,
@@ -269,6 +271,7 @@ func (s *productService) Update(ctx context.Context, businessID, productID strin
 		if req.Name != "" {
 			product.Name = req.Name
 		}
+		product.SKU = req.SKU
 		if req.Price >= 0 {
 			product.Price = req.Price
 		}

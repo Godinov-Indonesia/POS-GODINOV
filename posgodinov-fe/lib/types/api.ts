@@ -592,6 +592,7 @@ export type Product = {
   id: string
   outlet_id: OutletId
   name: string
+  sku?: string | null
   /** Rupiah desimal. Konversi ke sen lewat `toMinor()` di batas API. */
   price: number
   image_url: string | null
@@ -611,6 +612,7 @@ export type RecipeInput = {
 /** ⚠️ Tidak ada endpoint upload file — `image_url` hanya berupa URL ([02 §2.5]). */
 export type CreateProductRequest = {
   name: string
+  sku?: string
   price: number
   image_url?: string
   category_id?: string | null
@@ -633,6 +635,7 @@ export type RawMaterial = {
   id: string
   outlet_id: OutletId
   name: string
+  sku?: string | null
   /** **Base unit** — seluruh stok dan resep memakai satuan ini. */
   unit: string
   /** Satuan kemasan untuk opname, mis. `"kotak"`. */
@@ -655,6 +658,7 @@ export type RawMaterial = {
 
 export type CreateRawMaterialRequest = {
   name: string
+  sku?: string
   unit: string
   package_unit?: string
   quantity_per_package?: number
@@ -671,6 +675,7 @@ export type CreateRawMaterialRequest = {
  */
 export type UpdateRawMaterialRequest = {
   name?: string
+  sku?: string
   unit?: string
   package_unit?: string
   quantity_per_package?: number

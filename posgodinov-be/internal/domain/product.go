@@ -6,9 +6,10 @@ import (
 )
 
 type Product struct {
-	ID        string           `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	OutletID  string           `json:"outlet_id" gorm:"column:outlet_id"`
-	Name      string           `json:"name" gorm:"column:name"`
+	ID         string           `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	OutletID   string           `json:"outlet_id" gorm:"column:outlet_id"`
+	Name       string           `json:"name" gorm:"column:name"`
+	SKU        *string          `json:"sku,omitempty" gorm:"column:sku"`
 	Price      float64          `json:"price" gorm:"column:price"`
 	ImageURL   string           `json:"image_url" gorm:"column:image_url"`
 	CategoryID *string          `json:"category_id" gorm:"column:category_id"`
@@ -35,6 +36,7 @@ type CreateProductRecipeRequest struct {
 
 type CreateProductRequest struct {
 	Name       string                       `json:"name"`
+	SKU        *string                      `json:"sku"`
 	Price      float64                      `json:"price"`
 	ImageURL   string                       `json:"image_url"`
 	CategoryID *string                      `json:"category_id"`
@@ -52,6 +54,7 @@ type ProductRepository interface {
 
 type UpdateProductRequest struct {
 	Name       string                       `json:"name"`
+	SKU        *string                      `json:"sku"`
 	Price      float64                      `json:"price"`
 	ImageURL   string                       `json:"image_url"`
 	CategoryID *string                      `json:"category_id"`

@@ -143,6 +143,7 @@ func (s *posSyncService) GetMasterData(ctx context.Context, businessID, outletID
 		posProducts = append(posProducts, &domain.POSMasterProduct{
 			ID:         p.ID,
 			Name:       p.Name,
+			SKU:        p.SKU,
 			Price:      p.Price,
 			ImageURL:   p.ImageURL,
 			CategoryID: p.CategoryID,
