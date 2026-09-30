@@ -5,7 +5,7 @@ Dokumen ini adalah panduan resmi bagi developer Frontend/Klien (Mobile/Tablet/De
 ## 1. Konsep Utama (Offline-First)
 * **Klien adalah Raja Lokal:** Klien bertanggung jawab atas penyediaan database lokal (seperti SQLite/Room). Semua validasi transaksi harian, perhitungan keranjang belanja, *pending* pesanan, dan buka/tutup laci kasir (shift) dilakukan murni oleh klien secara *offline*.
 * **UUID dari Klien:** Klien wajib membuat `id` (UUID v4) untuk setiap baris data baru (Transaksi, Detail Transaksi, Shift, Waste). Backend tidak membuatkan ID. Ini untuk mencegah duplikasi jika Klien tidak sengaja mengirim data yang sama (*Idempotency*).
-* **Toleransi Minus:** Saat *sync*, server akan memotong stok bahan baku berdasarkan resep. Jangan khawatir jika server merespons sukses walau Anda tahu stok harusnya minus. Server sengaja memperbolehkan stok tembus minus agar transaksi offline tetap tercatat sebagai prioritas utama.
+* **Toleransi Minus & Dual-Stock Auto-Unpack:** Server melacak inventori menggunakan model **Dual-Stock** (`package_stock` untuk kemasan utuh dan `loose_stock` untuk eceran terbuka). Saat *sync*, server memotong stok bahan baku berdasarkan resep BOM. Jika stok eceran terbuka kurang dari kebutuhan resep, server secara atomik membongkar kemasan utuh (*auto-unpack*) menjadi stok eceran. Bahkan jika total stok tidak mencukupi, server tetap memperbolehkan stok tembus minus agar transaksi offline kasir tetap sukses tercatat. Klien POS tidak perlu melakukan kalkulasi pecahan kemasan lokal.
 
 ---
 
@@ -111,8 +111,20 @@ Response berisi daftar form SO yang berstatus `PUBLISHED` atau `COUNTING` untuk 
       "status": "PUBLISHED",
       "scope": "FULL",
       "materials": [
-        { "raw_material_id": "rm1", "raw_material_name": "Gula", "unit": "kg" },
-        { "raw_material_id": "rm2", "raw_material_name": "Garam", "unit": "kg" }
+        {
+          "raw_material_id": "rm1",
+          "raw_material_name": "Gula Pasir",
+          "unit": "gram",
+          "package_unit": "karung",
+          "quantity_per_package": 50000.0
+        },
+        {
+          "raw_material_id": "rm2",
+          "raw_material_name": "Susu UHT",
+          "unit": "ml",
+          "package_unit": "karton",
+          "quantity_per_package": 12000.0
+        }
       ]
     }
   ]
@@ -120,6 +132,11 @@ Response berisi daftar form SO yang berstatus `PUBLISHED` atau `COUNTING` untuk 
 ```
 
 ### Tahap 4: Submit Hasil Hitungan — *Online*
+
+Klien mengirim hitungan fisik dalam format **Dual-Stock**:
+- `actual_packages` (`int`): Jumlah kemasan utuh fisik (misal: 2 karung). Isi `0` jika tidak ada kemasan utuh.
+- `actual_loose` (`float`): Jumlah eceran terbuka dalam unit dasar (`unit`, misal: 450.0 gram). Isi `0` jika tidak ada eceran terbuka.
+- `notes` (`string`): Catatan fisik opsional.
 
 ```
 PUT /v1/so/{form_id}/counts
@@ -131,8 +148,18 @@ Body:
 ```json
 {
   "items": [
-    { "raw_material_id": "rm1", "actual_stock": 95.5, "input_type": "base_unit", "notes": "" },
-    { "raw_material_id": "rm2", "actual_stock": 20, "input_type": "base_unit", "notes": "di rak belakang" }
+    {
+      "raw_material_id": "rm1",
+      "actual_packages": 2,
+      "actual_loose": 450.0,
+      "notes": ""
+    },
+    {
+      "raw_material_id": "rm2",
+      "actual_packages": 5,
+      "actual_loose": 0.0,
+      "notes": "di rak belakang"
+    }
   ]
 }
 ```
@@ -148,6 +175,28 @@ Body:
 GET /v1/so/{form_id}/my-counts
 Authorization: Bearer <device_token>
 X-Staff-Id: <staff_id_kasir>
+```
+
+Response mengembalikan lembar hitungan kasir yang bersangkutan beserta total unit yang dihitung:
+```json
+{
+  "status": "success",
+  "data": {
+    "counted_by": "staff-uuid-1",
+    "staff_name": "Budi",
+    "items": [
+      {
+        "raw_material_id": "rm1",
+        "raw_material_name": "Gula Pasir",
+        "unit": "gram",
+        "actual_packages": 2,
+        "actual_loose": 450.0,
+        "actual_stock": 100450.0,
+        "notes": ""
+      }
+    ]
+  }
+}
 ```
 
 ## 3. Status Form SO

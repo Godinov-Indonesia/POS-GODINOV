@@ -12,11 +12,12 @@ Proyek ini terbagi menjadi beberapa komponen utama:
    - REST API Server menggunakan **Go 1.26.1** dan **PostgreSQL 17**.
    - Menerapkan *Clean Architecture* (Layered Architecture dengan Dependency Inversion) tanpa framework HTTP eksternal (menggunakan `net/http.ServeMux` bawaan Go 1.22+).
    - Keamanan tingkat tinggi menggunakan **PASETO v4 local** (bukan JWT biasa) untuk token terenkripsi.
-   - Multi-tenancy dengan strategi *Shared Database & Shared Schema* menggunakan kolom diskriminator `business_id` dan `outlet_id`.
+   - Multi-tenancy dengan strategi *Database-per-Tenant* (Main DB `posgodinov` untuk akun & tenant registry, serta Business DB terisolasi `business_<id>` per tenant).
+   - Sistem inventori **Dual-Stock** (`package_stock` INTEGER + `loose_stock` DECIMAL + generated column `unit_stock`) dengan *Auto-Unpack* otomatis pada pemotongan resep BOM.
 
 2. **`posgodinov-fe/` (Frontend & Web POS PWA)**:
-   - Dibangun menggunakan **Next.js (React)** dan TailwindCSS.
-   - Menyediakan dua area kerja utama: **Admin Dashboard** (untuk kelola bisnis & outlet online) dan **Web POS PWA** (aplikasi kasir offline-first).
+   - Dibangun menggunakan **Next.js (React 19)** dan TailwindCSS.
+   - Menyediakan dua area kerja utama: **Admin Dashboard** (manajemen bisnis, outlet, katalog produk, dual-stock inventori, restock, waste, & approval SO) dan **Web POS PWA** (aplikasi kasir offline-first).
    - Database lokal menggunakan **Dexie IndexedDB** untuk penyimpanan master data (produk, kategori, kasir) dan data transaksi lokal secara offline.
    - Logika sinkronisasi dua arah yang tangguh (*sync engine*) dengan penanganan *partial success reconciliation* dan retensi UUID v4 client untuk menjamin idempotensi.
 
@@ -41,8 +42,10 @@ Proyek ini terbagi menjadi beberapa komponen utama:
 
 ---
 
-## ⚡ Fitur Utama POS
+## ⚡ Fitur Utama POS & Inventori
 
+- **Dual-Stock & Auto-Unpack Inventori**: Pelacakan stok bahan mentah berbasis kemasan utuh (`package_stock`) dan eceran terbuka (`loose_stock`). Saat transaksi kasir memotong stok eceran hingga minus, sistem otomatis memecah kemasan utuh (*auto-unpack*) sesuai kebutuhan resep BOM secara atomik.
+- **Stock Opname (SO) Multi-Staff Terkelola**: Alur SO formal (Open → Published → Counting → Closed → Approved/Rejected/Recount). Kasir melakukan *blind counting* fisik dual-stock (`actual_packages` & `actual_loose`), sistem mengagregasi seluruh lembar hitungan staf, mengambil snapshot stok sistem, menghitung selisih & fraud flag, serta memperbarui stok saat disetujui.
 - **Device Binding (P-01)**: Penautan perangkat POS ritel ke outlet secara aman menggunakan token perangkat dengan masa berlaku 10 tahun.
 - **Login Kasir Offline (P-03)**: Autentikasi kasir dilakukan 100% secara lokal pada perangkat menggunakan pencocokan hash PIN (bcrypt) tanpa bergantung pada koneksi backend.
 - **Manajemen Shift (P-04)**: Pembukaan dan penutupan shift kasir secara mandiri dengan pencatatan modal awal, modal akhir, expected balance, dan discrepancy (selisih uang laci).
@@ -91,7 +94,7 @@ docker compose up -d --build
 
 PostgreSQL 17 naik sebagai container `posgodinov_db`, backend Go sebagai
 `posgodinov_backend`, lalu **migrasi berjalan otomatis saat startup**
-(`golang-migrate` — 24 migrasi, 24 tabel).
+(`golang-migrate` — migrasi database landlord dan 27 migrasi database tenant business).
 
 Verifikasi, harus menjawab `OK`:
 
@@ -265,8 +268,8 @@ menyala dengan `Dirty database version N. Fix and force version.` Perbaiki
 setelah penyebabnya beres:
 
 ```bash
-docker exec posgodinov_db psql -U posgodinov -d posgodinov \
-  -c "UPDATE schema_migrations SET version=24, dirty=false;"
+docker exec posgodinov_db psql -U posgodinov -d business_<id> \
+  -c "UPDATE schema_migrations SET version=27, dirty=false;"
 docker restart posgodinov_backend
 ```
 
