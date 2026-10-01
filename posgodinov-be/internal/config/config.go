@@ -47,7 +47,7 @@ func LoadConfig() (*Config, error) {
 		CloudinaryCloudName: os.Getenv("CLOUDINARY_CLOUD_NAME"),
 		CloudinaryAPIKey:    os.Getenv("CLOUDINARY_API_KEY"),
 		CloudinaryAPISecret: os.Getenv("CLOUDINARY_API_SECRET"),
-		CloudinaryFolder:    cmp.Or(os.Getenv("CLOUDINARY_FOLDER"), "posgodinov/products"),
+		CloudinaryFolder:    cmp.Or(os.Getenv("CLOUDINARY_FOLDER"), "posgodinov"),
 	}
 
 	return cfg, nil

@@ -28,14 +28,14 @@ func TestUploadService_GenerateUploadSignature_NotConfigured(t *testing.T) {
 
 func TestUploadService_GenerateUploadSignature_Success(t *testing.T) {
 	cfg := &config.Config{
-		AppEnv:              "production",
 		CloudinaryCloudName: "test-cloud",
 		CloudinaryAPIKey:    "test-key",
 		CloudinaryAPISecret: "test-secret",
+		CloudinaryFolder:    "posgodinov",
 	}
 	svc := service.NewUploadService(cfg)
 
-	// 1. Test product purpose with outlet_id: env/business_id/outlet_id/products
+	// 1. Test product purpose with outlet_id: CLOUDINARY_FOLDER/business_id/outlet_id/products
 	resp, err := svc.GenerateUploadSignature(context.Background(), "biz-99", &domain.CreateUploadSignatureRequest{
 		Purpose:  domain.UploadPurposeProduct,
 		OutletID: "out-456",
@@ -50,7 +50,7 @@ func TestUploadService_GenerateUploadSignature_Success(t *testing.T) {
 	if resp.APIKey != "test-key" {
 		t.Errorf("expected api_key 'test-key', got '%s'", resp.APIKey)
 	}
-	expectedProductFolder := "production/biz-99/out-456/products"
+	expectedProductFolder := "posgodinov/biz-99/out-456/products"
 	if resp.Folder != expectedProductFolder {
 		t.Errorf("expected folder '%s', got '%s'", expectedProductFolder, resp.Folder)
 	}
@@ -61,14 +61,14 @@ func TestUploadService_GenerateUploadSignature_Success(t *testing.T) {
 		t.Errorf("invalid timestamp: %d", resp.Timestamp)
 	}
 
-	// 2. Test profile purpose: env/business_id/profiles
+	// 2. Test profile purpose: CLOUDINARY_FOLDER/business_id/profiles
 	respProfile, err := svc.GenerateUploadSignature(context.Background(), "biz-99", &domain.CreateUploadSignatureRequest{
 		Purpose: domain.UploadPurposeProfile,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error for profile: %v", err)
 	}
-	expectedProfileFolder := "production/biz-99/profiles"
+	expectedProfileFolder := "posgodinov/biz-99/profiles"
 	if respProfile.Folder != expectedProfileFolder {
 		t.Errorf("expected folder '%s', got '%s'", expectedProfileFolder, respProfile.Folder)
 	}

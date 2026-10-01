@@ -45,9 +45,9 @@ func (s *uploadService) GenerateUploadSignature(
 
 	ts := s.now().Unix()
 
-	env := strings.ToLower(strings.TrimSpace(s.cfg.AppEnv))
-	if env == "" {
-		env = "local"
+	rootFolder := strings.Trim(s.cfg.CloudinaryFolder, "/")
+	if rootFolder == "" {
+		rootFolder = "posgodinov"
 	}
 
 	sanitizedBizID := strings.TrimSpace(businessID)
@@ -71,11 +71,11 @@ func (s *uploadService) GenerateUploadSignature(
 
 	var folder string
 	if sanitizedPurpose == string(domain.UploadPurposeProduct) && outletID != "" {
-		folder = fmt.Sprintf("%s/%s/%s/products", env, sanitizedBizID, outletID)
+		folder = fmt.Sprintf("%s/%s/%s/products", rootFolder, sanitizedBizID, outletID)
 	} else if outletID != "" {
-		folder = fmt.Sprintf("%s/%s/%s/%s", env, sanitizedBizID, outletID, sanitizedPurpose)
+		folder = fmt.Sprintf("%s/%s/%s/%s", rootFolder, sanitizedBizID, outletID, sanitizedPurpose)
 	} else {
-		folder = fmt.Sprintf("%s/%s/%s", env, sanitizedBizID, sanitizedPurpose)
+		folder = fmt.Sprintf("%s/%s/%s", rootFolder, sanitizedBizID, sanitizedPurpose)
 	}
 
 	params := url.Values{}
