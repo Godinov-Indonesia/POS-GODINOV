@@ -156,6 +156,8 @@ func main() {
 	reportHandler := handler.NewReportHandler(reportSvc)
 	shiftReconcileHandler := handler.NewShiftReconcileHandler(shiftReconcileSvc)
 	opnameSessionHandler := handler.NewOpnameSessionHandler(opnameSessionSvc)
+	uploadSvc := service.NewUploadService(cfg)
+	uploadHandler := handler.NewUploadHandler(uploadSvc)
 
 	// Setup Router
 	mux := handler.SetupRouter(
@@ -173,6 +175,7 @@ func main() {
 		reportHandler,
 		shiftReconcileHandler,
 		opnameSessionHandler,
+		uploadHandler,
 		tokenMaker, 
 		auditRepo,
 		businessManager,

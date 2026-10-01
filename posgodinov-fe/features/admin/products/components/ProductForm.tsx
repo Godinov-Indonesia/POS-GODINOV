@@ -18,6 +18,7 @@ import {
   type BomRow,
 } from '@/features/admin/products/components/BomBuilder'
 import { HppSummary } from '@/features/admin/products/components/HppSummary'
+import { ProductImageUploader } from '@/features/admin/products/components/ProductImageUploader'
 import { useCreateProduct, useProducts, useUpdateProduct } from '@/features/admin/products/hooks/useProducts'
 import { findDuplicateRawMaterialIds } from '@/features/admin/products/lib/hpp'
 import { OutletGuard } from '@/features/admin/shell/OutletGuard'
@@ -258,15 +259,15 @@ function ProductFormShell({
           </Field>
 
           <Field
-            label="URL gambar"
+            label="Gambar produk"
             htmlFor="image_url"
-            hint="Opsional. Masukkan tautan atau URL gambar produk jika tersedia."
+            hint="Opsional. Unggah gambar produk (PNG/JPG/WebP maks 5MB) atau gunakan URL manual."
+            className="sm:col-span-2"
           >
-            <Input
-              id="image_url"
-              type="url"
+            <ProductImageUploader
               value={values.image_url}
-              onChange={(e) => setValues((v) => ({ ...v, image_url: e.target.value }))}
+              onChange={(url) => setValues((v) => ({ ...v, image_url: url }))}
+              disabled={pending}
             />
           </Field>
         </CardContent>

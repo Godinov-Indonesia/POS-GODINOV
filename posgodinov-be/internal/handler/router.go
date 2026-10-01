@@ -24,6 +24,7 @@ func SetupRouter(
 	reportHandler *ReportHandler,
 	shiftReconcileHandler *ShiftReconcileHandler,
 	opnameSessionHandler *OpnameSessionHandler,
+	uploadHandler *UploadHandler,
 	tokenMaker token.TokenMaker,
 	auditRepo domain.AuditRepository,
 	tenantManager *database.BusinessDBManager,
@@ -177,6 +178,9 @@ func SetupRouter(
 	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/categories/bulk", chain(categoryHandler.CreateBulk))
 	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/categories", chain(categoryHandler.GetAll))
 	
+	// Upload Routes (Cloudinary Signed Upload)
+	mux.HandleFunc("POST /v1/business/uploads/signature", chain(uploadHandler.GetProductImageSignature))
+
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))

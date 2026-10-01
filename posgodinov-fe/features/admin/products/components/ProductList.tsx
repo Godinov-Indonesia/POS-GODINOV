@@ -11,10 +11,12 @@ import { EmptyState, SkeletonTable } from '@/components/ui/feedback'
 import { Money, Num } from '@/components/ui/money'
 import { TBody, TD, TH, THead, TR, Table } from '@/components/ui/table'
 import { toast, toastApiError } from '@/components/ui/toaster'
+import { CachedImage } from '@/features/admin/products/components/CachedImage'
 import { useDeleteProduct, useProducts } from '@/features/admin/products/hooks/useProducts'
 import { calculateHpp } from '@/features/admin/products/lib/hpp'
 import { OutletGuard } from '@/features/admin/shell/OutletGuard'
 import { PageHeader } from '@/features/admin/shell/PageHeader'
+import { evictCachedImage, syncOutletImages } from '@/lib/cache/image-cache'
 import type { ProductView } from '@/lib/types/domain'
 
 /** D-10 Daftar Produk — docs/04 §B.1. */
@@ -50,10 +52,28 @@ function ProductTable({ outletId }: { outletId: string }) {
     if (error) toastApiError(error, 'Gagal memuat produk')
   }, [error])
 
+  // Inkremental Pre-download: Unduh seluruh gambar produk outlet ke Cache Storage browser
+  // (Hanya mengunduh gambar yang belum ada di cache, lewati yang sudah ada)
+  React.useEffect(() => {
+    if (data?.length) {
+      const urls = data
+        .map((p) => p.image_url)
+        .filter((u): u is string => Boolean(u && u.trim()))
+      if (urls.length) {
+        syncOutletImages(urls).catch((err) => {
+          console.warn('[ProductTable] Gagal sinkronisasi cache gambar:', err)
+        })
+      }
+    }
+  }, [data])
+
   const confirmDelete = async () => {
     if (!pendingDelete) return
     try {
       await deleteProduct.mutateAsync(pendingDelete.id)
+      if (pendingDelete.image_url) {
+        evictCachedImage(pendingDelete.image_url).catch(() => {})
+      }
       toast.success('Produk dihapus')
       setPendingDelete(null)
     } catch (e) {
@@ -99,10 +119,21 @@ function ProductTable({ outletId }: { outletId: string }) {
             return (
               <TR key={product.id}>
                 <TD className="font-medium">
-                  <div>{product.name}</div>
-                  {product.sku ? (
-                    <div className="font-mono text-xs font-normal text-fg-muted">{product.sku}</div>
-                  ) : null}
+                  <div className="flex items-center gap-3">
+                    <div className="size-10 shrink-0 overflow-hidden rounded-md border border-border bg-bg-subtle">
+                      <CachedImage
+                        src={product.image_url}
+                        alt={product.name}
+                        className="size-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <div>{product.name}</div>
+                      {product.sku ? (
+                        <div className="font-mono text-xs font-normal text-fg-muted">{product.sku}</div>
+                      ) : null}
+                    </div>
+                  </div>
                 </TD>
                 <TD className="text-fg-muted">{product.category?.name ?? '—'}</TD>
                 <TD numeric>

@@ -19,6 +19,12 @@ type Config struct {
 	DBSSLMode          string
 	LogLevel           string
 	PasetoSymmetricKey string
+
+	// Cloudinary
+	CloudinaryCloudName string
+	CloudinaryAPIKey    string
+	CloudinaryAPISecret string
+	CloudinaryFolder    string
 }
 
 func LoadConfig() (*Config, error) {
@@ -37,6 +43,11 @@ func LoadConfig() (*Config, error) {
 		DBSSLMode:          cmp.Or(os.Getenv("DB_SSLMODE"), "disable"),
 		LogLevel:           cmp.Or(os.Getenv("LOG_LEVEL"), "info"),
 		PasetoSymmetricKey: cmp.Or(os.Getenv("PASETO_SYMMETRIC_KEY"), "12345678901234567890123456789012"),
+
+		CloudinaryCloudName: os.Getenv("CLOUDINARY_CLOUD_NAME"),
+		CloudinaryAPIKey:    os.Getenv("CLOUDINARY_API_KEY"),
+		CloudinaryAPISecret: os.Getenv("CLOUDINARY_API_SECRET"),
+		CloudinaryFolder:    cmp.Or(os.Getenv("CLOUDINARY_FOLDER"), "posgodinov/products"),
 	}
 
 	return cfg, nil
