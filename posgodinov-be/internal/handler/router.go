@@ -179,7 +179,7 @@ func SetupRouter(
 	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/categories", chain(categoryHandler.GetAll))
 	
 	// Upload Routes (Cloudinary Signed Upload)
-	mux.HandleFunc("POST /v1/business/uploads/signature", chain(uploadHandler.GetProductImageSignature))
+	mux.HandleFunc("POST /v1/business/uploads/signature", chain(uploadHandler.GetUploadSignature))
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

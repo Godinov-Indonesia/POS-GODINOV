@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"posgodinov-backend/internal/config"
+	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/internal/service"
 )
 
-func TestUploadService_GenerateProductImageSignature_NotConfigured(t *testing.T) {
+func TestUploadService_GenerateUploadSignature_NotConfigured(t *testing.T) {
 	cfg := &config.Config{}
 	svc := service.NewUploadService(cfg)
 
-	_, err := svc.GenerateProductImageSignature(context.Background())
+	_, err := svc.GenerateUploadSignature(context.Background(), "biz-123", domain.UploadPurposeProduct)
 	if err == nil {
 		t.Fatal("expected error when Cloudinary credentials are not set, got nil")
 	}
@@ -23,16 +24,17 @@ func TestUploadService_GenerateProductImageSignature_NotConfigured(t *testing.T)
 	}
 }
 
-func TestUploadService_GenerateProductImageSignature_Success(t *testing.T) {
+func TestUploadService_GenerateUploadSignature_Success(t *testing.T) {
 	cfg := &config.Config{
 		CloudinaryCloudName: "test-cloud",
 		CloudinaryAPIKey:    "test-key",
 		CloudinaryAPISecret: "test-secret",
-		CloudinaryFolder:    "posgodinov/test",
+		CloudinaryFolder:    "posgodinov",
 	}
 	svc := service.NewUploadService(cfg)
 
-	resp, err := svc.GenerateProductImageSignature(context.Background())
+	// Test product purpose
+	resp, err := svc.GenerateUploadSignature(context.Background(), "biz-99", domain.UploadPurposeProduct)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -43,13 +45,24 @@ func TestUploadService_GenerateProductImageSignature_Success(t *testing.T) {
 	if resp.APIKey != "test-key" {
 		t.Errorf("expected api_key 'test-key', got '%s'", resp.APIKey)
 	}
-	if resp.Folder != "posgodinov/test" {
-		t.Errorf("expected folder 'posgodinov/test', got '%s'", resp.Folder)
+	expectedFolder := "posgodinov/biz-99/products"
+	if resp.Folder != expectedFolder {
+		t.Errorf("expected folder '%s', got '%s'", expectedFolder, resp.Folder)
 	}
 	if resp.Signature == "" {
 		t.Error("expected non-empty signature")
 	}
 	if resp.Timestamp <= 0 || resp.Timestamp > time.Now().Add(5*time.Second).Unix() {
 		t.Errorf("invalid timestamp: %d", resp.Timestamp)
+	}
+
+	// Test profile purpose
+	respProfile, err := svc.GenerateUploadSignature(context.Background(), "biz-99", domain.UploadPurposeProfile)
+	if err != nil {
+		t.Fatalf("unexpected error for profile: %v", err)
+	}
+	expectedProfileFolder := "posgodinov/biz-99/profiles"
+	if respProfile.Folder != expectedProfileFolder {
+		t.Errorf("expected folder '%s', got '%s'", expectedProfileFolder, respProfile.Folder)
 	}
 }
