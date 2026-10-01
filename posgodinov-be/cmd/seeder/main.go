@@ -114,6 +114,7 @@ type outletBP struct {
 
 type rawMaterialBP struct {
 	Name        string
+	SKU         string
 	Unit        string
 	PackageUnit string // kosong berarti tidak dibeli per kemasan
 	PerPackage  float64
@@ -123,6 +124,7 @@ type rawMaterialBP struct {
 
 type productBP struct {
 	Name     string
+	SKU      string
 	Price    float64
 	Category string
 	Recipe   map[string]float64 // nama bahan baku -> jumlah per porsi
@@ -178,75 +180,75 @@ func categoryNames() []string {
 
 func rawMaterialBlueprints() []rawMaterialBP {
 	return []rawMaterialBP{
-		{"Biji Kopi Arabika", "gram", "karung", 1000, 24000, 220},
-		{"Biji Kopi Robusta", "gram", "karung", 1000, 30000, 145},
-		{"Susu UHT Full Cream", "ml", "kotak", 1000, 60000, 18},
-		{"Susu Kental Manis", "gram", "kaleng", 370, 11100, 32},
-		{"Gula Pasir", "gram", "karung", 1000, 40000, 15},
-		{"Gula Aren Cair", "ml", "botol", 500, 15000, 46},
-		{"Es Batu", "gram", "pack", 5000, 150000, 2},
-		{"Cokelat Bubuk", "gram", "pack", 500, 10000, 95},
-		{"Matcha Bubuk", "gram", "pack", 250, 5000, 380},
-		{"Teh Hitam", "gram", "pack", 250, 5000, 120},
-		{"Sirup Vanilla", "ml", "botol", 750, 9000, 58},
-		{"Roti Tawar", "lembar", "bungkus", 10, 600, 1500},
-		{"Telur Ayam", "butir", "tray", 30, 900, 2400},
-		{"Daging Ayam Fillet", "gram", "pack", 500, 30000, 42},
-		{"Beras", "gram", "karung", 5000, 100000, 13},
-		{"Cup Plastik 16oz", "pcs", "dus", 1000, 12000, 520},
+		{"Biji Kopi Arabika", "RM-001", "gram", "karung", 1000, 24000, 220},
+		{"Biji Kopi Robusta", "RM-002", "gram", "karung", 1000, 30000, 145},
+		{"Susu UHT Full Cream", "RM-003", "ml", "kotak", 1000, 60000, 18},
+		{"Susu Kental Manis", "RM-004", "gram", "kaleng", 370, 11100, 32},
+		{"Gula Pasir", "RM-005", "gram", "karung", 1000, 40000, 15},
+		{"Gula Aren Cair", "RM-006", "ml", "botol", 500, 15000, 46},
+		{"Es Batu", "RM-007", "gram", "pack", 5000, 150000, 2},
+		{"Cokelat Bubuk", "RM-008", "gram", "pack", 500, 10000, 95},
+		{"Matcha Bubuk", "RM-009", "gram", "pack", 250, 5000, 380},
+		{"Teh Hitam", "RM-010", "gram", "pack", 250, 5000, 120},
+		{"Sirup Vanilla", "RM-011", "ml", "botol", 750, 9000, 58},
+		{"Roti Tawar", "RM-012", "lembar", "bungkus", 10, 600, 1500},
+		{"Telur Ayam", "RM-013", "butir", "tray", 30, 900, 2400},
+		{"Daging Ayam Fillet", "RM-014", "gram", "pack", 500, 30000, 42},
+		{"Beras", "RM-015", "gram", "karung", 5000, 100000, 13},
+		{"Cup Plastik 16oz", "RM-016", "pcs", "dus", 1000, 12000, 520},
 	}
 }
 
 func productBlueprints() []productBP {
 	return []productBP{
-		{"Espresso", 18000, "Kopi", map[string]float64{
+		{"Espresso", "PRD-001", 18000, "Kopi", map[string]float64{
 			"Biji Kopi Arabika": 18, "Cup Plastik 16oz": 1}},
-		{"Americano", 22000, "Kopi", map[string]float64{
+		{"Americano", "PRD-002", 22000, "Kopi", map[string]float64{
 			"Biji Kopi Arabika": 18, "Es Batu": 120, "Cup Plastik 16oz": 1}},
-		{"Kopi Susu Gula Aren", 26000, "Kopi", map[string]float64{
+		{"Kopi Susu Gula Aren", "PRD-003", 26000, "Kopi", map[string]float64{
 			"Biji Kopi Robusta": 20, "Susu UHT Full Cream": 150,
 			"Gula Aren Cair": 25, "Es Batu": 120, "Cup Plastik 16oz": 1}},
-		{"Cappuccino", 28000, "Kopi", map[string]float64{
+		{"Cappuccino", "PRD-004", 28000, "Kopi", map[string]float64{
 			"Biji Kopi Arabika": 18, "Susu UHT Full Cream": 180, "Cup Plastik 16oz": 1}},
-		{"Cafe Latte", 30000, "Kopi", map[string]float64{
+		{"Cafe Latte", "PRD-005", 30000, "Kopi", map[string]float64{
 			"Biji Kopi Arabika": 18, "Susu UHT Full Cream": 200, "Cup Plastik 16oz": 1}},
-		{"Kopi Tubruk", 15000, "Kopi", map[string]float64{
+		{"Kopi Tubruk", "PRD-006", 15000, "Kopi", map[string]float64{
 			"Biji Kopi Robusta": 15, "Gula Pasir": 10, "Cup Plastik 16oz": 1}},
 
-		{"Matcha Latte", 32000, "Non-Kopi", map[string]float64{
+		{"Matcha Latte", "PRD-007", 32000, "Non-Kopi", map[string]float64{
 			"Matcha Bubuk": 8, "Susu UHT Full Cream": 200, "Gula Pasir": 12,
 			"Es Batu": 120, "Cup Plastik 16oz": 1}},
-		{"Cokelat Panas", 27000, "Non-Kopi", map[string]float64{
+		{"Cokelat Panas", "PRD-008", 27000, "Non-Kopi", map[string]float64{
 			"Cokelat Bubuk": 20, "Susu UHT Full Cream": 180, "Gula Pasir": 10,
 			"Cup Plastik 16oz": 1}},
-		{"Teh Tarik", 20000, "Non-Kopi", map[string]float64{
+		{"Teh Tarik", "PRD-009", 20000, "Non-Kopi", map[string]float64{
 			"Teh Hitam": 8, "Susu Kental Manis": 30, "Es Batu": 100, "Cup Plastik 16oz": 1}},
-		{"Vanilla Milkshake", 33000, "Non-Kopi", map[string]float64{
+		{"Vanilla Milkshake", "PRD-010", 33000, "Non-Kopi", map[string]float64{
 			"Susu UHT Full Cream": 200, "Sirup Vanilla": 30, "Gula Pasir": 10,
 			"Cup Plastik 16oz": 1}},
-		{"Es Teh Manis", 10000, "Non-Kopi", map[string]float64{
+		{"Es Teh Manis", "PRD-011", 10000, "Non-Kopi", map[string]float64{
 			"Teh Hitam": 6, "Gula Pasir": 15, "Es Batu": 150, "Cup Plastik 16oz": 1}},
 
-		{"Nasi Ayam Geprek", 28000, "Makanan Berat", map[string]float64{
+		{"Nasi Ayam Geprek", "PRD-012", 28000, "Makanan Berat", map[string]float64{
 			"Beras": 200, "Daging Ayam Fillet": 150, "Telur Ayam": 1}},
-		{"Nasi Goreng Spesial", 30000, "Makanan Berat", map[string]float64{
+		{"Nasi Goreng Spesial", "PRD-013", 30000, "Makanan Berat", map[string]float64{
 			"Beras": 220, "Telur Ayam": 1, "Daging Ayam Fillet": 80}},
-		{"Ayam Katsu Rice Bowl", 32000, "Makanan Berat", map[string]float64{
+		{"Ayam Katsu Rice Bowl", "PRD-014", 32000, "Makanan Berat", map[string]float64{
 			"Beras": 200, "Daging Ayam Fillet": 160, "Telur Ayam": 1}},
 
-		{"Roti Bakar Cokelat", 18000, "Snack", map[string]float64{
+		{"Roti Bakar Cokelat", "PRD-015", 18000, "Snack", map[string]float64{
 			"Roti Tawar": 2, "Cokelat Bubuk": 15, "Susu Kental Manis": 20}},
 		// Sengaja tanpa resep: produk beli-jadi memang ada di outlet nyata, dan
 		// layar opname maupun HPP harus tetap benar ketika sebuah produk tidak
 		// mengurangi bahan baku apa pun.
-		{"Kentang Goreng", 20000, "Snack", nil},
+		{"Kentang Goreng", "PRD-016", 20000, "Snack", nil},
 
-		{"Pudding Cokelat", 16000, "Dessert", map[string]float64{
+		{"Pudding Cokelat", "PRD-017", 16000, "Dessert", map[string]float64{
 			"Cokelat Bubuk": 18, "Susu UHT Full Cream": 120, "Gula Pasir": 20}},
-		{"Es Krim Vanilla", 15000, "Dessert", map[string]float64{
+		{"Es Krim Vanilla", "PRD-018", 15000, "Dessert", map[string]float64{
 			"Susu UHT Full Cream": 150, "Sirup Vanilla": 20, "Gula Pasir": 15}},
 
-		{"Paket Kopi + Roti Bakar", 40000, "Paket Bundling", map[string]float64{
+		{"Paket Kopi + Roti Bakar", "PRD-019", 40000, "Paket Bundling", map[string]float64{
 			"Biji Kopi Robusta": 20, "Susu UHT Full Cream": 150, "Gula Aren Cair": 25,
 			"Roti Tawar": 2, "Cokelat Bubuk": 15, "Cup Plastik 16oz": 1}},
 	}
@@ -523,8 +525,13 @@ func (s *seeder) seedOutletMaster(bp outletBP) (*outletData, error) {
 			pkgStock = int(rb.Stock / rb.PerPackage)
 			looseStock = rb.Stock - float64(pkgStock)*rb.PerPackage
 		}
+		var sku *string
+		if rb.SKU != "" {
+			s := rb.SKU
+			sku = &s
+		}
 		rm := &domain.RawMaterial{
-			ID: utils.NewUUID(), OutletID: bp.ID, Name: rb.Name, Unit: rb.Unit,
+			ID: utils.NewUUID(), OutletID: bp.ID, Name: rb.Name, SKU: sku, Unit: rb.Unit,
 			PackageStock: pkgStock, LooseStock: looseStock, CostPerUnit: rb.CostPerUnit,
 			CreatedAt: created, UpdatedAt: created,
 		}
@@ -549,8 +556,13 @@ func (s *seeder) seedOutletMaster(bp outletBP) (*outletData, error) {
 		if c, ok := od.cats[pb.Category]; ok {
 			catID = &c.ID
 		}
+		var pSku *string
+		if pb.SKU != "" {
+			s := pb.SKU
+			pSku = &s
+		}
 		p := &domain.Product{
-			ID: utils.NewUUID(), OutletID: bp.ID, Name: pb.Name, Price: pb.Price,
+			ID: utils.NewUUID(), OutletID: bp.ID, Name: pb.Name, SKU: pSku, Price: pb.Price,
 			CategoryID: catID, CreatedAt: created, UpdatedAt: created,
 			ImageURL: fmt.Sprintf("https://cdn.posgodinov.local/produk/%s.jpg", slug(pb.Name)),
 		}
