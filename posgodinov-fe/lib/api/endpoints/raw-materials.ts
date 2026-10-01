@@ -19,18 +19,25 @@ import type {
 } from '@/lib/types/api'
 import type { RawMaterialView } from '@/lib/types/domain'
 
-export const toRawMaterialView = (dto: RawMaterial): RawMaterialView => ({
-  id: dto.id,
-  outlet_id: dto.outlet_id,
-  name: dto.name,
-  unit: dto.unit,
-  package_unit: dto.package_unit,
-  quantity_per_package: dto.quantity_per_package,
-  stock: dto.stock,
-  cost_per_unit_minor: toMinor(dto.cost_per_unit),
-  created_at: dto.created_at,
-  updated_at: dto.updated_at,
-})
+export const toRawMaterialView = (dto: RawMaterial): RawMaterialView => {
+  const unitStock = dto.unit_stock ?? dto.stock ?? 0
+  return {
+    id: dto.id,
+    outlet_id: dto.outlet_id,
+    name: dto.name,
+    sku: dto.sku ?? null,
+    unit: dto.unit,
+    package_unit: dto.package_unit,
+    quantity_per_package: dto.quantity_per_package,
+    package_stock: dto.package_stock ?? 0,
+    loose_stock: dto.loose_stock ?? 0,
+    unit_stock: unitStock,
+    stock: unitStock,
+    cost_per_unit_minor: toMinor(dto.cost_per_unit),
+    created_at: dto.created_at,
+    updated_at: dto.updated_at,
+  }
+}
 
 /** Diurutkan `name ASC`, hanya `is_deleted = false`. */
 export async function listRawMaterials(outletId: OutletId): Promise<RawMaterialView[]> {
@@ -42,9 +49,12 @@ export async function listRawMaterials(outletId: OutletId): Promise<RawMaterialV
 
 export type RawMaterialInput = {
   name: string
+  sku?: string
   unit: string
   package_unit?: string
   quantity_per_package?: number
+  package_stock?: number
+  loose_stock?: number
   /** Stok awal dalam base unit. Hanya berlaku saat pembuatan. */
   stock?: number
   /** HPP per base unit dalam **sen** — dikonversi ke Rupiah desimal di sini. */
@@ -53,9 +63,12 @@ export type RawMaterialInput = {
 
 const toWire = (input: RawMaterialInput): CreateRawMaterialRequest => ({
   name: input.name,
+  sku: input.sku?.trim() || undefined,
   unit: input.unit,
   package_unit: input.package_unit,
   quantity_per_package: input.quantity_per_package,
+  package_stock: input.package_stock,
+  loose_stock: input.loose_stock,
   stock: input.stock,
   cost_per_unit:
     input.cost_per_unit_minor === undefined ? undefined : toMajor(input.cost_per_unit_minor),
@@ -90,6 +103,7 @@ export async function updateRawMaterial(
 ): Promise<RawMaterialView> {
   const body: UpdateRawMaterialRequest = {
     name: input.name,
+    sku: input.sku?.trim() || undefined,
     unit: input.unit,
     package_unit: input.package_unit,
     quantity_per_package: input.quantity_per_package,

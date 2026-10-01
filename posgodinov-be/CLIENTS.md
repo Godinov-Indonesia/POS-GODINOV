@@ -5,7 +5,7 @@ Dokumen ini adalah panduan resmi bagi developer Frontend/Klien (Mobile/Tablet/De
 ## 1. Konsep Utama (Offline-First)
 * **Klien adalah Raja Lokal:** Klien bertanggung jawab atas penyediaan database lokal (seperti SQLite/Room). Semua validasi transaksi harian, perhitungan keranjang belanja, *pending* pesanan, dan buka/tutup laci kasir (shift) dilakukan murni oleh klien secara *offline*.
 * **UUID dari Klien:** Klien wajib membuat `id` (UUID v4) untuk setiap baris data baru (Transaksi, Detail Transaksi, Shift, Waste). Backend tidak membuatkan ID. Ini untuk mencegah duplikasi jika Klien tidak sengaja mengirim data yang sama (*Idempotency*).
-* **Toleransi Minus:** Saat *sync*, server akan memotong stok bahan baku berdasarkan resep. Jangan khawatir jika server merespons sukses walau Anda tahu stok harusnya minus. Server sengaja memperbolehkan stok tembus minus agar transaksi offline tetap tercatat sebagai prioritas utama.
+* **Toleransi Minus & Dual-Stock Auto-Unpack:** Server melacak inventori menggunakan model **Dual-Stock** (`package_stock` untuk kemasan utuh dan `loose_stock` untuk eceran terbuka). Saat *sync*, server memotong stok bahan baku berdasarkan resep BOM. Jika stok eceran terbuka kurang dari kebutuhan resep, server secara atomik membongkar kemasan utuh (*auto-unpack*) menjadi stok eceran. Bahkan jika total stok tidak mencukupi, server tetap memperbolehkan stok tembus minus agar transaksi offline kasir tetap sukses tercatat. Klien POS tidak perlu melakukan kalkulasi pecahan kemasan lokal.
 
 ---
 
@@ -57,3 +57,160 @@ Ketika internet tersedia, Klien harus melempar semua aktivitas ke server agar se
   - Saat Klien men-*sync* transaksi ini, Server otomatis akan melakukan *Reverse Deduction* (Mengembalikan bahan baku yang telanjur terpotong ke dalam *inventory* pusat).
 
 *Panduan detail untuk spesifikasi JSON Request/Response dari masing-masing API dapat dilihat pada dokumen Postman kami.*
+
+---
+
+# Panduan Integrasi Klien SO (Stock Opname) — App Mobile
+
+Dokumen ini adalah panduan bagi developer Frontend/Klien yang akan mengimplementasikan aplikasi **Stock Opname (posgodinov-so)**. Aplikasi SO digunakan oleh kasir/petugas gudang untuk menghitung stok fisik berdasarkan form SO yang dibuat oleh Admin.
+
+## 1. Konsep Utama
+
+* **Blind Opname:** Kasir **tidak pernah melihat angka stok sistem**. Mereka hanya melihat daftar material yang harus dihitung, lalu menginput jumlah aktual. Ini mencegah manipulasi data.
+* **Multi-Kasir:** Satu form SO bisa diisi oleh banyak kasir. Setiap kasir punya "lembar hitungan" sendiri. Hasil akhir = SUM dari semua kasir per material.
+* **Partial Submit:** Kasir boleh submit sebagian material dulu, lalu lanjut nanti. Submit ulang material yang sama akan meng-update hitungan sebelumnya.
+
+## 2. Alur Penggunaan API (Flow)
+
+### Tahap 1: Otorisasi Perangkat (Device Binding) — *Online 1x Saja*
+
+Sama persis dengan POS, kecuali scope-nya `OPNAME`:
+
+1. Klien menembak `POST /v1/auth/device/bind` dengan *body*:
+   ```json
+   {
+     "serial_business": "SB001",
+     "serial_outlet": "SO001",
+     "password": "password_pemilik",
+     "scope": "OPNAME"
+   }
+   ```
+2. Simpan **Device Token** secara permanen. Token ini berisi `business_id` dan `outlet_id`.
+3. **Tidak perlu** mengirim header `X-Business-ID` — middleware otomatis mengambilnya dari token.
+
+### Tahap 2: Login Kasir — *Offline Lokal*
+
+1. Tarik master data via `GET /v1/pos/sync/master-data` (endpoint ini dibuka untuk semua scope device).
+2. Kasir login di app menggunakan Staff ID + PIN, validasi secara lokal.
+3. Simpan `staff_id` kasir — dibutuhkan sebagai header `X-Staff-Id` untuk setiap request submit.
+
+### Tahap 3: Lihat Form SO Tersedia — *Online*
+
+```
+GET /v1/so/available
+Authorization: Bearer <device_token>
+```
+
+Response berisi daftar form SO yang berstatus `PUBLISHED` atau `COUNTING` untuk outlet ini:
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "form-uuid-1",
+      "status": "PUBLISHED",
+      "scope": "FULL",
+      "materials": [
+        {
+          "raw_material_id": "rm1",
+          "raw_material_name": "Gula Pasir",
+          "unit": "gram",
+          "package_unit": "karung",
+          "quantity_per_package": 50000.0
+        },
+        {
+          "raw_material_id": "rm2",
+          "raw_material_name": "Susu UHT",
+          "unit": "ml",
+          "package_unit": "karton",
+          "quantity_per_package": 12000.0
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Tahap 4: Submit Hasil Hitungan — *Online*
+
+Klien mengirim hitungan fisik dalam format **Dual-Stock**:
+- `actual_packages` (`int`): Jumlah kemasan utuh fisik (misal: 2 karung). Isi `0` jika tidak ada kemasan utuh.
+- `actual_loose` (`float`): Jumlah eceran terbuka dalam unit dasar (`unit`, misal: 450.0 gram). Isi `0` jika tidak ada eceran terbuka.
+- `notes` (`string`): Catatan fisik opsional.
+
+```
+PUT /v1/so/{form_id}/counts
+Authorization: Bearer <device_token>
+X-Staff-Id: <staff_id_kasir>
+```
+
+Body:
+```json
+{
+  "items": [
+    {
+      "raw_material_id": "rm1",
+      "actual_packages": 2,
+      "actual_loose": 450.0,
+      "notes": ""
+    },
+    {
+      "raw_material_id": "rm2",
+      "actual_packages": 5,
+      "actual_loose": 0.0,
+      "notes": "di rak belakang"
+    }
+  ]
+}
+```
+
+> **Penting:**
+> - Header `X-Staff-Id` **WAJIB** — mengidentifikasi kasir mana yang menghitung.
+> - Bisa submit berkali-kali. Submit ulang material yang sama akan meng-update hitungan sebelumnya (upsert).
+> - Boleh submit sebagian material (partial submit).
+
+### Tahap 5: Lihat Hitungan Sendiri — *Online*
+
+```
+GET /v1/so/{form_id}/my-counts
+Authorization: Bearer <device_token>
+X-Staff-Id: <staff_id_kasir>
+```
+
+Response mengembalikan lembar hitungan kasir yang bersangkutan beserta total unit yang dihitung:
+```json
+{
+  "status": "success",
+  "data": {
+    "counted_by": "staff-uuid-1",
+    "staff_name": "Budi",
+    "items": [
+      {
+        "raw_material_id": "rm1",
+        "raw_material_name": "Gula Pasir",
+        "unit": "gram",
+        "actual_packages": 2,
+        "actual_loose": 450.0,
+        "actual_stock": 100450.0,
+        "notes": ""
+      }
+    ]
+  }
+}
+```
+
+## 3. Status Form SO
+
+| Status | Arti bagi kasir |
+|--------|----------------|
+| `PUBLISHED` | Form baru, belum ada kasir yang submit |
+| `COUNTING` | Sudah ada kasir lain yang submit, masih bisa dikerjakan |
+| `CLOSED` | Admin sudah menutup, tidak bisa submit lagi |
+
+## 4. Yang TIDAK Perlu Dilakukan Klien SO
+
+* **Menghitung selisih** — dilakukan server saat Admin close form.
+* **Mengirim stok sistem** — klien tidak punya dan tidak perlu data ini.
+* **Membuat form SO** — hanya Admin via dashboard yang bisa membuat form.
+
+*Panduan detail untuk spesifikasi JSON Request/Response dapat dilihat pada dokumen Postman kami.*

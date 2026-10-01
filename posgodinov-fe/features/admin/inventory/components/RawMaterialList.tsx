@@ -24,7 +24,7 @@ export function RawMaterialList() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Bahan Baku"
-        description="Inventori dalam base unit. Stok hanya berubah lewat restock, waste, opname, atau sinkronisasi POS."
+        description="Kelola daftar bahan baku dan stok inventaris outlet."
         action={
           <Link href="/admin/inventory/new" className={buttonVariants({ variant: 'primary' })}>
             <Plus className="size-4" aria-hidden="true" />
@@ -66,7 +66,7 @@ function RawMaterialTable({ outletId }: { outletId: string }) {
       <EmptyState
         icon={Boxes}
         title="Belum ada bahan baku"
-        description="Resep produk (BOM) menghubungkan produk ke bahan baku. Tanpa bahan baku, penyusun resep akan kosong dan stok tidak akan terpotong saat transaksi tersinkronisasi."
+        description="Resep produk menghubungkan menu ke bahan baku. Tambahkan bahan baku agar resep produk dapat disusun untuk melacak pemotongan stok otomatis."
         action={
           <Link href="/admin/inventory/new" className={buttonVariants({ variant: 'primary' })}>
             Tambah Bahan Baku
@@ -80,46 +80,64 @@ function RawMaterialTable({ outletId }: { outletId: string }) {
     <>
       {negativeCount > 0 ? (
         <Banner tone="warning" icon={AlertTriangle} title={`${negativeCount} bahan baku bersaldo minus`}>
-          Stok negatif <strong>disengaja</strong>: saat sinkronisasi POS, pemotongan stok tidak
-          pernah ditolak — transaksi offline yang sudah benar-benar terjadi lebih penting daripada
-          konsistensi angka stok. Lakukan Stock Opname untuk mengoreksi.
+          Stok tercatat negatif karena transaksi penjualan melebihi estimasi stok yang ada.
+          Gunakan <strong>Stock Opname</strong> untuk menyesuaikan stok dengan jumlah fisik yang sebenarnya.
         </Banner>
       ) : null}
 
       <Table>
         <THead>
           <TR>
-            <TH>Nama</TH>
-            <TH>Base Unit</TH>
-            <TH>Kemasan</TH>
-            <TH numeric>Stok</TH>
+            <TH>Bahan Baku</TH>
+            <TH>Kemasan Utuh</TH>
+            <TH>Eceran Terbuka</TH>
+            <TH numeric>Total Stok</TH>
             <TH numeric>HPP / unit</TH>
             <TH>Aksi</TH>
           </TR>
         </THead>
         <TBody>
           {data.map((material) => {
-            const negative = material.stock < 0
+            const totalStock = material.unit_stock ?? material.stock
+            const negative = totalStock < 0
             return (
               <TR key={material.id}>
-                <TD className="font-medium">{material.name}</TD>
-                <TD className="text-fg-muted">{material.unit}</TD>
+                <TD className="font-medium">
+                  <div>{material.name}</div>
+                  {material.sku ? (
+                    <div className="font-mono text-xs font-normal text-fg-muted">{material.sku}</div>
+                  ) : null}
+                  <div className="text-pos-xs text-fg-muted">
+                    {material.package_unit && material.quantity_per_package
+                      ? `1 ${material.package_unit} = ${formatQuantity(material.quantity_per_package)} ${material.unit}`
+                      : `Satuan: ${material.unit}`}
+                  </div>
+                </TD>
                 <TD className="text-fg-muted">
-                  {material.package_unit
-                    ? `${material.package_unit} · ${formatQuantity(material.quantity_per_package ?? 0)} ${material.unit}`
-                    : '—'}
+                  {material.package_unit ? (
+                    <span>
+                      <strong className="font-semibold text-fg">{formatQuantity(material.package_stock)}</strong>{' '}
+                      {material.package_unit}
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </TD>
+                <TD className="text-fg-muted">
+                  <strong className="font-semibold text-fg">{formatQuantity(material.loose_stock)}</strong>{' '}
+                  {material.unit}
                 </TD>
                 <TD numeric>
                   {/* Warna + ikon + teks — penanda kedua wajib ([06 §1.5]). */}
                   <span
                     className={
-                      negative ? 'inline-flex items-center gap-1 font-semibold text-danger' : ''
+                      negative ? 'inline-flex items-center gap-1 font-semibold text-danger' : 'font-medium'
                     }
                   >
                     {negative ? (
                       <AlertTriangle className="size-3.5" aria-hidden="true" />
                     ) : null}
-                    <Num>{formatQuantity(material.stock)}</Num>
+                    <Num>{formatQuantity(totalStock)}</Num> {material.unit}
                     {negative ? <span className="sr-only">(stok minus)</span> : null}
                   </span>
                 </TD>
@@ -156,7 +174,7 @@ function RawMaterialTable({ outletId }: { outletId: string }) {
         onConfirm={confirmDelete}
         pending={deleteRawMaterial.isPending}
         title={`Hapus ${pendingDelete?.name ?? ''}?`}
-        description="Menghapus bahan baku TIDAK menghapus resep produk yang merujuknya. Resep yatim akan tetap ada dan dilewati secara diam-diam saat pemotongan stok — periksa BOM produk terkait setelah ini."
+        description="Menghapus bahan baku tidak otomatis menghapus resep produk yang menggunakannya. Pastikan Anda memeriksa kembali resep produk terkait setelah menghapus bahan ini."
       />
     </>
   )

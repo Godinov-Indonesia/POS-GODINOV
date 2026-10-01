@@ -27,8 +27,7 @@ import { cn } from '@/lib/utils/cn'
 function NoFilterBanner() {
   return (
     <Banner tone="info">
-      Endpoint ini mengembalikan <strong>seluruh riwayat</strong> outlet — tidak ada filter tanggal
-      maupun paginasi di backend. Waktu muat akan bertambah seiring bertambahnya data.
+      Laporan ini menampilkan <strong>seluruh riwayat pencatatan</strong> pada outlet terpilih.
     </Banner>
   )
 }
@@ -205,9 +204,9 @@ function OpnameTable({ outletId }: { outletId: string }) {
       <NoFilterBanner />
 
       {flaggedCount > 0 ? (
-        <Banner tone="danger" icon={ShieldAlert} title={`${flaggedCount} opname ditandai mencurigakan`}>
-          Backend menandai selisih lebih dari 5% terhadap stok sistem (ambang <em>hard-coded</em>).
-          Tanda ini adalah indikator untuk ditelusuri, bukan tuduhan.
+        <Banner tone="danger" icon={ShieldAlert} title={`${flaggedCount} opname ditandai memiliki selisih signifikan`}>
+          Sistem mendeteksi selisih fisik lebih dari 5% terhadap perkiraan stok. Tanda ini merupakan
+          indikator untuk ditinjau lebih lanjut.
         </Banner>
       ) : null}
 

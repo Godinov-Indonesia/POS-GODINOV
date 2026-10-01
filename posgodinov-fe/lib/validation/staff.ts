@@ -9,6 +9,14 @@ import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '@/lib/constants/limits'
  * `"abcd"` akan diterima. Frontend menegakkan digit saja karena keypad kasir
  * (P-03) hanya menampilkan angka — PIN huruf akan mustahil dimasukkan.
  */
+const STAFF_ROLE_ENUM = z.enum([
+  'CASHIER',
+  'SUPERVISOR',
+  'MANAGER',
+  'STOCK_KEEPER',
+  'ADMIN',
+])
+
 export const createStaffSchema = z.object({
   outlet_id: z.string().min(1, 'Outlet wajib dipilih'),
   staff_identifier: z.string().min(1, 'ID/Username staff wajib diisi'),
@@ -19,6 +27,8 @@ export const createStaffSchema = z.object({
     .max(PIN_MAX_LENGTH, `PIN maksimal ${PIN_MAX_LENGTH} digit`)
     .regex(/^\d+$/, 'PIN hanya boleh berisi angka — keypad kasir tidak punya huruf'),
   email: z.string().email('Format email tidak valid').or(z.literal('')).optional(),
+  role: STAFF_ROLE_ENUM,
+  permissions: z.array(z.string()),
 })
 
 export type CreateStaffForm = z.infer<typeof createStaffSchema>
@@ -28,7 +38,16 @@ export const updateStaffSchema = z.object({
   staff_identifier: z.string().min(1, 'ID/Username staff wajib diisi'),
   name: z.string().min(1, 'Nama wajib diisi'),
   email: z.string().email('Format email tidak valid').or(z.literal('')).optional(),
+  role: STAFF_ROLE_ENUM,
+  permissions: z.array(z.string()),
   is_active: z.boolean(),
 })
 
 export type UpdateStaffForm = z.infer<typeof updateStaffSchema>
+
+export const transferStaffSchema = z.object({
+  target_outlet_id: z.string().min(1, 'Outlet tujuan wajib dipilih'),
+  staff_identifier: z.string().optional(),
+})
+
+export type TransferStaffForm = z.infer<typeof transferStaffSchema>

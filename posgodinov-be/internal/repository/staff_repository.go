@@ -75,3 +75,16 @@ func (r *postgresStaffRepository) Delete(ctx context.Context, id string) error {
 	db := database.GetDB(ctx, r.db)
 	return db.WithContext(ctx).Model(&domain.Staff{}).Where("id = ?", id).Update("is_deleted", true).Error
 }
+
+func (r *postgresStaffRepository) HasActiveShift(ctx context.Context, staffID string) (bool, error) {
+	db := database.GetDB(ctx, r.db)
+	var count int64
+	err := db.WithContext(ctx).Table("shifts").
+		Where("staff_id = ? AND status = ?", staffID, domain.ShiftStatusOpen).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+

@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertTriangle, Database, Server, Trash2 } from 'lucide-react'
+import { AlertTriangle, Server } from 'lucide-react'
 import * as React from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -19,32 +19,13 @@ import {
   seedHppMinor,
 } from '@/lib/seed/fixtures'
 import { SeedGuardError, seedViaApi } from '@/lib/seed/seed-api'
-import { resetSeed, seedDexie } from '@/lib/seed/seed-dexie'
 
 /**
  * Panel seeder — hanya untuk lingkungan pengembangan.
- *
- * Dexie hanya ada di peramban, sehingga seeder offline **tidak dapat**
- * dijalankan sebagai skrip Node. Panel ini adalah pemicunya.
  */
 export function SeederPanel() {
   const [outletId, setOutletId] = React.useState('')
   const [busy, setBusy] = React.useState<string | null>(null)
-
-  const runDexie = async () => {
-    setBusy('dexie')
-    try {
-      const result = await seedDexie()
-      toast.success(
-        `IndexedDB terisi: ${result.staffs} staff, ${result.categories} kategori, ` +
-          `${result.products} produk (hash bcrypt ${result.hashMs}ms)`,
-      )
-    } catch (error) {
-      toastApiError(error, 'Gagal mengisi IndexedDB')
-    } finally {
-      setBusy(null)
-    }
-  }
 
   const runApi = async () => {
     if (!outletId.trim()) return
@@ -64,21 +45,6 @@ export function SeederPanel() {
     }
   }
 
-  const runReset = async () => {
-    setBusy('reset')
-    try {
-      const result = await resetSeed()
-      toast.success(
-        `${result.masterRowsCleared} baris master dihapus. ` +
-          `${result.transactionalRowsKept} baris transaksional dipertahankan.`,
-      )
-    } catch (error) {
-      toastApiError(error, 'Gagal mengosongkan IndexedDB')
-    } finally {
-      setBusy(null)
-    }
-  }
-
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-4 p-6">
       <div className="flex flex-col gap-1">
@@ -93,40 +59,7 @@ export function SeederPanel() {
         tenant yang berisi data nyata.
       </Banner>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="size-5" aria-hidden="true" />
-              IndexedDB (POS offline)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <p className="text-pos-sm text-fg-muted">
-              Mengisi <code>staffs</code>, <code>categories</code>, dan <code>products</code>, lalu
-              menulis device token <strong>palsu</strong> agar aplikasi kasir terbuka penuh tanpa
-              binding.
-            </p>
-            <Banner tone="warning" icon={AlertTriangle}>
-              Sinkronisasi ke server <strong>akan ditolak</strong> dengan pesan{' '}
-              <em>&ldquo;Token tidak valid atau sudah kedaluwarsa&rdquo;</em> — itu disengaja, bukan
-              bug. Jalur ini hanya untuk menguji POS offline. Untuk menguji sinkronisasi sungguhan,
-              lakukan pemasangan nyata di <code>/pos/bind</code>.
-            </Banner>
-            <Button variant="primary" onClick={runDexie} disabled={busy !== null}>
-              {busy === 'dexie' ? 'Mengisi…' : 'Isi IndexedDB'}
-            </Button>
-            <Button variant="danger" onClick={runReset} disabled={busy !== null}>
-              <Trash2 className="size-4" aria-hidden="true" />
-              {busy === 'reset' ? 'Mengosongkan…' : 'Kosongkan master data'}
-            </Button>
-            <p className="text-pos-xs text-fg-muted">
-              Pengosongan tidak menyentuh <code>shifts</code>, <code>transactions</code>, maupun{' '}
-              <code>wastes</code> — itu data keuangan.
-            </p>
-          </CardContent>
-        </Card>
-
+      <div className="grid gap-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

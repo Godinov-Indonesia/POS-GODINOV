@@ -21,6 +21,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const hydrated = useHasHydrated()
   const status = useSessionStore((s) => s.status)
 
+  const [isMobileOpen, setIsMobileOpen] = React.useState(false)
+  const [isDesktopOpen, setIsDesktopOpen] = React.useState(true)
+
+  const toggleSidebar = React.useCallback(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setIsMobileOpen((prev) => !prev)
+    } else {
+      setIsDesktopOpen((prev) => !prev)
+    }
+  }, [])
+
   const usable = status === 'authenticated' || status === 'refreshing'
 
   React.useEffect(() => {
@@ -41,11 +52,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-dvh bg-bg">
-      <AdminSidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <AdminHeader />
-        <main className="min-w-0 flex-1 p-4 lg:p-6">{children}</main>
+    <div className="flex h-dvh overflow-hidden bg-bg">
+      <AdminSidebar
+        isMobileOpen={isMobileOpen}
+        isDesktopOpen={isDesktopOpen}
+        onCloseMobile={() => setIsMobileOpen(false)}
+        onToggleDesktop={toggleSidebar}
+      />
+      <div className="flex min-w-0 flex-1 flex-col h-dvh overflow-hidden">
+        <AdminHeader onToggleSidebar={toggleSidebar} />
+        <main className="min-w-0 flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
       </div>
     </div>
   )

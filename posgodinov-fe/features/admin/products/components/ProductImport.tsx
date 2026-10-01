@@ -18,7 +18,7 @@ import { OutletGuard } from '@/features/admin/shell/OutletGuard'
 import { PageHeader } from '@/features/admin/shell/PageHeader'
 import { toMinor } from '@/lib/money'
 
-const TEMPLATE = 'nama,harga,kategori,url_gambar\nKopi Susu Gula Aren,22000,Kopi,\nEs Teh Manis,8000,Non-Kopi,'
+const TEMPLATE = 'nama,harga,kategori,url_gambar,sku\nKopi Susu Gula Aren,22000,Kopi,,KOP-001\nEs Teh Manis,8000,Non-Kopi,,TEH-001'
 
 /** D-12 Impor Produk Massal — docs/04 §B.1. */
 export function ProductImport() {
@@ -60,6 +60,7 @@ function ImportInner({ outletId }: { outletId: string }) {
       await createBulk.mutateAsync(
         parsed.rows.map((row) => ({
           name: row.name,
+          sku: row.sku,
           price_minor: toMinor(row.price),
           image_url: row.imageUrl || undefined,
           category_id: categoryByName.get(row.categoryName.toLowerCase())?.id ?? null,
@@ -76,10 +77,10 @@ function ImportInner({ outletId }: { outletId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Banner tone="warning" title="Impor massal bersifat all-or-nothing">
-        Satu baris yang ditolak server membatalkan <strong>seluruh</strong> batch. Produk hasil
-        impor juga dibuat <strong>tanpa resep (BOM)</strong> — stoknya tidak akan terpotong sampai
-        resep ditambahkan lewat form produk.
+      <Banner tone="warning" title="Perhatian untuk impor massal">
+        Jika ada satu baris data yang tidak valid, proses impor seluruh data akan dibatalkan. Produk hasil
+        impor dibuat <strong>tanpa resep</strong> — tambahkan resep bahan baku pada menu masing-masing agar
+        stok bahan dapat terpotong otomatis saat penjualan.
       </Banner>
 
       <Card>
@@ -90,7 +91,7 @@ function ImportInner({ outletId }: { outletId: string }) {
           <Field
             label="Tempel di sini"
             htmlFor="csv"
-            hint="Kolom: nama, harga, kategori, url_gambar. Baris header opsional."
+            hint="Kolom: nama, harga, kategori, url_gambar, sku. Baris header opsional."
           >
             <Textarea
               id="csv"
@@ -140,7 +141,12 @@ function ImportInner({ outletId }: { outletId: string }) {
             <TBody>
               {parsed.rows.map((row) => (
                 <TR key={row.line}>
-                  <TD className="font-medium">{row.name}</TD>
+                  <TD className="font-medium">
+                    <div>{row.name}</div>
+                    {row.sku ? (
+                      <div className="font-mono text-xs font-normal text-fg-muted">{row.sku}</div>
+                    ) : null}
+                  </TD>
                   <TD numeric>
                     <Money minor={toMinor(row.price)} size="sm" />
                   </TD>

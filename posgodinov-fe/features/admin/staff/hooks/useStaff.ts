@@ -7,10 +7,11 @@ import {
   deleteStaff,
   listAllStaff,
   listStaffByOutlet,
+  transferStaff,
   updateStaff,
 } from '@/lib/api/endpoints/staff'
 import { queryKeys } from '@/lib/query/keys'
-import type { CreateStaffRequest, UpdateStaffRequest } from '@/lib/types/api'
+import type { CreateStaffRequest, TransferStaffRequest, UpdateStaffRequest } from '@/lib/types/api'
 
 /**
  * `outletId === null` berarti "semua outlet" (`GET /v1/business/staff`), yang
@@ -45,6 +46,18 @@ export function useUpdateStaff() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: UpdateStaffRequest }) => updateStaff(id, body),
     onSuccess: (staff) => invalidate(staff.outlet_id),
+  })
+}
+
+export function useTransferStaff() {
+  const invalidate = useInvalidateStaff()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: TransferStaffRequest }) =>
+      transferStaff(id, body),
+    onSuccess: (staff) => {
+      invalidate()
+      invalidate(staff.outlet_id)
+    },
   })
 }
 

@@ -49,9 +49,12 @@ func BusinessMiddleware(businessManager *database.BusinessDBManager) func(http.H
 
 			// Terapkan RLS (Row-Level Security) jika request berasal dari device (POS/Gudang)
 			if payload != nil && payload.Type == "device" {
-				// Gunakan Transaction agar SET LOCAL aman dan tidak bocor ke koneksi lain di pool
+				// Gunakan Transaction dan set_config(..., true) agar aman secara parameter dan tidak bocor ke koneksi lain di pool
 				businessDB.Transaction(func(tx *gorm.DB) error {
-					tx.Exec("SET LOCAL app.current_outlet_id = ?", payload.ID)
+					if err := tx.Exec("SELECT set_config('app.current_outlet_id', ?, true)", payload.ID).Error; err != nil {
+						response.Error(w, http.StatusInternalServerError, "Gagal menginisialisasi sesi outlet", nil)
+						return err
+					}
 					ctx := context.WithValue(r.Context(), database.BusinessDBKey, tx)
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return nil

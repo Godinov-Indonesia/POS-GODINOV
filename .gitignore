@@ -25,6 +25,7 @@
 .DS_Store
 Thumbs.db
 *.swp
+.idea/
 
 # Artefak runner QA Web (qa_runner_web.sh) — log layanan & binary sementara.
 /.qa-logs/

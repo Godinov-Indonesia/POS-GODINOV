@@ -55,6 +55,11 @@ func (m *MockFeatureStaffRepository) Delete(ctx context.Context, id string) erro
 	return nil
 }
 
+func (m *MockFeatureStaffRepository) HasActiveShift(ctx context.Context, staffID string) (bool, error) {
+	return false, nil
+}
+
+
 func TestFeatureStaffRegistration(t *testing.T) {
 	staffRepo := &MockFeatureStaffRepository{}
 	outletRepo := &MockFeatureOutletRepository{

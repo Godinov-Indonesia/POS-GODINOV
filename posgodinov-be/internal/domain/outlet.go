@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
 
@@ -9,10 +10,28 @@ type Outlet struct {
 	ID           string    `json:"id" gorm:"primaryKey;column:id"`
 	BusinessID   string    `json:"business_id" gorm:"column:business_id"`
 	SerialOutlet string    `json:"serial_outlet" gorm:"column:serial_outlet"`
+	SerialTenant string    `json:"serial_tenant" gorm:"-"`
 	Name         string    `json:"name" gorm:"column:name"`
 	Address      string    `json:"address" gorm:"column:address"`
 	IsDeleted    bool      `json:"-" gorm:"column:is_deleted;default:false"`
 	CreatedAt    time.Time `json:"created_at,omitzero" gorm:"column:created_at"`
+}
+
+func (o *Outlet) MarshalJSON() ([]byte, error) {
+	type Alias Outlet
+	serial := o.SerialOutlet
+	if serial == "" {
+		serial = o.SerialTenant
+	}
+	return json.Marshal(&struct {
+		*Alias
+		SerialOutlet string `json:"serial_outlet"`
+		SerialTenant string `json:"serial_tenant"`
+	}{
+		Alias:        (*Alias)(o),
+		SerialOutlet: serial,
+		SerialTenant: serial,
+	})
 }
 
 type CreateOutletRequest struct {

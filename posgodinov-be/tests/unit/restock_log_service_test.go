@@ -27,7 +27,7 @@ func TestRestockLogService(t *testing.T) {
 	restockRepo := &MockRestockLogRepository{}
 	rmRepo := &MockRawMaterialRepository{
 		rawMaterials: []*domain.RawMaterial{
-			{ID: "rm1", OutletID: "o1", Name: "Susu", Stock: 10, CostPerUnit: 1000},
+			{ID: "rm1", OutletID: "o1", Name: "Susu", LooseStock: 10, CostPerUnit: 1000},
 		},
 	}
 	outletRepo := &MockOutletRepository{
@@ -50,8 +50,8 @@ func TestRestockLogService(t *testing.T) {
 		}
 		
 		rm, _ := rmRepo.GetByID(ctx, "rm1")
-		if rm.Stock != 20 {
-			t.Errorf("expected stock 20, got %f", rm.Stock)
+		if rm.LooseStock != 20 {
+			t.Errorf("expected stock 20, got %f", rm.LooseStock)
 		}
 		// old value: 10 * 1000 = 10000
 		// new value: 10 * 2000 = 20000

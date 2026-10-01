@@ -480,6 +480,7 @@ export type Outlet = {
   business_id: BusinessId
   /** `serial_business` + nomor urut 3 digit. Dibutuhkan teknisi untuk device binding. */
   serial_tenant: string
+  serial_outlet?: string
   name: string
   address: string
   created_at: IsoDateTime
@@ -493,8 +494,19 @@ export type CreateOutletRequest = {
 
 /* ═══════════════════════ 4. Staff Management ═══════════════════════ */
 
-/** Selalu `"CASHIER"` — tidak dapat ditentukan saat pembuatan ([03 §4.1]). */
-export type StaffRole = 'CASHIER'
+export type StaffRole =
+  | 'CASHIER'
+  | 'SUPERVISOR'
+  | 'MANAGER'
+  | 'STOCK_KEEPER'
+  | 'ADMIN'
+
+export type StaffPermission =
+  | 'VOID_APPROVE'
+  | 'RETURN_APPROVE'
+  | 'KIOSK_EXIT'
+  | 'OPNAME_COUNT'
+  | 'FORCE_CLOSE_SHIFT'
 
 export type Staff = {
   id: string
@@ -503,6 +515,7 @@ export type Staff = {
   email: string | null
   name: string
   role: StaffRole
+  permissions?: StaffPermission[] | string[] | null
   is_active: boolean
   created_at: IsoDateTime
 }
@@ -516,6 +529,8 @@ export type CreateStaffRequest = {
   /** Panjang 4-6 karakter; tidak wajib angka. Di-hash bcrypt oleh backend. */
   pin: string
   email?: string
+  role?: StaffRole
+  permissions?: string[]
 }
 
 /**
@@ -527,8 +542,15 @@ export type UpdateStaffRequest = {
   name?: string
   /** Kirim `null` untuk mengosongkan; hilangkan field untuk membiarkan. */
   email?: string | null
+  role?: StaffRole
+  permissions?: string[]
   /** Hilangkan field untuk membiarkan. */
   is_active?: boolean
+}
+
+export type TransferStaffRequest = {
+  target_outlet_id: OutletId
+  staff_identifier?: string
 }
 
 /* ═══════════════════════ 5. Product Categories ═══════════════════════ */
@@ -571,6 +593,7 @@ export type Product = {
   id: string
   outlet_id: OutletId
   name: string
+  sku?: string | null
   /** Rupiah desimal. Konversi ke sen lewat `toMinor()` di batas API. */
   price: number
   image_url: string | null
@@ -590,6 +613,7 @@ export type RecipeInput = {
 /** ⚠️ Tidak ada endpoint upload file — `image_url` hanya berupa URL ([02 §2.5]). */
 export type CreateProductRequest = {
   name: string
+  sku?: string
   price: number
   image_url?: string
   category_id?: string | null
@@ -612,14 +636,21 @@ export type RawMaterial = {
   id: string
   outlet_id: OutletId
   name: string
+  sku?: string | null
   /** **Base unit** — seluruh stok dan resep memakai satuan ini. */
   unit: string
   /** Satuan kemasan untuk opname, mis. `"kotak"`. */
   package_unit: string | null
   /** Isi per kemasan. Wajib bila ingin opname dengan `package_unit`. */
   quantity_per_package: number | null
-  /** ⚠️ **Boleh bernilai negatif** — konsekuensi disengaja dari sync POS offline. */
-  stock: number
+  /** Jumlah kemasan utuh. */
+  package_stock: number
+  /** Jumlah bahan eceran terbuka dalam base unit. */
+  loose_stock: number
+  /** Total stok sistem dalam base unit (Postgres GENERATED STORED). */
+  unit_stock: number
+  /** Alias kompatibilitas mundur untuk unit_stock. */
+  stock?: number
   /** HPP per base unit — moving average, dihitung ulang saat restock. */
   cost_per_unit: number
   created_at: IsoDateTime
@@ -628,10 +659,12 @@ export type RawMaterial = {
 
 export type CreateRawMaterialRequest = {
   name: string
+  sku?: string
   unit: string
   package_unit?: string
   quantity_per_package?: number
-  /** Stok awal dalam base unit. Default `0`. */
+  package_stock?: number
+  loose_stock?: number
   stock?: number
   cost_per_unit?: number
 }
@@ -643,6 +676,7 @@ export type CreateRawMaterialRequest = {
  */
 export type UpdateRawMaterialRequest = {
   name?: string
+  sku?: string
   unit?: string
   package_unit?: string
   quantity_per_package?: number

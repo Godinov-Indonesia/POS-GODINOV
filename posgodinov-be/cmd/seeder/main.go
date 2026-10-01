@@ -114,6 +114,7 @@ type outletBP struct {
 
 type rawMaterialBP struct {
 	Name        string
+	SKU         string
 	Unit        string
 	PackageUnit string // kosong berarti tidak dibeli per kemasan
 	PerPackage  float64
@@ -123,6 +124,7 @@ type rawMaterialBP struct {
 
 type productBP struct {
 	Name     string
+	SKU      string
 	Price    float64
 	Category string
 	Recipe   map[string]float64 // nama bahan baku -> jumlah per porsi
@@ -178,75 +180,75 @@ func categoryNames() []string {
 
 func rawMaterialBlueprints() []rawMaterialBP {
 	return []rawMaterialBP{
-		{"Biji Kopi Arabika", "gram", "karung", 1000, 24000, 220},
-		{"Biji Kopi Robusta", "gram", "karung", 1000, 30000, 145},
-		{"Susu UHT Full Cream", "ml", "kotak", 1000, 60000, 18},
-		{"Susu Kental Manis", "gram", "kaleng", 370, 11100, 32},
-		{"Gula Pasir", "gram", "karung", 1000, 40000, 15},
-		{"Gula Aren Cair", "ml", "botol", 500, 15000, 46},
-		{"Es Batu", "gram", "pack", 5000, 150000, 2},
-		{"Cokelat Bubuk", "gram", "pack", 500, 10000, 95},
-		{"Matcha Bubuk", "gram", "pack", 250, 5000, 380},
-		{"Teh Hitam", "gram", "pack", 250, 5000, 120},
-		{"Sirup Vanilla", "ml", "botol", 750, 9000, 58},
-		{"Roti Tawar", "lembar", "bungkus", 10, 600, 1500},
-		{"Telur Ayam", "butir", "tray", 30, 900, 2400},
-		{"Daging Ayam Fillet", "gram", "pack", 500, 30000, 42},
-		{"Beras", "gram", "karung", 5000, 100000, 13},
-		{"Cup Plastik 16oz", "pcs", "dus", 1000, 12000, 520},
+		{"Biji Kopi Arabika", "RM-001", "gram", "karung", 1000, 24000, 220},
+		{"Biji Kopi Robusta", "RM-002", "gram", "karung", 1000, 30000, 145},
+		{"Susu UHT Full Cream", "RM-003", "ml", "kotak", 1000, 60000, 18},
+		{"Susu Kental Manis", "RM-004", "gram", "kaleng", 370, 11100, 32},
+		{"Gula Pasir", "RM-005", "gram", "karung", 1000, 40000, 15},
+		{"Gula Aren Cair", "RM-006", "ml", "botol", 500, 15000, 46},
+		{"Es Batu", "RM-007", "gram", "pack", 5000, 150000, 2},
+		{"Cokelat Bubuk", "RM-008", "gram", "pack", 500, 10000, 95},
+		{"Matcha Bubuk", "RM-009", "gram", "pack", 250, 5000, 380},
+		{"Teh Hitam", "RM-010", "gram", "pack", 250, 5000, 120},
+		{"Sirup Vanilla", "RM-011", "ml", "botol", 750, 9000, 58},
+		{"Roti Tawar", "RM-012", "lembar", "bungkus", 10, 600, 1500},
+		{"Telur Ayam", "RM-013", "butir", "tray", 30, 900, 2400},
+		{"Daging Ayam Fillet", "RM-014", "gram", "pack", 500, 30000, 42},
+		{"Beras", "RM-015", "gram", "karung", 5000, 100000, 13},
+		{"Cup Plastik 16oz", "RM-016", "pcs", "dus", 1000, 12000, 520},
 	}
 }
 
 func productBlueprints() []productBP {
 	return []productBP{
-		{"Espresso", 18000, "Kopi", map[string]float64{
+		{"Espresso", "PRD-001", 18000, "Kopi", map[string]float64{
 			"Biji Kopi Arabika": 18, "Cup Plastik 16oz": 1}},
-		{"Americano", 22000, "Kopi", map[string]float64{
+		{"Americano", "PRD-002", 22000, "Kopi", map[string]float64{
 			"Biji Kopi Arabika": 18, "Es Batu": 120, "Cup Plastik 16oz": 1}},
-		{"Kopi Susu Gula Aren", 26000, "Kopi", map[string]float64{
+		{"Kopi Susu Gula Aren", "PRD-003", 26000, "Kopi", map[string]float64{
 			"Biji Kopi Robusta": 20, "Susu UHT Full Cream": 150,
 			"Gula Aren Cair": 25, "Es Batu": 120, "Cup Plastik 16oz": 1}},
-		{"Cappuccino", 28000, "Kopi", map[string]float64{
+		{"Cappuccino", "PRD-004", 28000, "Kopi", map[string]float64{
 			"Biji Kopi Arabika": 18, "Susu UHT Full Cream": 180, "Cup Plastik 16oz": 1}},
-		{"Cafe Latte", 30000, "Kopi", map[string]float64{
+		{"Cafe Latte", "PRD-005", 30000, "Kopi", map[string]float64{
 			"Biji Kopi Arabika": 18, "Susu UHT Full Cream": 200, "Cup Plastik 16oz": 1}},
-		{"Kopi Tubruk", 15000, "Kopi", map[string]float64{
+		{"Kopi Tubruk", "PRD-006", 15000, "Kopi", map[string]float64{
 			"Biji Kopi Robusta": 15, "Gula Pasir": 10, "Cup Plastik 16oz": 1}},
 
-		{"Matcha Latte", 32000, "Non-Kopi", map[string]float64{
+		{"Matcha Latte", "PRD-007", 32000, "Non-Kopi", map[string]float64{
 			"Matcha Bubuk": 8, "Susu UHT Full Cream": 200, "Gula Pasir": 12,
 			"Es Batu": 120, "Cup Plastik 16oz": 1}},
-		{"Cokelat Panas", 27000, "Non-Kopi", map[string]float64{
+		{"Cokelat Panas", "PRD-008", 27000, "Non-Kopi", map[string]float64{
 			"Cokelat Bubuk": 20, "Susu UHT Full Cream": 180, "Gula Pasir": 10,
 			"Cup Plastik 16oz": 1}},
-		{"Teh Tarik", 20000, "Non-Kopi", map[string]float64{
+		{"Teh Tarik", "PRD-009", 20000, "Non-Kopi", map[string]float64{
 			"Teh Hitam": 8, "Susu Kental Manis": 30, "Es Batu": 100, "Cup Plastik 16oz": 1}},
-		{"Vanilla Milkshake", 33000, "Non-Kopi", map[string]float64{
+		{"Vanilla Milkshake", "PRD-010", 33000, "Non-Kopi", map[string]float64{
 			"Susu UHT Full Cream": 200, "Sirup Vanilla": 30, "Gula Pasir": 10,
 			"Cup Plastik 16oz": 1}},
-		{"Es Teh Manis", 10000, "Non-Kopi", map[string]float64{
+		{"Es Teh Manis", "PRD-011", 10000, "Non-Kopi", map[string]float64{
 			"Teh Hitam": 6, "Gula Pasir": 15, "Es Batu": 150, "Cup Plastik 16oz": 1}},
 
-		{"Nasi Ayam Geprek", 28000, "Makanan Berat", map[string]float64{
+		{"Nasi Ayam Geprek", "PRD-012", 28000, "Makanan Berat", map[string]float64{
 			"Beras": 200, "Daging Ayam Fillet": 150, "Telur Ayam": 1}},
-		{"Nasi Goreng Spesial", 30000, "Makanan Berat", map[string]float64{
+		{"Nasi Goreng Spesial", "PRD-013", 30000, "Makanan Berat", map[string]float64{
 			"Beras": 220, "Telur Ayam": 1, "Daging Ayam Fillet": 80}},
-		{"Ayam Katsu Rice Bowl", 32000, "Makanan Berat", map[string]float64{
+		{"Ayam Katsu Rice Bowl", "PRD-014", 32000, "Makanan Berat", map[string]float64{
 			"Beras": 200, "Daging Ayam Fillet": 160, "Telur Ayam": 1}},
 
-		{"Roti Bakar Cokelat", 18000, "Snack", map[string]float64{
+		{"Roti Bakar Cokelat", "PRD-015", 18000, "Snack", map[string]float64{
 			"Roti Tawar": 2, "Cokelat Bubuk": 15, "Susu Kental Manis": 20}},
 		// Sengaja tanpa resep: produk beli-jadi memang ada di outlet nyata, dan
 		// layar opname maupun HPP harus tetap benar ketika sebuah produk tidak
 		// mengurangi bahan baku apa pun.
-		{"Kentang Goreng", 20000, "Snack", nil},
+		{"Kentang Goreng", "PRD-016", 20000, "Snack", nil},
 
-		{"Pudding Cokelat", 16000, "Dessert", map[string]float64{
+		{"Pudding Cokelat", "PRD-017", 16000, "Dessert", map[string]float64{
 			"Cokelat Bubuk": 18, "Susu UHT Full Cream": 120, "Gula Pasir": 20}},
-		{"Es Krim Vanilla", 15000, "Dessert", map[string]float64{
+		{"Es Krim Vanilla", "PRD-018", 15000, "Dessert", map[string]float64{
 			"Susu UHT Full Cream": 150, "Sirup Vanilla": 20, "Gula Pasir": 15}},
 
-		{"Paket Kopi + Roti Bakar", 40000, "Paket Bundling", map[string]float64{
+		{"Paket Kopi + Roti Bakar", "PRD-019", 40000, "Paket Bundling", map[string]float64{
 			"Biji Kopi Robusta": 20, "Susu UHT Full Cream": 150, "Gula Aren Cair": 25,
 			"Roti Tawar": 2, "Cokelat Bubuk": 15, "Cup Plastik 16oz": 1}},
 	}
@@ -517,9 +519,20 @@ func (s *seeder) seedOutletMaster(bp outletBP) (*outletData, error) {
 	// ── Bahan baku ──────────────────────────────────────────────────────────
 	var rms []*domain.RawMaterial
 	for _, rb := range rawMaterialBlueprints() {
+		pkgStock := 0
+		looseStock := rb.Stock
+		if rb.PackageUnit != "" && rb.PerPackage > 0 {
+			pkgStock = int(rb.Stock / rb.PerPackage)
+			looseStock = rb.Stock - float64(pkgStock)*rb.PerPackage
+		}
+		var sku *string
+		if rb.SKU != "" {
+			s := rb.SKU
+			sku = &s
+		}
 		rm := &domain.RawMaterial{
-			ID: utils.NewUUID(), OutletID: bp.ID, Name: rb.Name, Unit: rb.Unit,
-			Stock: rb.Stock, CostPerUnit: rb.CostPerUnit,
+			ID: utils.NewUUID(), OutletID: bp.ID, Name: rb.Name, SKU: sku, Unit: rb.Unit,
+			PackageStock: pkgStock, LooseStock: looseStock, CostPerUnit: rb.CostPerUnit,
 			CreatedAt: created, UpdatedAt: created,
 		}
 		if rb.PackageUnit != "" {
@@ -543,8 +556,13 @@ func (s *seeder) seedOutletMaster(bp outletBP) (*outletData, error) {
 		if c, ok := od.cats[pb.Category]; ok {
 			catID = &c.ID
 		}
+		var pSku *string
+		if pb.SKU != "" {
+			s := pb.SKU
+			pSku = &s
+		}
 		p := &domain.Product{
-			ID: utils.NewUUID(), OutletID: bp.ID, Name: pb.Name, Price: pb.Price,
+			ID: utils.NewUUID(), OutletID: bp.ID, Name: pb.Name, SKU: pSku, Price: pb.Price,
 			CategoryID: catID, CreatedAt: created, UpdatedAt: created,
 			ImageURL: fmt.Sprintf("https://cdn.posgodinov.local/produk/%s.jpg", slug(pb.Name)),
 		}
@@ -598,7 +616,6 @@ func (s *seeder) seedInventoryLogs(od *outletData) error {
 
 	var restocks []*domain.RestockLog
 	var wastes []*domain.WasteLog
-	var opnames []*domain.StockOpname
 
 	// Kiriman supplier tidak datang tiap hari.
 	for d := s.days; d >= 1; d-- {
@@ -645,42 +662,6 @@ func (s *seeder) seedInventoryLogs(od *outletData) error {
 		}
 	}
 
-	// Opname gaya lama (tabel stock_opnames) tetap diisi: laporan v1 masih
-	// membacanya, dan QA perlu melihat kedua jalur berdampingan.
-	for d := s.days; d >= 1; d -= 7 {
-		day := s.dayStart(d)
-		for _, rm := range od.rms {
-			if s.rng.Float64() > 0.5 {
-				continue
-			}
-			system := rm.Stock
-			actual := math.Max(0, round2(system+(s.rng.Float64()-0.55)*system*0.03))
-			inputType := "base_unit"
-			var sysPkg, actPkg float64
-			if rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
-				if s.rng.Float64() < 0.4 {
-					inputType = "package_unit"
-				}
-				sysPkg = round2(system / *rm.QuantityPerPackage)
-				actPkg = round2(actual / *rm.QuantityPerPackage)
-			}
-			diffValue := round2((actual - system) * rm.CostPerUnit)
-			opnames = append(opnames, &domain.StockOpname{
-				ID: utils.NewUUID(), OutletID: od.bp.ID, RawMaterialID: rm.ID,
-				SystemStock: system, ActualStock: actual,
-				Difference:            round2(actual - system),
-				FraudFlag:             isFraud(diffValue, system, actual),
-				RecordedBy:            keeper.ID,
-				InputType:             inputType,
-				SystemPackageQuantity: sysPkg,
-				ActualPackageQuantity: actPkg,
-				DifferenceValue:       diffValue,
-				Notes:                 "Opname mingguan",
-				CreatedAt:             day.Add(22 * time.Hour),
-			})
-		}
-	}
-
 	if len(restocks) > 0 {
 		if err := s.db.CreateInBatches(restocks, 200).Error; err != nil {
 			return err
@@ -692,12 +673,6 @@ func (s *seeder) seedInventoryLogs(od *outletData) error {
 			return err
 		}
 		s.add("waste_logs", len(wastes))
-	}
-	if len(opnames) > 0 {
-		if err := s.db.CreateInBatches(opnames, 200).Error; err != nil {
-			return err
-		}
-		s.add("stock_opnames", len(opnames))
 	}
 	return nil
 }
@@ -1233,20 +1208,19 @@ func (s *seeder) flushOperations() error {
 func (s *seeder) seedOpnameSessions(od *outletData) error {
 	keeper := od.staffOf("stok01")
 	manager := od.staffOf("manager01")
-	device := od.bp.Devices[0]
 
-	// Tiga status sekaligus supaya QA dapat menguji ketiga cabang layar tanpa
-	// harus menyiapkan sesi sendiri: DRAFT masih bisa diubah, LOCKED menunggu
-	// persetujuan, APPROVED sudah menyesuaikan stok.
+	// Tiga status sekaligus supaya QA dapat menguji ketiga cabang layar:
+	// OPEN masih bisa diubah, CLOSED menunggu persetujuan, APPROVED sudah
+	// menyesuaikan stok.
 	specs := []struct {
 		status  string
 		dayBack int
 		scope   string
 		notes   string
 	}{
-		{domain.OpnameStatusApproved, 5, domain.OpnameScopeFull, "Opname bulanan, disetujui manager"},
-		{domain.OpnameStatusLocked, 2, domain.OpnameScopeCategory, "Menunggu persetujuan manager"},
-		{domain.OpnameStatusDraft, 0, domain.OpnameScopePartial, "Hitungan berjalan"},
+		{domain.SOStatusApproved, 5, domain.SOScopeFull, "Opname bulanan, disetujui manager"},
+		{domain.SOStatusClosed, 2, domain.SOScopeCategory, "Menunggu persetujuan manager"},
+		{domain.SOStatusOpen, 0, domain.SOScopePartial, "Form SO baru"},
 	}
 
 	var sessions []*domain.OpnameSession
@@ -1259,52 +1233,54 @@ func (s *seeder) seedOpnameSessions(od *outletData) error {
 		}
 		sess := &domain.OpnameSession{
 			ID: utils.NewUUID(), OutletID: od.bp.ID, BusinessID: businessID,
-			DeviceID: device, Scope: sp.scope, Status: sp.status,
-			CountedBy: keeper.ID, Notes: sp.notes,
-			ClientCreatedAt: at, CreatedAt: at.Add(time.Minute),
+			Scope: sp.scope, Status: sp.status,
+			CreatedBy: keeper.ID, Notes: sp.notes,
+			CreatedAt: at.Add(time.Minute),
 		}
-		// ck_opname_locked_ts: DRAFT wajib locked_at NULL, selain DRAFT wajib terisi.
-		if sp.status != domain.OpnameStatusDraft {
-			sess.LockedAt = ptrT(at.Add(30 * time.Minute))
+		// Sesi yang sudah CLOSED ke atas harus punya closed_at.
+		if sp.status != domain.SOStatusOpen && sp.status != domain.SOStatusPublished && sp.status != domain.SOStatusCounting {
+			sess.ClosedAt = ptrT(at.Add(30 * time.Minute))
+			sess.ClosedBy = ptrS(manager.ID)
 		}
-		if sp.status == domain.OpnameStatusApproved {
+		if sp.status == domain.SOStatusApproved {
 			sess.ApprovedBy = ptrS(manager.ID)
 			sess.ApprovedAt = ptrT(at.Add(50 * time.Minute))
 		}
 
 		count := len(od.rms)
 		switch sp.scope {
-		case domain.OpnameScopeCategory:
+		case domain.SOScopeCategory:
 			count = 8
-		case domain.OpnameScopePartial:
+		case domain.SOScopePartial:
 			count = 5
 		}
 		for i := 0; i < count && i < len(od.rms); i++ {
 			rm := od.rms[i]
 			system := s.projectedStock(rm)
 			actual := math.Max(0, round2(system+(s.rng.Float64()-0.55)*system*0.04))
-			inputType := "base_unit"
-			var actPkg, sysPkg *float64
+
+			actPkgs, actLoose := ptrInt(0), ptrF(actual)
 			if rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
-				if s.rng.Float64() < 0.4 {
-					inputType = "package_unit"
-				}
-				actPkg = ptrF(round2(actual / *rm.QuantityPerPackage))
-				sysPkg = ptrF(round2(system / *rm.QuantityPerPackage))
+				pkgs := int(actual / *rm.QuantityPerPackage)
+				actPkgs = ptrInt(pkgs)
+				actLoose = ptrF(actual - float64(pkgs)*(*rm.QuantityPerPackage))
 			}
 
 			it := &domain.OpnameSessionItem{
 				ID: utils.NewUUID(), SessionID: sess.ID, RawMaterialID: rm.ID,
-				ActualStock: actual, ActualPackageQuantity: actPkg,
-				InputType: inputType,
+				ActualStock: actual, ActualPackages: actPkgs, ActualLoose: actLoose,
 			}
 			// Nilai sistem baru dibekukan saat sesi dikunci; sesi DRAFT memang
 			// belum memilikinya, dan layar harus tahan terhadap itu.
-			if sp.status != domain.OpnameStatusDraft {
+			if sp.status != domain.SOStatusOpen && sp.status != domain.SOStatusPublished && sp.status != domain.SOStatusCounting {
 				diff := round2(actual - system)
 				diffValue := round2(diff * rm.CostPerUnit)
 				it.SystemStock = ptrF(system)
-				it.SystemPackageQuantity = sysPkg
+				if rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
+					sysPkgInt := int(system / *rm.QuantityPerPackage)
+					it.SystemPackageStock = ptrInt(sysPkgInt)
+					it.SystemLooseStock = ptrF(system - float64(sysPkgInt)*(*rm.QuantityPerPackage))
+				}
 				it.Difference = ptrF(diff)
 				it.DifferenceValue = ptrF(diffValue)
 				it.FraudFlag = isFraud(diffValue, system, actual)
@@ -1313,7 +1289,7 @@ func (s *seeder) seedOpnameSessions(od *outletData) error {
 
 			// Persetujuan opname adalah satu-satunya hal yang memindahkan stok
 			// ke angka hasil hitung fisik.
-			if sp.status == domain.OpnameStatusApproved {
+			if sp.status == domain.SOStatusApproved {
 				s.stockAdj[rm.ID] = actual
 			}
 		}
@@ -1338,10 +1314,16 @@ func (s *seeder) seedOpnameSessions(od *outletData) error {
 // projectedStock adalah stok awal dikurangi pemakaian bersih (penjualan dan
 // pembuangan) ditambah restock.
 func (s *seeder) projectedStock(rm *domain.RawMaterial) float64 {
-	v := round2(rm.Stock - s.consumed[rm.ID])
+	initialStock := float64(rm.PackageStock)
+	if rm.QuantityPerPackage != nil {
+		initialStock = float64(rm.PackageStock)*(*rm.QuantityPerPackage) + rm.LooseStock
+	} else {
+		initialStock = rm.LooseStock
+	}
+	v := round2(initialStock - s.consumed[rm.ID])
 	// Lantai 5% menjaga stok tidak pernah negatif tanpa harus membesar-besarkan
 	// stok awal sampai tidak masuk akal.
-	if floor := round2(rm.Stock * 0.05); v < floor {
+	if floor := round2(initialStock * 0.05); v < floor {
 		return floor
 	}
 	return v
@@ -1355,12 +1337,23 @@ func (s *seeder) applyStock() error {
 			if adj, ok := s.stockAdj[rm.ID]; ok {
 				final = adj // sesi opname yang disetujui menang
 			}
+			pkgStock := 0
+			looseStock := final
+			if rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
+				pkgStock = int(final / *rm.QuantityPerPackage)
+				looseStock = final - float64(pkgStock)*(*rm.QuantityPerPackage)
+			}
 			if err := s.db.Model(&domain.RawMaterial{}).
 				Where("id = ?", rm.ID).
-				Updates(map[string]any{"stock": final, "updated_at": s.now}).Error; err != nil {
+				Updates(map[string]any{
+					"package_stock": pkgStock,
+					"loose_stock":   looseStock,
+					"updated_at":    s.now,
+				}).Error; err != nil {
 				return fmt.Errorf("gagal memperbarui stok %s: %w", rm.Name, err)
 			}
-			rm.Stock = final
+			rm.PackageStock = pkgStock
+			rm.LooseStock = looseStock
 			n++
 		}
 	}
@@ -1496,5 +1489,6 @@ func slug(v string) string {
 
 func ptrS(v string) *string       { return &v }
 func ptrF(v float64) *float64     { return &v }
+func ptrInt(v int) *int           { return &v }
 func ptrI64(v int64) *int64       { return &v }
 func ptrT(v time.Time) *time.Time { return &v }

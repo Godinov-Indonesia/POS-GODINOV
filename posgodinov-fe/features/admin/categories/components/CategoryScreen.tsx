@@ -28,9 +28,7 @@ export function CategoryScreen() {
       />
 
       <Banner tone="warning" title="Kategori bersifat permanen">
-        Backend tidak menyediakan endpoint ubah maupun hapus kategori — kolom <code>is_deleted</code>{' '}
-        ada di tabel tetapi tidak ada cara mengaktifkannya. <strong>Periksa penulisan sebelum
-        menyimpan.</strong> Karena itu halaman ini sengaja tidak punya tombol edit atau hapus.
+        Kategori yang telah dibuat tidak dapat diubah atau dihapus. <strong>Pastikan penulisan nama kategori sudah benar sebelum menyimpan.</strong>
       </Banner>
 
       <OutletGuard>{(outletId) => <CategoryContent outletId={outletId} />}</OutletGuard>

@@ -18,17 +18,21 @@ import {
   type BomRow,
 } from '@/features/admin/products/components/BomBuilder'
 import { HppSummary } from '@/features/admin/products/components/HppSummary'
+import { ProductImageUploader } from '@/features/admin/products/components/ProductImageUploader'
 import { useCreateProduct, useProducts, useUpdateProduct } from '@/features/admin/products/hooks/useProducts'
 import { findDuplicateRawMaterialIds } from '@/features/admin/products/lib/hpp'
 import { OutletGuard } from '@/features/admin/shell/OutletGuard'
 import { PageHeader } from '@/features/admin/shell/PageHeader'
+import { uploadImage } from '@/lib/api/endpoints/uploads'
 import { toMajor, toMinor } from '@/lib/money'
 import type { ProductView, RawMaterialView } from '@/lib/types/domain'
 
 type Values = {
   name: string
+  sku: string
   price: string
   image_url: string
+  image_file?: File | null
   category_id: string
   rows: BomRow[]
 }
@@ -44,7 +48,7 @@ function CreateInner({ outletId }: { outletId: string }) {
     <ProductFormShell
       outletId={outletId}
       title="Tambah Produk"
-      initial={{ name: '', price: '', image_url: '', category_id: '', rows: [newBomRow()] }}
+      initial={{ name: '', sku: '', price: '', image_url: '', category_id: '', rows: [newBomRow()] }}
       pending={createProduct.isPending}
       onSubmit={(input) => createProduct.mutateAsync(input)}
     />
@@ -78,6 +82,7 @@ function EditLoaded({ outletId, product }: { outletId: string; product: ProductV
       editing
       initial={{
         name: product.name,
+        sku: product.sku ?? '',
         price: toMajor(product.price_minor).toString(),
         image_url: product.image_url ?? '',
         category_id: product.category_id ?? '',
@@ -110,6 +115,7 @@ function ProductFormShell({
   pending: boolean
   onSubmit: (input: {
     name: string
+    sku?: string
     price_minor: number
     image_url?: string
     category_id: string | null
@@ -122,6 +128,7 @@ function ProductFormShell({
 
   const [values, setValues] = React.useState<Values>(initial)
   const [error, setError] = React.useState<string | null>(null)
+  const [isUploadingImage, setIsUploadingImage] = React.useState(false)
 
   // Identitas array harus stabil: `rawMaterials ?? []` membuat array baru pada
   // setiap render dan membatalkan seluruh useMemo di bawahnya.
@@ -175,10 +182,26 @@ function ProductFormShell({
     setError(null)
 
     try {
+      let finalImageUrl = values.image_url.trim() || undefined
+
+      // Mode Deferred Upload: File baru diunggah ke Cloudinary saat tombol Simpan ditekan
+      if (values.image_file) {
+        setIsUploadingImage(true)
+        try {
+          finalImageUrl = await uploadImage(values.image_file, {
+            purpose: 'products',
+            outletId,
+          })
+        } finally {
+          setIsUploadingImage(false)
+        }
+      }
+
       await onSubmit({
         name: values.name.trim(),
+        sku: values.sku.trim() || undefined,
         price_minor: priceMinor,
-        image_url: values.image_url.trim() || undefined,
+        image_url: finalImageUrl,
         // `category_id` SELALU ditimpa backend, termasuk dengan null ([03 §6.4]).
         category_id: values.category_id || null,
         // Penggantian total — array wajib lengkap, bukan hanya yang berubah.
@@ -220,6 +243,15 @@ function ProductFormShell({
             />
           </Field>
 
+          <Field label="SKU / Barcode" htmlFor="sku" hint="Opsional.">
+            <Input
+              id="sku"
+              value={values.sku}
+              onChange={(e) => setValues((v) => ({ ...v, sku: e.target.value }))}
+              placeholder="Contoh: PRD-001"
+            />
+          </Field>
+
           <Field label="Kategori" htmlFor="category_id" hint="Opsional.">
             <Select
               id="category_id"
@@ -245,19 +277,18 @@ function ProductFormShell({
           </Field>
 
           <Field
-            label="URL gambar"
+            label="Gambar produk"
             htmlFor="image_url"
-            hint={
-              editing
-                ? 'Tidak ada endpoint unggah file. Nilai ini tidak dapat dikosongkan lewat API — mengosongkannya akan diabaikan backend.'
-                : 'Opsional. Tidak ada endpoint unggah file — host gambar sendiri lalu tempel URL-nya.'
-            }
+            hint="Opsional. Unggah gambar produk (PNG/JPG/WebP maks 5MB) atau gunakan URL manual."
+            className="sm:col-span-2"
           >
-            <Input
-              id="image_url"
-              type="url"
+            <ProductImageUploader
               value={values.image_url}
-              onChange={(e) => setValues((v) => ({ ...v, image_url: e.target.value }))}
+              file={values.image_file}
+              onChange={(url) => setValues((v) => ({ ...v, image_url: url }))}
+              onFileChange={(file) => setValues((v) => ({ ...v, image_file: file }))}
+              outletId={outletId}
+              disabled={pending || isUploadingImage}
             />
           </Field>
         </CardContent>
@@ -279,11 +310,11 @@ function ProductFormShell({
       ) : null}
 
       <div className="flex items-center justify-between gap-2">
-        <Button variant="neutral" onClick={() => router.back()}>
+        <Button variant="neutral" onClick={() => router.back()} disabled={isUploadingImage}>
           Batal
         </Button>
-        <Button type="submit" variant="primary" size="lg" disabled={pending}>
-          {pending ? 'Menyimpan…' : 'Simpan Produk'}
+        <Button type="submit" variant="primary" size="lg" disabled={pending || isUploadingImage}>
+          {isUploadingImage ? 'Mengunggah gambar…' : pending ? 'Menyimpan…' : 'Simpan Produk'}
         </Button>
       </div>
     </form>

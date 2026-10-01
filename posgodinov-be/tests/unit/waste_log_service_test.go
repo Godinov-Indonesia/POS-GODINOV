@@ -34,7 +34,7 @@ func TestWasteLogService(t *testing.T) {
 	wasteRepo := &MockWasteLogRepository{}
 	rmRepo := &MockRawMaterialRepository{
 		rawMaterials: []*domain.RawMaterial{
-			{ID: "rm1", OutletID: "o1", Name: "Susu", Stock: 100},
+			{ID: "rm1", OutletID: "o1", Name: "Susu", LooseStock: 100},
 		},
 	}
 	outletRepo := &MockOutletRepository{
@@ -61,8 +61,8 @@ func TestWasteLogService(t *testing.T) {
 		
 		// Verify stock decreased
 		rm, _ := rmRepo.GetByID(ctx, "rm1")
-		if rm.Stock != 90 {
-			t.Errorf("expected stock to be 90, got %f", rm.Stock)
+		if rm.LooseStock != 90 {
+			t.Errorf("expected stock to be 90, got %f", rm.LooseStock)
 		}
 	})
 

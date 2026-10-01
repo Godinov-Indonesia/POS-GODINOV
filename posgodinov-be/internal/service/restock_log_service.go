@@ -37,19 +37,14 @@ func (s *restockLogService) RecordRestock(ctx context.Context, businessID, outle
 		return nil, errors.New("harga per unit tidak valid")
 	}
 
-	// 1. Pastikan outlet valid dan milik bisnis
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	var createdLog *domain.RestockLog
 
 	// 2. Gunakan Transaction Manager
-	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		// Lock raw material
 		rm, rmErr := s.rmRepo.LockByID(txCtx, rawMaterialID)
 		if rmErr != nil || rm.OutletID != outletID {
@@ -57,16 +52,29 @@ func (s *restockLogService) RecordRestock(ctx context.Context, businessID, outle
 		}
 
 		// Hitung HPP Baru (Moving Average)
-		oldTotalValue := rm.Stock * rm.CostPerUnit
+		oldTotalUnits := rm.TotalStock()
+		oldTotalValue := oldTotalUnits * rm.CostPerUnit
 		newTotalValue := req.Quantity * req.CostPerUnit
-		
-		newStock := rm.Stock + req.Quantity
-		var newCost float64
-		if newStock > 0 {
-			newCost = (oldTotalValue + newTotalValue) / newStock
+
+		newPackageStock := rm.PackageStock
+		newLooseStock := rm.LooseStock
+		if rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
+			qtyPerPkg := *rm.QuantityPerPackage
+			packages := int(req.Quantity / qtyPerPkg)
+			remainder := req.Quantity - float64(packages)*qtyPerPkg
+			newPackageStock += packages
+			newLooseStock += remainder
+		} else {
+			newLooseStock += req.Quantity
 		}
 
-		if updateErr := s.rmRepo.UpdateStockAndCost(txCtx, rm.ID, newStock, newCost); updateErr != nil {
+		totalUnits := oldTotalUnits + req.Quantity
+		var newCost float64
+		if totalUnits > 0 {
+			newCost = (oldTotalValue + newTotalValue) / totalUnits
+		}
+
+		if updateErr := s.rmRepo.UpdateDualStockAndCost(txCtx, rm.ID, newPackageStock, newLooseStock, newCost); updateErr != nil {
 			return errors.New("gagal mengupdate stok dan HPP bahan baku")
 		}
 
@@ -97,18 +105,13 @@ func (s *restockLogService) RecordRestock(ctx context.Context, businessID, outle
 }
 
 func (s *restockLogService) RecordBulkRestock(ctx context.Context, businessID, outletID, staffID string, reqs []*domain.CreateBulkRestockLogRequest) ([]*domain.RestockLog, error) {
-	// Pastikan outlet valid dan milik bisnis
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	var createdLogs []*domain.RestockLog
 
-	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		rmIDs := make([]string, 0)
 		rmIDMap := make(map[string]bool)
 		for _, req := range reqs {
@@ -136,16 +139,29 @@ func (s *restockLogService) RecordBulkRestock(ctx context.Context, businessID, o
 				return errors.New("bahan baku tidak ditemukan atau tidak valid untuk outlet ini")
 			}
 
-			oldTotalValue := rm.Stock * rm.CostPerUnit
+			oldTotalUnits := rm.TotalStock()
+			oldTotalValue := oldTotalUnits * rm.CostPerUnit
 			newTotalValue := req.Quantity * req.CostPerUnit
 
-			newStock := rm.Stock + req.Quantity
-			var newCost float64
-			if newStock > 0 {
-				newCost = (oldTotalValue + newTotalValue) / newStock
+			newPackageStock := rm.PackageStock
+			newLooseStock := rm.LooseStock
+			if rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
+				qtyPerPkg := *rm.QuantityPerPackage
+				packages := int(req.Quantity / qtyPerPkg)
+				remainder := req.Quantity - float64(packages)*qtyPerPkg
+				newPackageStock += packages
+				newLooseStock += remainder
+			} else {
+				newLooseStock += req.Quantity
 			}
 
-			if updateErr := s.rmRepo.UpdateStockAndCost(txCtx, rm.ID, newStock, newCost); updateErr != nil {
+			totalUnits := oldTotalUnits + req.Quantity
+			var newCost float64
+			if totalUnits > 0 {
+				newCost = (oldTotalValue + newTotalValue) / totalUnits
+			}
+
+			if updateErr := s.rmRepo.UpdateDualStockAndCost(txCtx, rm.ID, newPackageStock, newLooseStock, newCost); updateErr != nil {
 				return errors.New("gagal mengupdate stok dan HPP bahan baku")
 			}
 
@@ -175,12 +191,9 @@ func (s *restockLogService) RecordBulkRestock(ctx context.Context, businessID, o
 }
 
 func (s *restockLogService) GetAllByOutlet(ctx context.Context, businessID, outletID string) ([]*domain.RestockLog, error) {
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 	return s.repo.GetAllByOutletID(ctx, outletID)
 }
+

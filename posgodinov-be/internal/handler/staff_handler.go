@@ -175,3 +175,41 @@ func (h *StaffHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		"message": "Staff berhasil dihapus",
 	})
 }
+
+func (h *StaffHandler) Transfer(w http.ResponseWriter, r *http.Request) {
+	payload, ok := r.Context().Value(middleware.AuthPayloadKey).(*token.Payload)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "Tidak ada akses", nil)
+		return
+	}
+
+	staffID := r.PathValue("staff_id")
+	if staffID == "" {
+		response.Error(w, http.StatusBadRequest, "ID staff tidak valid", nil)
+		return
+	}
+
+	var req domain.TransferStaffRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Format request tidak valid", nil)
+		return
+	}
+
+	staff, err := h.svc.TransferStaff(r.Context(), payload.ID, staffID, &req)
+	if err != nil {
+		logger.Error("gagal memindahkan staff", "error", err)
+		errs := make(map[string]string)
+		errs["server"] = err.Error()
+		response.Error(w, http.StatusBadRequest, err.Error(), errs)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "success",
+		"message": "Staff berhasil dipindahkan ke outlet tujuan",
+		"data":    staff,
+	})
+}
+

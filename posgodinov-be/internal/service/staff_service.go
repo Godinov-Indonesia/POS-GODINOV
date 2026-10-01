@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -75,13 +76,31 @@ func (s *staffService) RegisterStaff(ctx context.Context, businessID string, req
 		return nil, errors.New("gagal memproses PIN kasir")
 	}
 
+	role := req.Role
+	if role == "" {
+		role = domain.RoleCashier
+	} else if !domain.IsValidRole(role) {
+		return nil, fmt.Errorf("role tidak valid: %s", role)
+	}
+
+	for _, p := range req.Permissions {
+		if !domain.IsValidPermission(p) {
+			return nil, fmt.Errorf("permission tidak valid: %s", p)
+		}
+	}
+	perms := req.Permissions
+	if perms == nil {
+		perms = domain.StringList{}
+	}
+
 	staff := &domain.Staff{
 		OutletID:        req.OutletID,
 		StaffIdentifier: req.StaffIdentifier,
 		Email:           req.Email,
 		Name:            req.Name,
 		PINHash:         string(hashedPin),
-		Role:            domain.RoleCashier,
+		Role:            role,
+		Permissions:     perms,
 		IsActive:        true,
 	}
 
@@ -147,6 +166,20 @@ func (s *staffService) UpdateStaff(ctx context.Context, businessID, staffID stri
 	if req.Email != nil {
 		staff.Email = req.Email
 	}
+	if req.Role != nil && *req.Role != "" {
+		if !domain.IsValidRole(*req.Role) {
+			return nil, fmt.Errorf("role tidak valid: %s", *req.Role)
+		}
+		staff.Role = *req.Role
+	}
+	if req.Permissions != nil {
+		for _, p := range *req.Permissions {
+			if !domain.IsValidPermission(p) {
+				return nil, fmt.Errorf("permission tidak valid: %s", p)
+			}
+		}
+		staff.Permissions = *req.Permissions
+	}
 	if req.IsActive != nil {
 		staff.IsActive = *req.IsActive
 	}
@@ -189,3 +222,78 @@ func (s *staffService) DeleteStaff(ctx context.Context, businessID, staffID stri
 		return nil
 	})
 }
+
+func (s *staffService) TransferStaff(ctx context.Context, businessID, staffID string, req *domain.TransferStaffRequest) (*domain.Staff, error) {
+	if req == nil || req.TargetOutletID == "" {
+		return nil, errors.New("outlet tujuan harus diisi")
+	}
+
+	staff, err := s.staffRepo.GetByID(ctx, staffID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 1. Pastikan outlet asal milik bisnis pemanggil
+	sourceOutlet, err := s.outletRepo.GetByID(ctx, staff.OutletID)
+	if err != nil {
+		return nil, errors.New("outlet asal tidak ditemukan")
+	}
+	if sourceOutlet.BusinessID != businessID {
+		return nil, errors.New("akses ditolak: staff ini bukan milik bisnis Anda")
+	}
+
+	// 2. Cegah transfer ke outlet yang sama
+	if req.TargetOutletID == staff.OutletID {
+		return nil, errors.New("staff sudah terdaftar di outlet tujuan")
+	}
+
+	// 3. Pastikan outlet tujuan ada dan milik bisnis pemanggil
+	targetOutlet, err := s.outletRepo.GetByID(ctx, req.TargetOutletID)
+	if err != nil {
+		return nil, errors.New("outlet tujuan tidak ditemukan")
+	}
+	if targetOutlet.BusinessID != businessID {
+		return nil, errors.New("akses ditolak: outlet tujuan bukan milik bisnis Anda")
+	}
+	if targetOutlet.IsDeleted {
+		return nil, errors.New("outlet tujuan sudah tidak aktif")
+	}
+
+	// 4. Pastikan staff tidak sedang membuka shift aktif di outlet saat ini
+	hasActiveShift, err := s.staffRepo.HasActiveShift(ctx, staffID)
+	if err != nil {
+		return nil, errors.New("gagal memeriksa status shift staff")
+	}
+	if hasActiveShift {
+		return nil, errors.New("staff masih memiliki shift aktif di outlet saat ini, silakan tutup shift terlebih dahulu")
+	}
+
+	// 5. Tentukan identifier di outlet tujuan dan pastikan unik di outlet tujuan
+	targetIdentifier := staff.StaffIdentifier
+	if req.StaffIdentifier != nil && *req.StaffIdentifier != "" {
+		targetIdentifier = *req.StaffIdentifier
+	}
+
+	existingStaff, _ := s.staffRepo.GetByStaffIdentifier(ctx, targetOutlet.ID, targetIdentifier)
+	if existingStaff != nil && existingStaff.ID != staff.ID {
+		return nil, fmt.Errorf("staff identifier '%s' sudah digunakan di outlet tujuan", targetIdentifier)
+	}
+
+	oldOutletID := staff.OutletID
+	staff.OutletID = targetOutlet.ID
+	staff.StaffIdentifier = targetIdentifier
+
+	// 6. Mutasi dan naikkan versi master data KEDUA outlet dalam satu transaksi atomik
+	err = s.versions.runMulti(ctx, []string{oldOutletID, targetOutlet.ID}, func(txCtx context.Context) error {
+		if err := s.staffRepo.Update(txCtx, staff); err != nil {
+			return errors.New("gagal memindahkan staff ke outlet tujuan")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return staff, nil
+}
+

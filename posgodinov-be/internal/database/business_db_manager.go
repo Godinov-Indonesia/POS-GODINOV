@@ -98,6 +98,11 @@ func (tm *BusinessDBManager) createBusinessConnection(businessID string) (*gorm.
 	sqlDB.SetMaxIdleConns(2)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
+	// Pastikan migrasi database tenant selalu up-to-date saat koneksi pertama dibuat
+	if err := tm.runBusinessMigrations(db); err != nil {
+		return nil, fmt.Errorf("failed to run migrations for tenant %s: %w", businessID, err)
+	}
+
 	return db, nil
 }
 

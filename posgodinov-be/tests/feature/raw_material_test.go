@@ -49,20 +49,22 @@ func (m *MockFeatureRawMaterialRepository) LockByID(ctx context.Context, id stri
 	return m.GetByID(ctx, id)
 }
 
-func (m *MockFeatureRawMaterialRepository) UpdateStock(ctx context.Context, id string, newStock float64) error {
+func (m *MockFeatureRawMaterialRepository) UpdateDualStock(ctx context.Context, id string, packageStock int, looseStock float64) error {
 	for i, rm := range m.rawMaterials {
 		if rm.ID == id {
-			m.rawMaterials[i].Stock = newStock
+			m.rawMaterials[i].PackageStock = packageStock
+			m.rawMaterials[i].LooseStock = looseStock
 			return nil
 		}
 	}
 	return errors.New("not found")
 }
 
-func (m *MockFeatureRawMaterialRepository) UpdateStockAndCost(ctx context.Context, id string, newStock, newCost float64) error {
+func (m *MockFeatureRawMaterialRepository) UpdateDualStockAndCost(ctx context.Context, id string, packageStock int, looseStock, newCost float64) error {
 	for i, rm := range m.rawMaterials {
 		if rm.ID == id {
-			m.rawMaterials[i].Stock = newStock
+			m.rawMaterials[i].PackageStock = packageStock
+			m.rawMaterials[i].LooseStock = looseStock
 			m.rawMaterials[i].CostPerUnit = newCost
 			return nil
 		}
@@ -102,7 +104,7 @@ func TestFeatureRawMaterial(t *testing.T) {
 		body := map[string]interface{}{
 			"name":          "Gula Aren",
 			"unit":          "gram",
-			"stock":         1000,
+			"loose_stock":   1000,
 			"cost_per_unit": 50,
 		}
 		jsonBody, _ := json.Marshal(body)

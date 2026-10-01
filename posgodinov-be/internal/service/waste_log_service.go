@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"math"
 
 	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/domain"
@@ -37,32 +38,26 @@ func (s *wasteLogService) RecordWaste(ctx context.Context, businessID, outletID,
 		return nil, errors.New("alasan waste wajib diisi")
 	}
 
-	// 1. Pastikan outlet valid dan milik bisnis
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	var createdLog *domain.WasteLog
 
 	// 2. Gunakan Transaction Manager untuk menghindari Race Condition saat update stok
-	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		// Lock raw material untuk mencegah update bersamaan
 		rm, rmErr := s.rmRepo.LockByID(txCtx, rawMaterialID)
 		if rmErr != nil || rm.OutletID != outletID {
 			return errors.New("bahan baku tidak ditemukan atau tidak valid untuk outlet ini")
 		}
 
-		if rm.Stock < req.Quantity {
+		if rm.TotalStock() < req.Quantity {
 			return errors.New("stok bahan baku tidak mencukupi untuk dicatat sebagai waste")
 		}
 
-		// Kurangi stok
-		newStock := rm.Stock - req.Quantity
-		if updateErr := s.rmRepo.UpdateStock(txCtx, rm.ID, newStock); updateErr != nil {
+		newPkg, newLoose := deductWasteStock(rm, req.Quantity)
+		if updateErr := s.rmRepo.UpdateDualStock(txCtx, rm.ID, newPkg, newLoose); updateErr != nil {
 			return errors.New("gagal memotong stok bahan baku")
 		}
 
@@ -91,17 +86,13 @@ func (s *wasteLogService) RecordWaste(ctx context.Context, businessID, outletID,
 }
 
 func (s *wasteLogService) RecordBulkWaste(ctx context.Context, businessID, outletID, staffID string, reqs []*domain.CreateBulkWasteLogRequest) ([]*domain.WasteLog, error) {
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	var createdLogs []*domain.WasteLog
 
-	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		rmIDs := make([]string, 0)
 		rmIDMap := make(map[string]bool)
 		for _, req := range reqs {
@@ -129,12 +120,12 @@ func (s *wasteLogService) RecordBulkWaste(ctx context.Context, businessID, outle
 				return errors.New("bahan baku tidak ditemukan atau tidak valid untuk outlet ini")
 			}
 
-			if rm.Stock < req.Quantity {
+			if rm.TotalStock() < req.Quantity {
 				return errors.New("stok bahan baku tidak mencukupi untuk dicatat sebagai waste pada bahan baku " + rm.Name)
 			}
 
-			newStock := rm.Stock - req.Quantity
-			if updateErr := s.rmRepo.UpdateStock(txCtx, rm.ID, newStock); updateErr != nil {
+			newPkg, newLoose := deductWasteStock(rm, req.Quantity)
+			if updateErr := s.rmRepo.UpdateDualStock(txCtx, rm.ID, newPkg, newLoose); updateErr != nil {
 				return errors.New("gagal memotong stok bahan baku")
 			}
 
@@ -162,12 +153,24 @@ func (s *wasteLogService) RecordBulkWaste(ctx context.Context, businessID, outle
 }
 
 func (s *wasteLogService) GetAllByOutlet(ctx context.Context, businessID, outletID string) ([]*domain.WasteLog, error) {
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 	return s.repo.GetAllByOutletID(ctx, outletID)
 }
+
+func deductWasteStock(rm *domain.RawMaterial, qty float64) (int, float64) {
+	pkgStock, looseStock := rm.PackageStock, rm.LooseStock
+	if looseStock < qty && pkgStock > 0 && rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
+		deficit := qty - looseStock
+		qtyPerPkg := *rm.QuantityPerPackage
+		needed := int(math.Ceil(deficit / qtyPerPkg))
+		if needed > pkgStock {
+			needed = pkgStock
+		}
+		pkgStock -= needed
+		looseStock += float64(needed) * qtyPerPkg
+	}
+	return pkgStock, looseStock - qty
+}
+

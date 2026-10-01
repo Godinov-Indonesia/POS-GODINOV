@@ -80,3 +80,11 @@ presentation ──────► domain ◄────── data
    `context.tokens.*`.
 4. **Koleksi API selalu lewat `Envelope.list()`** — backend mengirim `null`, bukan `[]`
    ([03 §2.2]).
+
+---
+
+## 📦 Catatan Integrasi Backend & Inventori Dual-Stock
+
+- **BOM Auto-Unpack**: Aplikasi kasir POS mencatat penjualan produk berdasarkan katalog menu dan variannya. Saat transaksi disinkronisasikan ke backend (`/v1/pos/sync`), server secara otomatis memotong stok bahan baku dan membongkar kemasan utuh (`package_stock` → `loose_stock`) secara atomik bila stok eceran tidak mencukupi resep BOM. Klien mobile tidak perlu melakukan kalkulasi konversi kemasan lokal.
+- **Stock Opname (SO)**: Pada alur penghitungan fisik opname oleh staf lapangan (`/v1/so/{form_id}/counts`), input hitungan dikirimkan dalam format dual-stock terpisah: jumlah kemasan utuh (`actual_packages`) dan jumlah eceran terbuka (`actual_loose`).
+

@@ -5,17 +5,28 @@ import Link from 'next/link'
 import * as React from 'react'
 
 import { buttonVariants } from '@/components/ui/button'
-import { StatCard } from '@/components/ui/card'
-import { Banner, EmptyState, Skeleton } from '@/components/ui/feedback'
-import { Money, Num } from '@/components/ui/money'
-import { TBody, TD, TH, THead, TR, Table } from '@/components/ui/table'
+import { Banner, EmptyState } from '@/components/ui/feedback'
 import { toastApiError } from '@/components/ui/toaster'
+import { DashboardCashierDiscrepancy } from '@/features/admin/dashboard/components/DashboardCashierDiscrepancy'
+import { DashboardCharts } from '@/features/admin/dashboard/components/DashboardCharts'
+import { DashboardCriticalItems } from '@/features/admin/dashboard/components/DashboardCriticalItems'
+import { DashboardMetrics } from '@/features/admin/dashboard/components/DashboardMetrics'
+import { DashboardTopProducts } from '@/features/admin/dashboard/components/DashboardTopProducts'
+import { useCategories } from '@/features/admin/categories/hooks/useCategories'
+import { useOpnameLogs, useWasteLogs } from '@/features/admin/inventory/hooks/useInventoryOps'
+import { useRawMaterials } from '@/features/admin/inventory/hooks/useRawMaterials'
 import { useActiveOutlet, useOutlets } from '@/features/admin/outlets/hooks/useOutlets'
+import { useProducts } from '@/features/admin/products/hooks/useProducts'
 import {
   DateRangePicker,
   ServerTimeBanner,
 } from '@/features/admin/reports/components/DateRangePicker'
-import { useDashboard, useDateRange } from '@/features/admin/reports/hooks/useReports'
+import {
+  useDashboard,
+  useDateRange,
+  useShiftReconciliation,
+  useTransactionReport,
+} from '@/features/admin/reports/hooks/useReports'
 import { OutletGuard } from '@/features/admin/shell/OutletGuard'
 import { PageHeader } from '@/features/admin/shell/PageHeader'
 import { isRangeWithinLimit } from '@/lib/time'
@@ -41,14 +52,16 @@ export function DashboardScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <PageHeader
         title="Dashboard"
         description={
-          activeOutlet ? `Ringkasan penjualan ${activeOutlet.name}.` : 'Ringkasan penjualan.'
+          activeOutlet
+            ? `Ringkasan performa dan kesehatan inventori di outlet ${activeOutlet.name}.`
+            : 'Ringkasan performa dan inventori bisnis Anda.'
         }
         action={
-          <Link href="/admin/onboarding" className={buttonVariants({ variant: 'neutral' })}>
+          <Link href="/admin/onboarding" className={buttonVariants({ variant: 'neutral', size: 'sm' })}>
             <Rocket className="size-4" aria-hidden="true" />
             Panduan Setup
           </Link>
@@ -62,108 +75,125 @@ export function DashboardScreen() {
 
 function DashboardContent({ outletId }: { outletId: string }) {
   const [range, setRange] = useDateRange(7)
-  const { data, isPending, error } = useDashboard(outletId, range)
+  const activeOutlet = useActiveOutlet()
+
+  // 1. Core Dashboard Stats
+  const {
+    data: dashboard,
+    isPending: isDashboardPending,
+    error: dashboardError,
+  } = useDashboard(outletId, range)
+
+  // 2. Transactions Report (Payment distribution & categories)
+  const {
+    data: transactions,
+    isPending: isTxPending,
+  } = useTransactionReport(outletId, range)
+
+  // 3. Shift Reconciliations (Cashier minus detection)
+  const {
+    data: shiftReconciliations,
+    isPending: isShiftPending,
+  } = useShiftReconciliation(outletId, range)
+
+  // 4. Raw Materials (Stock inventory health & asset value)
+  const {
+    data: rawMaterials,
+    isPending: isRMPending,
+  } = useRawMaterials(outletId)
+
+  // 5. Products & Categories (For category sales breakdown)
+  const { data: products } = useProducts(outletId)
+  const { data: categories } = useCategories(outletId)
+
+  // 6. Opname & Waste Logs (For minus opname & waste discrepancy)
+  const {
+    data: opnameLogs,
+    isPending: isOpnamePending,
+  } = useOpnameLogs(outletId)
+  const {
+    data: wasteLogs,
+    isPending: isWastePending,
+  } = useWasteLogs(outletId)
 
   React.useEffect(() => {
-    if (error) toastApiError(error, 'Gagal memuat dashboard')
-  }, [error])
+    if (dashboardError) toastApiError(dashboardError, 'Gagal memuat dashboard')
+  }, [dashboardError])
 
   const rangeValid = isRangeWithinLimit(range)
 
-  return (
-    <div className="flex flex-col gap-4">
-      <DateRangePicker value={range} onChange={setRange} />
-      <ServerTimeBanner />
+  // Negative Opnames Count for Metrics Badge
+  const negativeOpnameCount = React.useMemo(() => {
+    return (opnameLogs ?? []).filter((l) => l.difference < 0).length
+  }, [opnameLogs])
 
-      {!rangeValid ? (
-        <Banner tone="warning">
-          Persempit rentang tanggal untuk memuat data.
-        </Banner>
-      ) : isPending ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }, (_, i) => (
-            <Skeleton key={i} className="h-24 w-full" />
-          ))}
+  return (
+    <div className="flex flex-col gap-5">
+      {/* ── 1. KPI Metrics Grid ────────────────────────────────────────── */}
+      <DashboardMetrics
+        dashboard={dashboard}
+        rawMaterials={rawMaterials}
+        negativeOpnameCount={negativeOpnameCount}
+        isPending={isDashboardPending || isRMPending}
+      />
+
+      {/* ── 2. Analisis & Visualisasi ─────────────────────────────────── */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-pos-md font-semibold text-fg">Analisis & Visualisasi</h2>
+            <p className="text-pos-xs text-fg-muted">
+              Grafik metode pembayaran, penjualan per kategori, dan kesehatan stok
+            </p>
+          </div>
+          <DateRangePicker value={range} onChange={setRange} />
         </div>
-      ) : (
-        <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Total penjualan"
-              value={<Money minor={data?.totalRevenueMinor ?? 0} size="xl" />}
-              hint="Transaksi berstatus COMPLETED."
+
+        <ServerTimeBanner />
+
+        {!rangeValid ? (
+          <Banner tone="warning">
+            Persempit rentang tanggal untuk memuat data dashboard (maksimal 7 hari).
+          </Banner>
+        ) : (
+          <DashboardCharts
+            transactions={transactions}
+            rawMaterials={rawMaterials}
+            products={products}
+            categories={categories}
+            isPending={isTxPending || isRMPending}
+          />
+        )}
+      </div>
+
+          {/* ── 3. Top Products & Cashier Minus Detection ───────────────────── */}
+          <div className="grid gap-5 lg:grid-cols-2">
+            <DashboardTopProducts
+              products={dashboard?.topProducts ?? []}
+              isPending={isDashboardPending}
             />
-            <StatCard
-              label="Jumlah transaksi"
-              value={
-                <Num className="text-pos-xl font-semibold">{data?.totalTransactions ?? 0}</Num>
-              }
-            />
-            <StatCard
-              label="Item waste kasir"
-              value={<Num className="text-pos-xl font-semibold">{data?.totalWasteItems ?? 0}</Num>}
-              hint="Jumlah item produk jadi — bukan Rupiah, dan tidak mencakup waste bahan baku."
-            />
-            <StatCard
-              label="Selisih kas laci"
-              value={
-                <Money
-                  minor={data?.totalDiscrepancyMinor ?? 0}
-                  size="xl"
-                  signed
-                  tone={(data?.totalDiscrepancyMinor ?? 0) < 0 ? 'danger' : 'success'}
-                />
-              }
-              hint="Dijumlahkan dari shift yang sudah ditutup."
+
+            <DashboardCashierDiscrepancy
+              shifts={shiftReconciliations ?? []}
+              isPending={isShiftPending}
             />
           </div>
 
-          <TopProducts products={data?.topProducts ?? []} />
-        </>
-      )}
-    </div>
-  )
-}
-
-function TopProducts({
-  products,
-}: {
-  products: { product_id: string; product_name: string; quantity_sold: number }[]
-}) {
-  if (!products.length) {
-    return (
-      <EmptyState
-        title="Belum ada penjualan pada rentang ini"
-        description="Angka akan muncul setelah perangkat kasir menyinkronkan transaksinya."
-      />
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      <h2 className="text-pos-lg font-semibold text-fg">5 Produk Terlaris</h2>
-      <Table>
-        <THead>
-          <TR>
-            <TH className="w-12">#</TH>
-            <TH>Produk</TH>
-            <TH numeric>Terjual</TH>
-          </TR>
-        </THead>
-        <TBody>
-          {products.map((product, index) => (
-            <TR key={product.product_id}>
-              <TD>
-                <Num className="text-fg-muted">{index + 1}</Num>
-              </TD>
-              <TD className="font-medium">{product.product_name}</TD>
-              <TD numeric>
-                <Num className="font-semibold">{product.quantity_sold}</Num>
-              </TD>
-            </TR>
-          ))}
-        </TBody>
-      </Table>
+          {/* ── 4. Critical Items & Negative Discrepancies ─────────────────── */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-pos-md font-semibold text-fg">Pemeriksaan Inventori & Selisih</h2>
+              <span className="text-pos-xs text-fg-subtle">
+                Berdasarkan data stok, opname, dan waste {activeOutlet?.name ?? ''}
+              </span>
+            </div>
+            <DashboardCriticalItems
+              opnameLogs={opnameLogs}
+              rawMaterials={rawMaterials}
+              wasteLogs={wasteLogs}
+              isPending={isOpnamePending || isRMPending || isWastePending}
+            />
+          </div>
     </div>
   )
 }

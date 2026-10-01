@@ -76,7 +76,6 @@ func main() {
 	rawMaterialRepo := repository.NewRawMaterialRepository(db)
 	productRepo := repository.NewProductRepository(db)
 	wasteLogRepo := repository.NewWasteLogRepository(db)
-	stockOpnameRepo := repository.NewStockOpnameRepository(db)
 	restockLogRepo := repository.NewRestockLogRepository(db)
 	categoryRepo := repository.NewProductCategoryRepository(db)
 	auditRepo := repository.NewAuditRepository(db)
@@ -108,7 +107,6 @@ func main() {
 	productSvc := service.NewProductService(productRepo, rawMaterialRepo, outletRepo, txManager,
 		service.WithProductMasterVersion(masterVersionRepo))
 	wasteLogSvc := service.NewWasteLogService(wasteLogRepo, rawMaterialRepo, outletRepo, txManager)
-	stockOpnameSvc := service.NewStockOpnameService(stockOpnameRepo, rawMaterialRepo, outletRepo, txManager)
 	restockLogSvc := service.NewRestockLogService(restockLogRepo, rawMaterialRepo, outletRepo, txManager)
 	categorySvc := service.NewProductCategoryService(categoryRepo, outletRepo,
 		service.WithCategoryMasterVersion(txManager, masterVersionRepo))
@@ -125,11 +123,11 @@ func main() {
 	// perangkat kasir (aturan R3/R4).
 	shiftReconcileSvc := service.NewShiftReconcileService(posRepo, shiftReconcileRepo)
 
-	// Modul Opname terisolasi ([11 §M16.3]). Berbagi `rawMaterialRepo` dan
-	// `stockOpnameRepo` dengan jalur pemilik — isolasinya ada di TRANSPORT
-	// (scope token) dan di bentuk DTO, bukan di duplikasi penyimpanan.
+	// Modul Stock Opname (SO) — admin-managed form flow.
+	// Admin buat form → publish → kasir submit → admin close → approve/reject.
 	opnameSessionSvc := service.NewOpnameSessionService(
-		opnameSessionRepo, rawMaterialRepo, outletRepo, stockOpnameRepo, txManager,
+		opnameSessionRepo, rawMaterialRepo, outletRepo, txManager,
+		service.WithSOStaffRepository(staffRepo),
 	)
 
 	posSyncSvc := service.NewPOSSyncService(
@@ -150,7 +148,6 @@ func main() {
 	rawMaterialHandler := handler.NewRawMaterialHandler(rawMaterialSvc)
 	productHandler := handler.NewProductHandler(productSvc)
 	wasteLogHandler := handler.NewWasteLogHandler(wasteLogSvc)
-	stockOpnameHandler := handler.NewStockOpnameHandler(stockOpnameSvc)
 	restockLogHandler := handler.NewRestockLogHandler(restockLogSvc)
 	categoryHandler := handler.NewProductCategoryHandler(categorySvc)
 	posAuthHandler := handler.NewPOSAuthHandler(posAuthSvc)
@@ -159,6 +156,8 @@ func main() {
 	reportHandler := handler.NewReportHandler(reportSvc)
 	shiftReconcileHandler := handler.NewShiftReconcileHandler(shiftReconcileSvc)
 	opnameSessionHandler := handler.NewOpnameSessionHandler(opnameSessionSvc)
+	uploadSvc := service.NewUploadService(cfg)
+	uploadHandler := handler.NewUploadHandler(uploadSvc)
 
 	// Setup Router
 	mux := handler.SetupRouter(
@@ -168,7 +167,6 @@ func main() {
 		rawMaterialHandler, 
 		productHandler, 
 		wasteLogHandler, 
-		stockOpnameHandler, 
 		restockLogHandler, 
 		categoryHandler,
 		posAuthHandler,
@@ -177,6 +175,7 @@ func main() {
 		reportHandler,
 		shiftReconcileHandler,
 		opnameSessionHandler,
+		uploadHandler,
 		tokenMaker, 
 		auditRepo,
 		businessManager,

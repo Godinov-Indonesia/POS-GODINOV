@@ -69,7 +69,7 @@ export function BomBuilder({
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>Penyusun Resep (BOM)</CardTitle>
+        <CardTitle>Penyusun Resep Produk</CardTitle>
         <Button variant="neutral" size="sm" onClick={() => onChange([...rows, newBomRow()])}>
           <Plus className="size-4" aria-hidden="true" />
           Tambah Bahan
@@ -80,12 +80,12 @@ export function BomBuilder({
         {rawMaterials.length === 0 ? (
           <EmptyState
             title="Belum ada bahan baku"
-            description="Tambahkan bahan baku terlebih dahulu agar resep dapat disusun. Produk tanpa resep tetap dapat dijual, tetapi stok tidak akan terpotong saat transaksi tersinkronisasi."
+            description="Tambahkan bahan baku terlebih dahulu agar resep dapat disusun. Produk tanpa resep tetap dapat dijual, namun tidak akan memotong stok bahan baku secara otomatis."
           />
         ) : rows.length === 0 ? (
           <EmptyState
             title="Produk tanpa resep"
-            description="Boleh dikosongkan. Konsekuensinya: penjualan produk ini tidak memotong stok bahan baku apa pun."
+            description="Dapat dikosongkan jika produk ini tidak membutuhkan pemotongan stok bahan baku saat terjual."
             action={
               <Button variant="neutral" onClick={() => onChange([newBomRow()])}>
                 Tambah Bahan
@@ -128,6 +128,7 @@ export function BomBuilder({
                         .map((m) => (
                           <option key={m.id} value={m.id}>
                             {m.name}
+                            {m.sku ? ` [${m.sku}]` : ''}
                             {m.stock < 0 ? ' (stok minus)' : ''}
                           </option>
                         ))}

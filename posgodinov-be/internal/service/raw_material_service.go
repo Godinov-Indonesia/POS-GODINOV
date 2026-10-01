@@ -12,7 +12,10 @@ type rawMaterialService struct {
 	outletRepo domain.OutletRepository
 }
 
-func NewRawMaterialService(repo domain.RawMaterialRepository, outletRepo domain.OutletRepository) domain.RawMaterialService {
+func NewRawMaterialService(
+	repo domain.RawMaterialRepository,
+	outletRepo domain.OutletRepository,
+) domain.RawMaterialService {
 	return &rawMaterialService{
 		repo:       repo,
 		outletRepo: outletRepo,
@@ -23,27 +26,23 @@ func (s *rawMaterialService) Create(ctx context.Context, businessID, outletID st
 	if req.Name == "" || req.Unit == "" {
 		return nil, errors.New("nama bahan baku dan satuan wajib diisi")
 	}
-
-	if req.Stock < 0 || req.CostPerUnit < 0 {
+	if req.PackageStock < 0 || req.LooseStock < 0 || req.CostPerUnit < 0 {
 		return nil, errors.New("stok dan harga tidak boleh negatif")
 	}
 
-	// Pastikan outlet valid dan milik bisnis yang sedang login
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	rm := &domain.RawMaterial{
 		OutletID:           outletID,
 		Name:               req.Name,
+		SKU:                req.SKU,
 		Unit:               req.Unit,
 		PackageUnit:        req.PackageUnit,
 		QuantityPerPackage: req.QuantityPerPackage,
-		Stock:              req.Stock,
+		PackageStock:       req.PackageStock,
+		LooseStock:         req.LooseStock,
 		CostPerUnit:        req.CostPerUnit,
 	}
 
@@ -55,12 +54,8 @@ func (s *rawMaterialService) Create(ctx context.Context, businessID, outletID st
 }
 
 func (s *rawMaterialService) CreateBulk(ctx context.Context, businessID, outletID string, reqs []*domain.CreateRawMaterialRequest) ([]*domain.RawMaterial, error) {
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	var rawMaterials []*domain.RawMaterial
@@ -68,14 +63,19 @@ func (s *rawMaterialService) CreateBulk(ctx context.Context, businessID, outletI
 		if req.Name == "" || req.Unit == "" {
 			return nil, errors.New("nama dan unit bahan baku tidak boleh kosong pada salah satu item")
 		}
+		if req.PackageStock < 0 || req.LooseStock < 0 || req.CostPerUnit < 0 {
+			return nil, errors.New("stok dan harga tidak boleh negatif pada salah satu item")
+		}
 
 		rm := &domain.RawMaterial{
 			OutletID:           outletID,
 			Name:               req.Name,
+			SKU:                req.SKU,
 			Unit:               req.Unit,
 			PackageUnit:        req.PackageUnit,
 			QuantityPerPackage: req.QuantityPerPackage,
-			Stock:              req.Stock,
+			PackageStock:       req.PackageStock,
+			LooseStock:         req.LooseStock,
 			CostPerUnit:        req.CostPerUnit,
 		}
 		rawMaterials = append(rawMaterials, rm)
@@ -93,13 +93,8 @@ func (s *rawMaterialService) CreateBulk(ctx context.Context, businessID, outletI
 }
 
 func (s *rawMaterialService) GetAllByOutlet(ctx context.Context, businessID, outletID string) ([]*domain.RawMaterial, error) {
-	// Pastikan outlet valid dan milik bisnis yang sedang login
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	rawMaterials, err := s.repo.GetAllByOutletID(ctx, outletID)
@@ -116,17 +111,14 @@ func (s *rawMaterialService) Update(ctx context.Context, businessID, rmID string
 		return nil, err
 	}
 
-	outlet, err := s.outletRepo.GetByID(ctx, rm.OutletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: bahan baku ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, rm.OutletID); err != nil {
+		return nil, err
 	}
 
 	if req.Name != "" {
 		rm.Name = req.Name
 	}
+	rm.SKU = req.SKU
 	if req.Unit != "" {
 		rm.Unit = req.Unit
 	}
@@ -150,12 +142,8 @@ func (s *rawMaterialService) Delete(ctx context.Context, businessID, rmID string
 		return err
 	}
 
-	outlet, err := s.outletRepo.GetByID(ctx, rm.OutletID)
-	if err != nil {
-		return errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return errors.New("akses ditolak: bahan baku ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, rm.OutletID); err != nil {
+		return err
 	}
 
 	if err := s.repo.Delete(ctx, rmID); err != nil {

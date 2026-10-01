@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math"
 	"time"
 
 	"posgodinov-backend/internal/database"
@@ -10,600 +12,817 @@ import (
 	"posgodinov-backend/pkg/utils"
 )
 
-// ErrOpnameAlreadyLocked dipetakan handler menjadi `409 OPNAME_ALREADY_LOCKED`.
-//
-// Sengaja berupa sentinel, bukan string yang dicocokkan: pesan galat berubah
-// setiap kali ada yang memperbaikinya, dan pemetaan status HTTP yang bergantung
-// pada teks akan diam-diam berhenti bekerja.
 var (
-	ErrOpnameAlreadyLocked = errors.New("sesi opname sudah terkunci")
-	ErrOpnameNotLocked     = errors.New("sesi opname belum terkunci")
-	ErrOpnameForbidden     = errors.New("sesi opname bukan milik outlet ini")
+	ErrSOFormNotOpen     = errors.New("form SO tidak berstatus OPEN")
+	ErrSOFormNotCounting = errors.New("form SO tidak berstatus COUNTING")
+	ErrSOFormNotClosed   = errors.New("form SO tidak berstatus CLOSED")
+	ErrSOFormForbidden   = errors.New("form SO bukan milik outlet ini")
+	ErrSOFormNoItems     = errors.New("form SO tidak memiliki material")
+	ErrSOFormNoCounts    = errors.New("belum ada hitungan yang disubmit")
+	ErrSOStaffNotFound  = errors.New("staff tidak ditemukan")
+	ErrSOStaffForbidden = errors.New("staff bukan anggota outlet ini")
+	ErrSOStaffInactive  = errors.New("staff tidak aktif")
 )
 
 type opnameSessionService struct {
 	repo       domain.OpnameSessionRepository
 	rmRepo     domain.RawMaterialRepository
 	outletRepo domain.OutletRepository
-	opnameRepo domain.StockOpnameRepository
+	staffRepo  domain.StaffRepository
 	txManager  database.TransactionManager
 	now        func() time.Time
 }
 
-// NewOpnameSessionService merakit layanan sesi opname ([11 §M16.3]).
+type OpnameSessionOption func(*opnameSessionService)
+
+func WithSOStaffRepository(repo domain.StaffRepository) OpnameSessionOption {
+	return func(s *opnameSessionService) {
+		s.staffRepo = repo
+	}
+}
+
 func NewOpnameSessionService(
 	repo domain.OpnameSessionRepository,
 	rmRepo domain.RawMaterialRepository,
 	outletRepo domain.OutletRepository,
-	opnameRepo domain.StockOpnameRepository,
 	txManager database.TransactionManager,
+	opts ...OpnameSessionOption,
 ) domain.OpnameSessionService {
-	return &opnameSessionService{
-		repo:       repo,
-		rmRepo:     rmRepo,
-		outletRepo: outletRepo,
-		opnameRepo: opnameRepo,
-		txManager:  txManager,
-		now:        time.Now,
+	s := &opnameSessionService{repo: repo, rmRepo: rmRepo, outletRepo: outletRepo, txManager: txManager, now: time.Now}
+	for _, opt := range opts {
+		opt(s)
 	}
+	return s
 }
 
-/* ── Kepemilikan ──────────────────────────────────────────────────────────── */
 
-// assertOutlet memastikan outlet benar-benar milik bisnis pemanggil.
-//
-// Dipanggil di SETIAP metode publik, tanpa kecuali. Satu metode yang lupa
-// memanggilnya membuat siapa pun yang punya token sah dapat membaca opname
-// bisnis lain hanya dengan mengganti satu segmen URL.
+// ── Helpers ──────────────────────────────────────────────────────────────
+
 func (s *opnameSessionService) assertOutlet(ctx context.Context, businessID, outletID string) error {
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
-	}
-	return nil
+	_, err := assertOutlet(ctx, s.outletRepo, businessID, outletID)
+	return err
 }
 
-// loadSession mengambil sesi dan memverifikasi ia milik outlet yang diminta.
-func (s *opnameSessionService) loadSession(ctx context.Context, businessID, outletID, sessionID string) (*domain.OpnameSession, error) {
+func (s *opnameSessionService) assertStaff(ctx context.Context, outletID, staffID string) (*domain.Staff, error) {
+	if s.staffRepo == nil || staffID == "" {
+		return nil, nil
+	}
+	staff, err := s.staffRepo.GetByID(ctx, staffID)
+	if err != nil || staff == nil {
+		return nil, ErrSOStaffNotFound
+	}
+	if staff.OutletID != outletID {
+		return nil, ErrSOStaffForbidden
+	}
+	if !staff.IsActive || staff.IsDeleted {
+		return nil, ErrSOStaffInactive
+	}
+	return staff, nil
+}
+
+
+func (s *opnameSessionService) loadSession(ctx context.Context, businessID, outletID, formID string) (*domain.OpnameSession, error) {
 	if err := s.assertOutlet(ctx, businessID, outletID); err != nil {
 		return nil, err
 	}
-
-	session, err := s.repo.GetByID(ctx, sessionID)
+	session, err := s.repo.GetByID(ctx, formID)
 	if err != nil {
 		return nil, err
 	}
-	// Diperiksa terhadap OUTLET, bukan hanya bisnis: satu bisnis dapat memiliki
-	// banyak outlet, dan opname gudang cabang A tidak boleh terbaca dari URL
-	// cabang B.
 	if session.OutletID != outletID || session.BusinessID != businessID {
-		return nil, ErrOpnameForbidden
+		return nil, ErrSOFormForbidden
 	}
 	return session, nil
 }
 
-/* ── Create ───────────────────────────────────────────────────────────────── */
+func (s *opnameSessionService) rawMaterialCatalog(ctx context.Context, outletID string) (map[string]*domain.RawMaterial, error) {
+	rms, err := s.rmRepo.GetAllByOutletID(ctx, outletID)
+	if err != nil {
+		return nil, err
+	}
+	catalog := make(map[string]*domain.RawMaterial)
+	for _, rm := range rms {
+		catalog[rm.ID] = rm
+	}
+	return catalog, nil
+}
 
-// Create membuka sesi opname baru berstatus DRAFT.
-//
-// ⚠️ **Tidak menyentuh `raw_materials` sama sekali.** Godaan terbesar di sini
-// adalah mengambil snapshot stok saat sesi dibuat — dan itu akan menghasilkan
-// selisih yang salah untuk setiap bahan yang terjual selama penghitungan
-// berlangsung. Opname gudang berlangsung berjam-jam; toko tetap berjualan
-// selama itu. Snapshot diambil di [Lock], tidak lebih awal.
-func (s *opnameSessionService) Create(
-	ctx context.Context,
-	businessID, outletID, deviceID, countedBy string,
-	req *domain.CreateOpnameSessionRequest,
-) (*domain.OpnameSession, error) {
+func deref(v *float64) float64 {
+	if v == nil { return 0 }
+	return *v
+}
+
+func derefInt(v *int) int {
+	if v == nil { return 0 }
+	return *v
+}
+
+
+
+func (s *opnameSessionService) buildFormResponse(ctx context.Context, session *domain.OpnameSession) (*domain.SOFormResponse, error) {
+	catalog, err := s.rawMaterialCatalog(ctx, session.OutletID)
+	if err != nil {
+		return nil, err
+	}
+	items, err := s.repo.ListFormItems(ctx, session.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	materialDTOs := make([]*domain.SOFormMaterialDTO, 0, len(items))
+	for _, item := range items {
+		rm, ok := catalog[item.RawMaterialID]
+		if !ok {
+			continue
+		}
+		materialDTOs = append(materialDTOs, &domain.SOFormMaterialDTO{
+			RawMaterialID:      rm.ID,
+			RawMaterialName:    rm.Name,
+			Unit:               rm.Unit,
+			PackageUnit:        rm.PackageUnit,
+			QuantityPerPackage: rm.QuantityPerPackage,
+		})
+	}
+
+	resp := &domain.SOFormResponse{
+		ID:            session.ID,
+		OutletID:      session.OutletID,
+		Status:        session.Status,
+		Scope:         session.Scope,
+		Notes:         session.Notes,
+		CreatedBy:     session.CreatedBy,
+		RecountOf:     session.RecountOf,
+		RecountNumber: session.RecountNumber,
+		PublishedAt:   session.PublishedAt,
+		ClosedAt:      session.ClosedAt,
+		CreatedAt:     session.CreatedAt,
+		Materials:     materialDTOs,
+	}
+
+	if session.Status == domain.SOStatusCounting || session.Status == domain.SOStatusPublished {
+		hasCounts, _ := s.repo.HasCountEntries(ctx, session.ID)
+		total := len(items)
+		var counted int
+		countersMap := make(map[string]bool)
+
+		if hasCounts {
+			entries, err := s.repo.ListCountEntries(ctx, session.ID)
+			if err == nil {
+				countedMaterials := make(map[string]bool)
+				for _, entry := range entries {
+					countedMaterials[entry.RawMaterialID] = true
+					countersMap[entry.CountedBy] = true
+				}
+				counted = len(countedMaterials)
+			}
+		}
+
+		counters := make([]string, 0)
+		for k := range countersMap {
+			counters = append(counters, k)
+		}
+
+		resp.CountProgress = &domain.SOCountProgress{
+			TotalMaterials:   total,
+			CountedMaterials: counted,
+			Counters:         counters,
+		}
+	}
+
+	return resp, nil
+}
+
+func (s *opnameSessionService) buildClosedResponse(ctx context.Context, session *domain.OpnameSession) (*domain.SOClosedResponse, error) {
+	catalog, err := s.rawMaterialCatalog(ctx, session.OutletID)
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := s.repo.ListCountEntries(ctx, session.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	sheetsMap := make(map[string]*domain.SOCountSheet)
+	for _, entry := range entries {
+		sheet, ok := sheetsMap[entry.CountedBy]
+		if !ok {
+			staffName := entry.CountedBy
+			if s.staffRepo != nil {
+				if st, err := s.staffRepo.GetByID(ctx, entry.CountedBy); err == nil && st != nil {
+					staffName = st.Name
+				}
+			}
+			sheet = &domain.SOCountSheet{
+				CountedBy: entry.CountedBy,
+				StaffName: staffName,
+				Items:     []*domain.SOCountSheetItem{},
+			}
+			sheetsMap[entry.CountedBy] = sheet
+		}
+
+		rmName := "Unknown"
+		unit := ""
+		if rm, ok := catalog[entry.RawMaterialID]; ok {
+			rmName = rm.Name
+			unit = rm.Unit
+		}
+
+		sheet.Items = append(sheet.Items, &domain.SOCountSheetItem{
+			RawMaterialID:   entry.RawMaterialID,
+			RawMaterialName: rmName,
+			Unit:            unit,
+			ActualPackages:  entry.ActualPackages,
+			ActualLoose:     entry.ActualLoose,
+			ActualStock:     entry.ActualStock,
+			Notes:           entry.Notes,
+		})
+	}
+
+	var countSheets []*domain.SOCountSheet
+	for _, sheet := range sheetsMap {
+		countSheets = append(countSheets, sheet)
+	}
+
+	sessionItems, err := s.repo.ListItems(ctx, session.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	var finalItems []*domain.SOFinalSheetItem
+	var itemsCounted, itemsWithVariance, fraudFlaggedItems int
+	var totalVarianceValue float64
+
+	for _, item := range sessionItems {
+		rm, ok := catalog[item.RawMaterialID]
+		if !ok {
+			continue
+		}
+
+		fItem := &domain.SOFinalSheetItem{
+			RawMaterialID:      item.RawMaterialID,
+			RawMaterialName:    rm.Name,
+			Unit:               rm.Unit,
+			PackageUnit:        rm.PackageUnit,
+			QuantityPerPackage: rm.QuantityPerPackage,
+			SystemPackageStock: derefInt(item.SystemPackageStock),
+			SystemLooseStock:   deref(item.SystemLooseStock),
+			SystemStock:        deref(item.SystemStock),
+			ActualPackages:     derefInt(item.ActualPackages),
+			ActualLoose:        deref(item.ActualLoose),
+			ActualStock:        item.ActualStock,
+			Difference:         deref(item.Difference),
+			DifferenceValue:    deref(item.DifferenceValue),
+			FraudFlag:          item.FraudFlag,
+		}
+
+		finalItems = append(finalItems, fItem)
+		itemsCounted++
+		if math.Abs(fItem.Difference) > 0.0001 {
+			itemsWithVariance++
+		}
+		if fItem.FraudFlag {
+			fraudFlaggedItems++
+		}
+		totalVarianceValue += fItem.DifferenceValue
+	}
+
+	finalSheet := &domain.SOFinalSheet{
+		Summary: domain.SOFinalSummary{
+			TotalItems:           itemsCounted,
+			MatchedItems:         itemsCounted - itemsWithVariance,
+			DifferentItems:       itemsWithVariance,
+			FraudFlaggedItems:    fraudFlaggedItems,
+			TotalDifferenceValue: totalVarianceValue,
+			ItemsCounted:         itemsCounted,
+			ItemsWithVariance:    itemsWithVariance,
+			TotalVarianceValue:   totalVarianceValue,
+		},
+		Items: finalItems,
+	}
+
+	var history []*domain.SOHistoryEntry
+	if session.RecountOf != nil {
+		chain, err := s.repo.GetRecountChain(ctx, session.ID)
+		if err == nil {
+			for _, ch := range chain {
+				label := "Original"
+				if ch.RecountNumber > 0 {
+					label = fmt.Sprintf("Recount ke-%d", ch.RecountNumber)
+				}
+				history = append(history, &domain.SOHistoryEntry{
+					ID:            ch.ID,
+					RecountNumber: ch.RecountNumber,
+					Status:        ch.Status,
+					ClosedAt:      ch.ClosedAt,
+					Label:         label,
+				})
+			}
+		}
+	}
+
+	return &domain.SOClosedResponse{
+		ID:            session.ID,
+		OutletID:      session.OutletID,
+		Status:        session.Status,
+		Scope:         session.Scope,
+		Notes:         session.Notes,
+		CreatedBy:     session.CreatedBy,
+		RecountOf:     session.RecountOf,
+		RecountNumber: session.RecountNumber,
+		PublishedAt:   session.PublishedAt,
+		ClosedAt:      session.ClosedAt,
+		CreatedAt:     session.CreatedAt,
+		CountSheets:   countSheets,
+		FinalSheet:    finalSheet,
+		History:       history,
+	}, nil
+}
+
+// ── Admin Methods ────────────────────────────────────────────────────────
+
+func (s *opnameSessionService) CreateForm(ctx context.Context, businessID, outletID, createdBy string, req *domain.CreateSOFormRequest) (*domain.SOFormResponse, error) {
 	if err := s.assertOutlet(ctx, businessID, outletID); err != nil {
 		return nil, err
 	}
 
-	scope := req.Scope
-	if scope == "" {
-		scope = domain.OpnameScopeFull
-	}
-	if scope != domain.OpnameScopeFull &&
-		scope != domain.OpnameScopeCategory &&
-		scope != domain.OpnameScopePartial {
-		return nil, errors.New("scope opname tidak dikenal")
+	catalog, err := s.rawMaterialCatalog(ctx, outletID)
+	if err != nil {
+		return nil, err
 	}
 
-	// UUID dibuat KLIEN (aturan R2). Yang kosong dibuatkan di sini supaya klien
-	// web sederhana tetap dapat memakai endpoint ini; klien lapangan selalu
-	// mengirimkan miliknya sendiri agar pengiriman ulang bersifat idempoten.
+	if req.Scope == "" {
+		req.Scope = domain.SOScopeFull
+	}
+
+	if req.Scope == domain.SOScopeFull && len(req.RawMaterialIDs) == 0 {
+		for id := range catalog {
+			req.RawMaterialIDs = append(req.RawMaterialIDs, id)
+		}
+	}
+
+	if len(req.RawMaterialIDs) == 0 {
+		return nil, errors.New("daftar material tidak boleh kosong")
+	}
+
+	for _, id := range req.RawMaterialIDs {
+		if _, ok := catalog[id]; !ok {
+			return nil, fmt.Errorf("material dengan ID %s tidak ditemukan di outlet ini", id)
+		}
+	}
+
 	id := req.ID
 	if id == "" {
 		id = utils.NewUUID()
 	}
 
-	clientCreatedAt := req.ClientCreatedAt
-	if clientCreatedAt.IsZero() {
-		clientCreatedAt = s.now().UTC()
-	}
-
-	if deviceID == "" {
-		deviceID = domain.LegacyDeviceID
-	}
-
 	session := &domain.OpnameSession{
-		ID:              id,
-		OutletID:        outletID,
-		BusinessID:      businessID,
-		DeviceID:        deviceID,
-		Scope:           scope,
-		Status:          domain.OpnameStatusDraft,
-		CountedBy:       countedBy,
-		Notes:           req.Notes,
-		ClientCreatedAt: clientCreatedAt,
+		ID:            id,
+		OutletID:      outletID,
+		BusinessID:    businessID,
+		Scope:         req.Scope,
+		Status:        domain.SOStatusOpen,
+		CreatedBy:     createdBy,
+		Notes:         req.Notes,
+		CreatedAt:     s.now(),
 	}
 
 	if err := s.repo.Create(ctx, session); err != nil {
 		return nil, err
 	}
 
-	// Dibaca ULANG, bukan dikembalikan apa adanya. `Create` bersifat
-	// `DO NOTHING`: bila sesi dengan id ini sudah ada — pengiriman ulang —
-	// struct di atas bukan yang tersimpan, dan mengembalikannya akan
-	// memberitahu klien bahwa sesinya `DRAFT` padahal mungkin sudah `LOCKED`.
-	return s.repo.GetByID(ctx, id)
+	if err := s.repo.SetFormItems(ctx, session.ID, req.RawMaterialIDs); err != nil {
+		return nil, err
+	}
+
+	return s.buildFormResponse(ctx, session)
 }
 
-/* ── UpsertItems & GetDraft ───────────────────────────────────────────────── */
-
-// UpsertItems menyimpan hitungan fisik petugas.
-//
-// Responsnya memakai [domain.OpnameDraftResponse], yang secara harfiah tidak
-// memiliki field untuk `system_stock` maupun `difference` — kebocoran di sini
-// tidak dapat dikompilasi, bukan sekadar tidak terjadi.
-func (s *opnameSessionService) UpsertItems(
-	ctx context.Context,
-	businessID, outletID, sessionID string,
-	reqs []*domain.UpsertOpnameItemRequest,
-) (*domain.OpnameDraftResponse, error) {
-	session, err := s.loadSession(ctx, businessID, outletID, sessionID)
+func (s *opnameSessionService) UpdateFormItems(ctx context.Context, businessID, outletID, formID string, rawMaterialIDs []string) (*domain.SOFormResponse, error) {
+	session, err := s.loadSession(ctx, businessID, outletID, formID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Sesi terkunci tidak menerima hitungan baru. Inilah yang membuat kunci
-	// bersifat SATU ARAH: tanpa penjagaan ini, petugas yang melihat selisih
-	// dapat "memperbaiki" hitungannya lewat satu permintaan PUT.
-	if session.Status != domain.OpnameStatusDraft {
-		return nil, ErrOpnameAlreadyLocked
+	if session.Status != domain.SOStatusOpen {
+		return nil, ErrSOFormNotOpen
 	}
 
-	// Bahan baku dimuat SEKALI untuk seluruh batch, bukan per item. Opname
-	// penuh menyentuh ratusan bahan; satu kueri per item mengubahnya menjadi
-	// ratusan perjalanan ke basis data.
 	catalog, err := s.rawMaterialCatalog(ctx, outletID)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]*domain.OpnameSessionItem, 0, len(reqs))
-	for _, r := range reqs {
-		rm, ok := catalog[r.RawMaterialID]
-		if !ok {
-			// Bahan yang tidak dikenal DITOLAK, bukan dilewati diam-diam.
-			// Hitungan yang hilang tanpa kabar adalah selisih yang muncul
-			// entah dari mana saat penguncian.
-			return nil, errors.New("bahan baku tidak dikenal pada outlet ini: " + r.RawMaterialID)
+	for _, id := range rawMaterialIDs {
+		if _, ok := catalog[id]; !ok {
+			return nil, fmt.Errorf("material dengan ID %s tidak ditemukan di outlet ini", id)
 		}
-		if r.ActualStock < 0 {
-			return nil, errors.New("hitungan fisik tidak boleh negatif: " + rm.Name)
-		}
-
-		inputType := r.InputType
-		if inputType == "" {
-			inputType = "base_unit"
-		}
-		if inputType != "base_unit" && inputType != "package_unit" {
-			return nil, errors.New("input_type harus 'base_unit' atau 'package_unit'")
-		}
-
-		// Konversi satuan paket → satuan dasar terjadi DI SINI, sekali.
-		// Menyimpan angka paket mentah pada `actual_stock` akan membuat
-		// selisihnya salah sebesar faktor isi paket — 24× untuk satu dus berisi
-		// 24 kaleng.
-		actualBase := r.ActualStock
-		var actualPackage *float64
-		if inputType == "package_unit" {
-			if rm.QuantityPerPackage == nil || *rm.QuantityPerPackage <= 0 {
-				return nil, errors.New("bahan baku ini tidak memiliki satuan paket: " + rm.Name)
-			}
-			pkg := r.ActualStock
-			actualPackage = &pkg
-			actualBase = r.ActualStock * (*rm.QuantityPerPackage)
-		} else {
-			actualPackage = r.ActualPackageQuantity
-		}
-
-		itemID := r.ID
-		if itemID == "" {
-			itemID = utils.NewUUID()
-		}
-
-		items = append(items, &domain.OpnameSessionItem{
-			ID:                    itemID,
-			SessionID:             sessionID,
-			RawMaterialID:         r.RawMaterialID,
-			ActualStock:           actualBase,
-			ActualPackageQuantity: actualPackage,
-			InputType:             inputType,
-			Notes:                 r.Notes,
-		})
 	}
 
-	if err := s.repo.UpsertItems(ctx, sessionID, items); err != nil {
+	if err := s.repo.SetFormItems(ctx, session.ID, rawMaterialIDs); err != nil {
 		return nil, err
 	}
 
-	return s.buildDraft(ctx, session)
+	return s.buildFormResponse(ctx, session)
 }
 
-// GetDraft mengembalikan keadaan sesi TANPA angka ekspektasi.
-func (s *opnameSessionService) GetDraft(ctx context.Context, businessID, outletID, sessionID string) (*domain.OpnameDraftResponse, error) {
-	session, err := s.loadSession(ctx, businessID, outletID, sessionID)
+func (s *opnameSessionService) PublishForm(ctx context.Context, businessID, outletID, formID string) error {
+	session, err := s.loadSession(ctx, businessID, outletID, formID)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return s.buildDraft(ctx, session)
+
+	if session.Status != domain.SOStatusOpen {
+		return ErrSOFormNotOpen
+	}
+
+	items, err := s.repo.ListFormItems(ctx, session.ID)
+	if err != nil {
+		return err
+	}
+	if len(items) == 0 {
+		return ErrSOFormNoItems
+	}
+
+	return s.repo.Publish(ctx, session.ID, s.now())
 }
 
-func (s *opnameSessionService) buildDraft(ctx context.Context, session *domain.OpnameSession) (*domain.OpnameDraftResponse, error) {
-	stored, err := s.repo.ListItems(ctx, session.ID)
-	if err != nil {
-		return nil, err
-	}
-	catalog, err := s.rawMaterialCatalog(ctx, session.OutletID)
+func (s *opnameSessionService) CloseForm(ctx context.Context, businessID, outletID, formID, closedBy string) (*domain.SOClosedResponse, error) {
+	session, err := s.loadSession(ctx, businessID, outletID, formID)
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]*domain.OpnameItemDraftDTO, 0, len(stored))
-	for _, it := range stored {
-		out = append(out, draftDTO(it, catalog[it.RawMaterialID]))
+	if session.Status != domain.SOStatusCounting {
+		return nil, ErrSOFormNotCounting
 	}
 
-	return &domain.OpnameDraftResponse{
-		ID:           session.ID,
-		Status:       session.Status,
-		Scope:        session.Scope,
-		ItemsCounted: len(out),
-		Items:        out,
-	}, nil
-}
-
-/* ── Lock ─────────────────────────────────────────────────────────────────── */
-
-// Lock mengambil snapshot stok sistem, menghitung selisih, lalu mengunci sesi.
-//
-// ═══════════════════════════════════════════════════════════════════════════
-// SATU TRANSAKSI, DAN ITU MENGIKAT
-// ═══════════════════════════════════════════════════════════════════════════
-//
-// Snapshot, perhitungan, dan perpindahan status seluruhnya berada di dalam satu
-// transaksi basis data dengan `SELECT … FOR UPDATE` pada `raw_materials`.
-// Memisahkannya membuka jendela saat sinkronisasi penjualan memotong stok bahan
-// yang sama — dan selisih yang lahir dari jendela itu adalah tuduhan kehilangan
-// barang terhadap orang yang tidak melakukannya.
-//
-// Ini juga satu-satunya metode yang mengembalikan [domain.OpnameItemLockedDTO].
-func (s *opnameSessionService) Lock(ctx context.Context, businessID, outletID, sessionID string) (*domain.OpnameLockResponse, error) {
-	session, err := s.loadSession(ctx, businessID, outletID, sessionID)
+	hasCounts, err := s.repo.HasCountEntries(ctx, session.ID)
 	if err != nil {
 		return nil, err
 	}
-	if session.Status != domain.OpnameStatusDraft {
-		return nil, ErrOpnameAlreadyLocked
-	}
-
-	lockedAt := s.now().UTC()
-
-	if err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
-		// Seluruh pekerjaan berat ada di repositori: `FOR UPDATE`, snapshot,
-		// hitung selisih, dan perpindahan status dalam rangkaian pernyataan yang
-		// tidak dapat disela.
-		return s.repo.Lock(txCtx, sessionID, lockedAt)
-	}); err != nil {
-		return nil, err
-	}
-
-	return s.buildLocked(ctx, sessionID, domain.OpnameStatusLocked, lockedAt)
-}
-
-// GetLocked menyusun layar detail pemilik.
-func (s *opnameSessionService) GetLocked(ctx context.Context, businessID, outletID, sessionID string) (*domain.OpnameLockResponse, error) {
-	session, err := s.loadSession(ctx, businessID, outletID, sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Sesi DRAFT ditolak bahkan untuk pemilik.
-	//
-	// Bukan karena pemilik tidak berhak melihat angkanya, melainkan karena
-	// angkanya BELUM ADA: `system_stock` masih NULL sampai penguncian. Menyusun
-	// respons "lengkap" dari kolom kosong akan menampilkan selisih nol untuk
-	// setiap bahan, dan pemilik akan menyimpulkan gudangnya rapi.
-	if session.Status == domain.OpnameStatusDraft {
-		return nil, ErrOpnameNotLocked
-	}
-
-	var lockedAt time.Time
-	if session.LockedAt != nil {
-		lockedAt = *session.LockedAt
-	}
-	return s.buildLocked(ctx, sessionID, session.Status, lockedAt)
-}
-
-func (s *opnameSessionService) buildLocked(
-	ctx context.Context,
-	sessionID, status string,
-	lockedAt time.Time,
-) (*domain.OpnameLockResponse, error) {
-	stored, err := s.repo.ListItems(ctx, sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	session, err := s.repo.GetByID(ctx, sessionID)
-	if err != nil {
-		return nil, err
-	}
-	catalog, err := s.rawMaterialCatalog(ctx, session.OutletID)
-	if err != nil {
-		return nil, err
-	}
-
-	items := make([]*domain.OpnameItemLockedDTO, 0, len(stored))
-	summary := domain.OpnameLockSummary{ItemsCounted: len(stored)}
-
-	for _, it := range stored {
-		diff := deref(it.Difference)
-		value := deref(it.DifferenceValue)
-
-		// Selisih NOL bukan varians. Menghitungnya sebagai varians akan membuat
-		// `items_with_variance` selalu sama dengan `items_counted`, dan
-		// angkanya berhenti berarti apa pun.
-		if diff != 0 {
-			summary.ItemsWithVariance++
-		}
-		summary.TotalVarianceValue += value
-
-		items = append(items, &domain.OpnameItemLockedDTO{
-			OpnameItemDraftDTO:    *draftDTO(it, catalog[it.RawMaterialID]),
-			SystemStock:           deref(it.SystemStock),
-			SystemPackageQuantity: it.SystemPackageQuantity,
-			Difference:            diff,
-			DifferenceValue:       value,
-			FraudFlag:             it.FraudFlag,
-		})
-	}
-
-	summary.TotalVarianceValue = round2(summary.TotalVarianceValue)
-
-	return &domain.OpnameLockResponse{
-		Status:   status,
-		LockedAt: lockedAt,
-		Summary:  summary,
-		Items:    items,
-	}, nil
-}
-
-/* ── Approve & Reject ─────────────────────────────────────────────────────── */
-
-// Approve menerapkan penyesuaian stok hasil opname.
-//
-// ═══════════════════════════════════════════════════════════════════════════
-// SELISIH DITAMBAHKAN KE STOK BERJALAN — BUKAN MENIMPANYA
-// ═══════════════════════════════════════════════════════════════════════════
-//
-//	stok_baru = stok_saat_ini + difference
-//	          = stok_saat_ini + (actual_stock − system_stock_saat_lock)
-//
-// BUKAN `stok_baru = actual_stock`. Keduanya menghasilkan angka yang sama bila
-// tidak ada apa pun terjadi di antara penguncian dan penyetujuan — dan berbeda
-// justru pada kasus yang lazim, karena pemilik sering menyetujui keesokan
-// harinya sementara toko terus berjualan.
-//
-// Contoh yang membuat perbedaannya konkret:
-//
-//	sistem saat lock : 100 kg
-//	hitungan fisik   :  95 kg   → difference = −5 (susut 5 kg)
-//	terjual sesudah  :  20 kg   → stok saat ini = 80 kg
-//
-//	  benar  : 80 + (−5) = 75 kg   ← kenyataan fisik
-//	  salah  : = actual  = 95 kg   ← menghidupkan kembali 20 kg yang sudah terjual
-//
-// Menimpa dengan `actual_stock` membuat bahan yang sudah benar-benar terpakai
-// muncul kembali di persediaan. Kesalahannya tidak berhenti di angka stok: BOM
-// akan memotong dari saldo yang tidak ada, dan opname berikutnya melaporkan
-// susut sebesar penjualan sela itu — tuduhan kehilangan barang terhadap orang
-// yang tidak melakukannya.
-//
-// `difference` dipakai apa adanya dari snapshot penguncian. Ia adalah temuan
-// opname — selisih antara apa yang ada dan apa yang seharusnya ada PADA MOMEN
-// ITU — dan temuan itu tetap sah berapa pun banyaknya penjualan sesudahnya.
-//
-// ⚠️ Penyetujuan dua kali menghasilkan galat, bukan penyesuaian ganda:
-// `UpdateStatus` hanya mengenai baris berstatus `LOCKED`, dan ia dijalankan di
-// dalam transaksi yang sama dengan penyesuaiannya. Sifat itu JAUH lebih penting
-// pada rumus ini daripada pada `= actual_stock`: penambahan yang terjadi dua
-// kali menggandakan selisihnya, sedangkan penimpaan yang terjadi dua kali
-// menghasilkan nilai yang sama.
-func (s *opnameSessionService) Approve(ctx context.Context, businessID, outletID, sessionID, approvedBy string) (*domain.OpnameApproveResult, error) {
-	session, err := s.loadSession(ctx, businessID, outletID, sessionID)
-	if err != nil {
-		return nil, err
-	}
-	if session.Status != domain.OpnameStatusLocked {
-		return nil, ErrOpnameNotLocked
-	}
-
-	approvedAt := s.now().UTC()
-	result := &domain.OpnameApproveResult{
-		SessionID: sessionID,
-		Status:    domain.OpnameStatusApproved,
+	if !hasCounts {
+		return nil, ErrSOFormNoCounts
 	}
 
 	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
-		// ── Perpindahan status DULU ──────────────────────────────────────
-		//
-		// Urutan ini yang menegakkan idempotensi. `UpdateStatus` hanya mengenai
-		// baris berstatus `LOCKED`; panggilan kedua tidak menemukan baris dan
-		// gagal SEBELUM satu pun stok tersentuh.
-		//
-		// Urutan sebaliknya — sesuaikan stok lalu pindahkan status — membuat dua
-		// permintaan bersamaan sama-sama lolos pemeriksaan awal dan menerapkan
-		// penyesuaian dua kali.
-		if updErr := s.repo.UpdateStatus(txCtx, sessionID, domain.OpnameStatusApproved, &approvedBy, &approvedAt); updErr != nil {
-			return ErrOpnameNotLocked
-		}
-
-		items, itemsErr := s.repo.ListItems(txCtx, sessionID)
-		if itemsErr != nil {
-			return itemsErr
-		}
-
-		for _, it := range items {
-			// Item tanpa snapshot berarti penguncian tidak menyentuhnya — mis.
-			// bahan baku yang dihapus di antara penghitungan dan penguncian.
-			// Melewatinya lebih benar daripada menyetel stok ke nol.
-			if it.SystemStock == nil {
-				continue
-			}
-
-			// `LockByID` — `SELECT … FOR UPDATE`. WAJIB, dan bukan sekadar
-			// kehati-hatian: rumus di bawah adalah baca-ubah-tulis, dan tanpa
-			// kunci baris, sinkronisasi penjualan yang tiba di antara pembacaan
-			// dan penulisan akan tertimpa tanpa jejak.
-			rm, rmErr := s.rmRepo.LockByID(txCtx, it.RawMaterialID)
-			if rmErr != nil {
-				continue
-			}
-
-			// `rm.Stock` dibaca DI DALAM transaksi dan setelah baris terkunci —
-			// itulah "stok saat ini" yang dimaksud rumus di atas, bukan
-			// `system_stock` dari snapshot penguncian.
-			adjusted := rm.Stock + deref(it.Difference)
-
-			// Stok BOLEH menjadi negatif, sama seperti pada jalur BOM
-			// ([11 §M13.6]). Memaksanya berhenti di nol berarti menyembunyikan
-			// selisih yang justru harus dilihat pemilik pada opname berikutnya.
-			if updErr := s.rmRepo.UpdateStock(txCtx, rm.ID, adjusted); updErr != nil {
-				return updErr
-			}
-
-			// Projection ke `stock_opnames` agar laporan v1 pemilik tetap hidup
-			// selama jendela deprekasi ([11 §3.2]).
-			projection := &domain.StockOpname{
-				ID:                    utils.NewUUID(),
-				OutletID:              outletID,
-				RawMaterialID:         it.RawMaterialID,
-				SystemStock:           deref(it.SystemStock),
-				ActualStock:           it.ActualStock,
-				Difference:            deref(it.Difference),
-				DifferenceValue:       deref(it.DifferenceValue),
-				FraudFlag:             it.FraudFlag,
-				RecordedBy:            session.CountedBy,
-				InputType:             it.InputType,
-				SystemPackageQuantity: deref(it.SystemPackageQuantity),
-				ActualPackageQuantity: deref(it.ActualPackageQuantity),
-				Notes:                 it.Notes,
-				CreatedAt:             approvedAt,
-			}
-			if projErr := s.opnameRepo.Create(txCtx, projection); projErr != nil {
-				return projErr
-			}
-
-			result.ItemsAdjusted++
-			result.TotalVariance += deref(it.DifferenceValue)
-		}
-
-		return nil
+		return s.repo.Close(txCtx, session.ID, s.now(), closedBy)
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	result.TotalVariance = round2(result.TotalVariance)
-	return result, nil
+	// Reload session to get updated status and timestamps
+	closedSession, err := s.repo.GetByID(ctx, session.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.buildClosedResponse(ctx, closedSession)
 }
 
-// Reject menutup sesi tanpa menyentuh stok sama sekali.
-//
-// Sesi yang ditolak TIDAK kembali ke `DRAFT`. Hitung ulang menempuh sesi BARU
-// dengan `recount_of` — mengizinkan sesi terkunci dibuka kembali akan
-// mengembalikan persis lubang yang penguncian satu arah tutup.
-func (s *opnameSessionService) Reject(ctx context.Context, businessID, outletID, sessionID, rejectedBy string) error {
-	session, err := s.loadSession(ctx, businessID, outletID, sessionID)
+func (s *opnameSessionService) ApproveForm(ctx context.Context, businessID, outletID, formID, approvedBy string) (*domain.OpnameApproveResult, error) {
+	session, err := s.loadSession(ctx, businessID, outletID, formID)
+	if err != nil {
+		return nil, err
+	}
+
+	if session.Status != domain.SOStatusClosed {
+		return nil, ErrSOFormNotClosed
+	}
+
+	var itemsAdjusted int
+	var totalVariance float64
+
+	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.repo.Approve(txCtx, session.ID, approvedBy, s.now()); err != nil {
+			return err
+		}
+
+		items, err := s.repo.ListItems(txCtx, session.ID)
+		if err != nil {
+			return err
+		}
+
+		for _, it := range items {
+			if it.SystemStock != nil && it.Difference != nil && *it.Difference != 0 {
+				rm, err := s.rmRepo.LockByID(txCtx, it.RawMaterialID)
+				if err != nil {
+					return err
+				}
+
+				newPackageStock := 0
+				newLooseStock := it.ActualStock
+				if it.ActualPackages != nil {
+					newPackageStock = *it.ActualPackages
+				}
+				if it.ActualLoose != nil {
+					newLooseStock = *it.ActualLoose
+				}
+
+				if err := s.rmRepo.UpdateDualStock(txCtx, rm.ID, newPackageStock, newLooseStock); err != nil {
+					return err
+				}
+
+				itemsAdjusted++
+				if it.DifferenceValue != nil {
+					totalVariance += *it.DifferenceValue
+				}
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.OpnameApproveResult{
+		SessionID:     session.ID,
+		Status:        domain.SOStatusApproved,
+		ItemsAdjusted: itemsAdjusted,
+		TotalVariance: totalVariance,
+	}, nil
+}
+
+func (s *opnameSessionService) RejectForm(ctx context.Context, businessID, outletID, formID, rejectedBy string) error {
+	session, err := s.loadSession(ctx, businessID, outletID, formID)
 	if err != nil {
 		return err
 	}
-	if session.Status != domain.OpnameStatusLocked {
-		return ErrOpnameNotLocked
+
+	if session.Status != domain.SOStatusClosed {
+		return ErrSOFormNotClosed
 	}
 
-	rejectedAt := s.now().UTC()
-	return s.repo.UpdateStatus(ctx, sessionID, domain.OpnameStatusRejected, &rejectedBy, &rejectedAt)
+	return s.repo.Reject(ctx, session.ID, rejectedBy, s.now())
 }
 
-func (s *opnameSessionService) ListSessions(ctx context.Context, businessID, outletID, status string, limit, offset int) ([]*domain.OpnameSession, error) {
-	if err := s.assertOutlet(ctx, businessID, outletID); err != nil {
-		return nil, err
-	}
-	if limit <= 0 || limit > 100 {
-		limit = 50
-	}
-	return s.repo.ListByOutlet(ctx, outletID, status, limit, offset)
-}
-
-/* ── Pembantu ─────────────────────────────────────────────────────────────── */
-
-func (s *opnameSessionService) rawMaterialCatalog(ctx context.Context, outletID string) (map[string]*domain.RawMaterial, error) {
-	list, err := s.rmRepo.GetAllByOutletID(ctx, outletID)
+func (s *opnameSessionService) RecountForm(ctx context.Context, businessID, outletID, formID, createdBy string) (*domain.SOFormResponse, error) {
+	session, err := s.loadSession(ctx, businessID, outletID, formID)
 	if err != nil {
 		return nil, err
 	}
-	out := make(map[string]*domain.RawMaterial, len(list))
-	for _, rm := range list {
-		out[rm.ID] = rm
+
+	if session.Status != domain.SOStatusClosed && session.Status != domain.SOStatusRejected {
+		return nil, errors.New("form SO harus berstatus CLOSED atau REJECTED untuk bisa di-recount")
 	}
-	return out, nil
+
+	items, err := s.repo.ListFormItems(ctx, session.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	newSessionID := utils.NewUUID()
+	recountOf := session.ID
+
+	newSession := &domain.OpnameSession{
+		ID:            newSessionID,
+		OutletID:      outletID,
+		BusinessID:    businessID,
+		Scope:         session.Scope,
+		Status:        domain.SOStatusOpen,
+		CreatedBy:     createdBy,
+		RecountOf:     &recountOf,
+		RecountNumber: session.RecountNumber + 1,
+		Notes:         fmt.Sprintf("Recount dari form %s", session.ID),
+		CreatedAt:     s.now(),
+	}
+
+	if err := s.repo.Create(ctx, newSession); err != nil {
+		return nil, err
+	}
+
+	var rmIDs []string
+	for _, it := range items {
+		rmIDs = append(rmIDs, it.RawMaterialID)
+	}
+
+	if err := s.repo.SetFormItems(ctx, newSession.ID, rmIDs); err != nil {
+		return nil, err
+	}
+
+	return s.buildFormResponse(ctx, newSession)
 }
 
-// draftDTO menyusun bentuk yang aman dikirim selama DRAFT.
-//
-// Menerima `rm` yang boleh `nil`: bahan baku dapat dihapus pemilik setelah
-// dihitung, dan hitungan yang sudah terjadi tidak boleh lenyap dari daftar
-// karena katalognya berubah.
-func draftDTO(it *domain.OpnameSessionItem, rm *domain.RawMaterial) *domain.OpnameItemDraftDTO {
-	dto := &domain.OpnameItemDraftDTO{
-		RawMaterialID:         it.RawMaterialID,
-		ActualStock:           it.ActualStock,
-		ActualPackageQuantity: it.ActualPackageQuantity,
-		InputType:             it.InputType,
-		Notes:                 it.Notes,
+func (s *opnameSessionService) GetFormDetail(ctx context.Context, businessID, outletID, formID string) (interface{}, error) {
+	session, err := s.loadSession(ctx, businessID, outletID, formID)
+	if err != nil {
+		return nil, err
 	}
-	if rm != nil {
-		dto.RawMaterialName = rm.Name
-		dto.Unit = rm.Unit
-		dto.PackageUnit = rm.PackageUnit
-		dto.QuantityPerPackage = rm.QuantityPerPackage
-	} else {
-		dto.RawMaterialName = "(bahan baku sudah dihapus)"
+
+	switch session.Status {
+	case domain.SOStatusOpen, domain.SOStatusPublished, domain.SOStatusCounting:
+		return s.buildFormResponse(ctx, session)
+	case domain.SOStatusClosed, domain.SOStatusApproved, domain.SOStatusRejected:
+		return s.buildClosedResponse(ctx, session)
+	default:
+		return nil, errors.New("status form tidak valid")
 	}
-	return dto
 }
 
-func deref(v *float64) float64 {
-	if v == nil {
-		return 0
+func (s *opnameSessionService) ListForms(ctx context.Context, businessID, outletID, status string, limit, offset int) ([]*domain.SOFormResponse, error) {
+	if err := s.assertOutlet(ctx, businessID, outletID); err != nil {
+		return nil, err
 	}
-	return *v
+
+	var statuses []string
+	if status != "" {
+		statuses = append(statuses, status)
+	}
+
+	sessions, err := s.repo.ListByOutlet(ctx, outletID, statuses, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]*domain.SOFormResponse, 0)
+	for _, session := range sessions {
+		responses = append(responses, &domain.SOFormResponse{
+			ID:            session.ID,
+			OutletID:      session.OutletID,
+			Status:        session.Status,
+			Scope:         session.Scope,
+			Notes:         session.Notes,
+			CreatedBy:     session.CreatedBy,
+			RecountOf:     session.RecountOf,
+			RecountNumber: session.RecountNumber,
+			PublishedAt:   session.PublishedAt,
+			ClosedAt:      session.ClosedAt,
+			CreatedAt:     session.CreatedAt,
+		})
+	}
+
+	return responses, nil
+}
+
+// ── Mobile / App Methods ──────────────────────────────────────────────────
+
+func (s *opnameSessionService) ListAvailable(ctx context.Context, businessID, outletID string) ([]*domain.SOFormResponse, error) {
+	if err := s.assertOutlet(ctx, businessID, outletID); err != nil {
+		return nil, err
+	}
+
+	statuses := []string{domain.SOStatusPublished, domain.SOStatusCounting}
+	sessions, err := s.repo.ListByOutlet(ctx, outletID, statuses, 100, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]*domain.SOFormResponse, 0)
+	for _, session := range sessions {
+		resp, err := s.buildFormResponse(ctx, session)
+		if err != nil {
+			return nil, err
+		}
+		// Di list available, sembunyikan detail materials agar response ringkas
+		// Kasir akan melihat detail materials saat membuka form spesifik via GET /v1/so/{form_id}
+		resp.Materials = nil
+		responses = append(responses, resp)
+	}
+
+	return responses, nil
+}
+
+func (s *opnameSessionService) GetFormForCounting(ctx context.Context, businessID, outletID, formID string) (*domain.SOFormResponse, error) {
+	session, err := s.loadSession(ctx, businessID, outletID, formID)
+	if err != nil {
+		return nil, err
+	}
+
+	if session.Status != domain.SOStatusPublished && session.Status != domain.SOStatusCounting {
+		return nil, errors.New("form SO tidak dalam status yang dapat dihitung")
+	}
+
+	return s.buildFormResponse(ctx, session)
+}
+
+func (s *opnameSessionService) SubmitCounts(ctx context.Context, businessID, outletID, formID, staffID string, items []*domain.SubmitCountItemRequest) error {
+	session, err := s.loadSession(ctx, businessID, outletID, formID)
+	if err != nil {
+		return err
+	}
+
+	if _, err := s.assertStaff(ctx, outletID, staffID); err != nil {
+		return err
+	}
+
+	if session.Status != domain.SOStatusPublished && session.Status != domain.SOStatusCounting {
+		return errors.New("form SO tidak dalam status yang dapat disubmit")
+	}
+
+	formItems, err := s.repo.ListFormItems(ctx, session.ID)
+	if err != nil {
+		return err
+	}
+
+	validMaterials := make(map[string]bool)
+	for _, it := range formItems {
+		validMaterials[it.RawMaterialID] = true
+	}
+
+	catalog, err := s.rawMaterialCatalog(ctx, outletID)
+	if err != nil {
+		return err
+	}
+
+	var entries []*domain.OpnameCountEntry
+	for _, reqItem := range items {
+		if !validMaterials[reqItem.RawMaterialID] {
+			return fmt.Errorf("material dengan ID %s tidak ada dalam form ini", reqItem.RawMaterialID)
+		}
+
+		if _, ok := catalog[reqItem.RawMaterialID]; !ok {
+			return fmt.Errorf("material dengan ID %s tidak ditemukan", reqItem.RawMaterialID)
+		}
+
+		rm := catalog[reqItem.RawMaterialID]
+		qtyPerPkg := 0.0
+		if rm.QuantityPerPackage != nil {
+			qtyPerPkg = *rm.QuantityPerPackage
+		}
+		actualStock := float64(reqItem.ActualPackages)*qtyPerPkg + reqItem.ActualLoose
+
+		entryID := utils.NewUUID()
+		entries = append(entries, &domain.OpnameCountEntry{
+			ID:             entryID,
+			SessionID:      session.ID,
+			RawMaterialID:  reqItem.RawMaterialID,
+			CountedBy:      staffID,
+			ActualPackages: reqItem.ActualPackages,
+			ActualLoose:    reqItem.ActualLoose,
+			ActualStock:    actualStock,
+			Notes:          reqItem.Notes,
+			CreatedAt:      s.now(),
+			UpdatedAt:      s.now(),
+		})
+	}
+
+	if err := s.repo.UpsertCountEntries(ctx, entries); err != nil {
+		return err
+	}
+
+	if session.Status == domain.SOStatusPublished {
+		if err := s.repo.MarkCounting(ctx, session.ID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *opnameSessionService) GetMyCounts(ctx context.Context, businessID, outletID, formID, staffID string) (*domain.SOCountSheet, error) {
+	session, err := s.loadSession(ctx, businessID, outletID, formID)
+	if err != nil {
+		return nil, err
+	}
+
+	staff, err := s.assertStaff(ctx, outletID, staffID)
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := s.repo.ListCountEntriesByStaff(ctx, session.ID, staffID)
+	if err != nil {
+		return nil, err
+	}
+
+	catalog, err := s.rawMaterialCatalog(ctx, outletID)
+	if err != nil {
+		return nil, err
+	}
+
+	staffName := staffID
+	if staff != nil {
+		staffName = staff.Name
+	}
+
+	sheet := &domain.SOCountSheet{
+		CountedBy: staffID,
+		StaffName: staffName,
+		Items:     []*domain.SOCountSheetItem{},
+	}
+
+
+	for _, entry := range entries {
+		rmName := "Unknown"
+		unit := ""
+		if rm, ok := catalog[entry.RawMaterialID]; ok {
+			rmName = rm.Name
+			unit = rm.Unit
+		}
+
+		sheet.Items = append(sheet.Items, &domain.SOCountSheetItem{
+			RawMaterialID:   entry.RawMaterialID,
+			RawMaterialName: rmName,
+			Unit:            unit,
+			ActualPackages:  entry.ActualPackages,
+			ActualLoose:     entry.ActualLoose,
+			ActualStock:     entry.ActualStock,
+			Notes:           entry.Notes,
+		})
+	}
+
+	return sheet, nil
 }

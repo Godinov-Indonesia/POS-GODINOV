@@ -77,15 +77,15 @@ export function DateRangePicker({
       ) : overLimit ? (
         <p role="alert" className="flex items-center gap-1.5 text-pos-sm text-warning-text">
           <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
-          Rentang {length} hari melebihi batas {REPORT_MAX_RANGE_DAYS} hari. Endpoint laporan tidak
-          punya paginasi — persempit rentang sebelum memuat.
+          Rentang {length} hari melebihi batas {REPORT_MAX_RANGE_DAYS} hari. Silakan
+          persempit rentang tanggal untuk memuat data.
         </p>
       ) : null}
     </div>
   )
 }
 
-/** Banner wajib pada setiap layar laporan ([05 §0.4], [06 §3.8]). */
+/** Banner informasi waktu pencatatan server. */
 export function ServerTimeBanner() {
   return (
     <div
@@ -94,9 +94,8 @@ export function ServerTimeBanner() {
     >
       <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-text" aria-hidden="true" />
       <p>
-        Laporan dikelompokkan berdasarkan waktu data <strong>diterima server</strong>, bukan waktu
-        transaksi terjadi di kasir. Transaksi offline yang baru tersinkronisasi akan muncul pada
-        tanggal sinkronisasinya.
+        Laporan dikelompokkan berdasarkan waktu data <strong>tercatat di server</strong>.
+        Transaksi offline yang disinkronkan akan tercatat sesuai tanggal data diterima oleh sistem.
       </p>
     </div>
   )

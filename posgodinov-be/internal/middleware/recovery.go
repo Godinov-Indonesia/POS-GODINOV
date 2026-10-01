@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"runtime/debug"
 
@@ -19,45 +20,20 @@ func PanicRecovery(appEnv string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if err := recover(); err != nil {
-					// 1. Selalu log stack trace di backend
 					logger.Error("panic recovered", "error", err, "stack", string(debug.Stack()))
 
-					// 2. Format response error menggunakan JSON Marshal (Aman dari unescaped quote/newline)
-					resp := errorResponse{
-						Error: "Internal Server Error",
-					}
-
+					resp := errorResponse{Error: "Internal Server Error"}
 					if appEnv == "local" || appEnv == "development" {
-						resp.Details = StringifyError(err)
+						resp.Details = fmt.Sprint(err)
 					}
 
 					jsonBody, _ := json.Marshal(resp)
-					// SET HEADER sebelum WriteHeader
 					w.Header().Set("Content-Type", "application/json")
-					// Tulis HTTP Status Code
 					w.WriteHeader(http.StatusInternalServerError)
-					// Tulis Body
 					w.Write(jsonBody)
 				}
 			}()
 			next.ServeHTTP(w, r)
 		})
-	}
-}
-
-// Helper untuk mengubah error interface{} menjadi string yang aman
-func StringifyError(err interface{}) string {
-	if e, ok := err.(error); ok {
-		return e.Error()
-	}
-	return jsonStringify(err)
-}
-
-func jsonStringify(v interface{}) string {
-	switch val := v.(type) {
-	case string:
-		return val
-	default:
-		return "panic value: non-string/non-error"
 	}
 }

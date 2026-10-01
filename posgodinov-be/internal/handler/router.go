@@ -16,7 +16,6 @@ func SetupRouter(
 	rawMaterialHandler *RawMaterialHandler,
 	productHandler *ProductHandler,
 	wasteLogHandler *WasteLogHandler,
-	stockOpnameHandler *StockOpnameHandler,
 	restockLogHandler *RestockLogHandler,
 	categoryHandler *ProductCategoryHandler,
 	posAuthHandler *POSAuthHandler,
@@ -25,6 +24,7 @@ func SetupRouter(
 	reportHandler *ReportHandler,
 	shiftReconcileHandler *ShiftReconcileHandler,
 	opnameSessionHandler *OpnameSessionHandler,
+	uploadHandler *UploadHandler,
 	tokenMaker token.TokenMaker,
 	auditRepo domain.AuditRepository,
 	tenantManager *database.BusinessDBManager,
@@ -97,16 +97,15 @@ func SetupRouter(
 	// pencarian kode struk. Satu kode, satu transaksi — bukan daftar.
 	mux.HandleFunc("GET /v1/pos/transactions/lookup", posDevice(posSyncHandler.LookupTransaction))
 
-	// ── Modul Opname — perangkat GUDANG ([11 §M16.3]) ───────────────────────
+	// ── Modul SO — perangkat SO App (device token scope OPNAME) ─────────────
 	//
-	// Tidak satu pun rute di bawah mengembalikan angka ekspektasi, KECUALI
-	// `/lock`. Itu bukan disiplin penulisan handler: `OpnameDraftResponse`
-	// secara harfiah tidak memiliki field untuk `system_stock`, sehingga
-	// kebocoran di jalur ini tidak dapat dikompilasi ([11 §4.6]).
-	mux.HandleFunc("POST /v1/opname/sessions", opnameDevice(opnameSessionHandler.CreateSession))
-	mux.HandleFunc("GET /v1/opname/sessions/{session_id}", opnameDevice(opnameSessionHandler.GetDraft))
-	mux.HandleFunc("PUT /v1/opname/sessions/{session_id}/items", opnameDevice(opnameSessionHandler.UpsertItems))
-	mux.HandleFunc("POST /v1/opname/sessions/{session_id}/lock", opnameDevice(opnameSessionHandler.Lock))
+	// Endpoint untuk app mobile SO (posgodinov-so). Kasir melihat form SO yang
+	// tersedia, submit hitungan, dan lihat hitungan sendiri. Tidak ada endpoint
+	// di sini yang mengembalikan system_stock — prinsip blind opname tetap.
+	mux.HandleFunc("GET /v1/so/available", opnameDevice(opnameSessionHandler.ListAvailable))
+	mux.HandleFunc("GET /v1/so/{form_id}", opnameDevice(opnameSessionHandler.GetFormForCounting))
+	mux.HandleFunc("PUT /v1/so/{form_id}/counts", opnameDevice(opnameSessionHandler.SubmitCounts))
+	mux.HandleFunc("GET /v1/so/{form_id}/my-counts", opnameDevice(opnameSessionHandler.GetMyCounts))
 	
 	// Reports Routes
 	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/reports/dashboard", chain(reportHandler.GetDashboard))
@@ -121,16 +120,19 @@ func SetupRouter(
 	// seluruh Blind Closing dengan satu baris.
 	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/reports/shift-reconciliation", chain(shiftReconcileHandler.List))
 
-	// ── Modul Opname — PEMILIK (token bisnis) ([11 §M16.3]) ─────────────────
+	// ── Modul SO — ADMIN (token bisnis) ─────────────────────────────────────
 	//
-	// Di sinilah angka ekspektasi boleh terlihat, dan hanya di balik token
-	// bisnis. Memindahkan rute ini ke `opnameDevice` akan menyerahkan seluruh
-	// ekspektasi kepada perangkat yang dipegang petugas penghitung — persis
-	// yang butir 3 dibangun untuk mencegahnya.
-	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/opname/sessions", chain(opnameSessionHandler.ListSessions))
-	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/opname/sessions/{session_id}", chain(opnameSessionHandler.GetSessionDetail))
-	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/opname/sessions/{session_id}/approve", chain(opnameSessionHandler.Approve))
-	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/opname/sessions/{session_id}/reject", chain(opnameSessionHandler.Reject))
+	// Admin membuat form SO, pilih material, publish, tutup, approve/reject.
+	// Di sinilah angka selisih dan system_stock boleh terlihat (setelah close).
+	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/so/forms", chain(opnameSessionHandler.CreateForm))
+	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/so/forms", chain(opnameSessionHandler.ListForms))
+	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/so/forms/{form_id}", chain(opnameSessionHandler.GetFormDetail))
+	mux.HandleFunc("PUT /v1/business/outlets/{outlet_id}/so/forms/{form_id}/items", chain(opnameSessionHandler.UpdateFormItems))
+	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/so/forms/{form_id}/publish", chain(opnameSessionHandler.PublishForm))
+	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/so/forms/{form_id}/close", chain(opnameSessionHandler.CloseForm))
+	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/so/forms/{form_id}/approve", chain(opnameSessionHandler.ApproveForm))
+	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/so/forms/{form_id}/reject", chain(opnameSessionHandler.RejectForm))
+	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/so/forms/{form_id}/recount", chain(opnameSessionHandler.RecountForm))
 
 	// Protected Routes (Butuh Token)
 	
@@ -143,6 +145,7 @@ func SetupRouter(
 	mux.HandleFunc("GET /v1/business/staff", chain(staffHandler.GetAllByBusiness))
 	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/staff", chain(staffHandler.GetAll))
 	mux.HandleFunc("PUT /v1/business/staff/{staff_id}", chain(staffHandler.Update))
+	mux.HandleFunc("POST /v1/business/staff/{staff_id}/transfer", chain(staffHandler.Transfer))
 	mux.HandleFunc("DELETE /v1/business/staff/{staff_id}", chain(staffHandler.Delete))
 	
 	// Raw Material Routes
@@ -164,11 +167,7 @@ func SetupRouter(
 	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/waste/bulk", chain(wasteLogHandler.RecordBulk))
 	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/reports/waste", chain(wasteLogHandler.GetAll))
 	
-	// Stock Opname Routes
-	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/raw-materials/{raw_material_id}/opnames", chain(stockOpnameHandler.Record))
-	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/opnames/bulk", chain(stockOpnameHandler.RecordBulk))
-	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/reports/opnames", chain(stockOpnameHandler.GetAll))
-	
+
 	// Restock Routes
 	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/raw-materials/{raw_material_id}/restock", chain(restockLogHandler.Record))
 	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/restock/bulk", chain(restockLogHandler.RecordBulk))
@@ -179,6 +178,9 @@ func SetupRouter(
 	mux.HandleFunc("POST /v1/business/outlets/{outlet_id}/categories/bulk", chain(categoryHandler.CreateBulk))
 	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/categories", chain(categoryHandler.GetAll))
 	
+	// Upload Routes (Cloudinary Signed Upload)
+	mux.HandleFunc("POST /v1/business/uploads/signature", chain(uploadHandler.GetUploadSignature))
+
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
