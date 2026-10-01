@@ -7,6 +7,10 @@ import { ImageUploader } from '@/components/ui/image-uploader'
 export interface ProductImageUploaderProps {
   value: string
   onChange: (url: string) => void
+  /** File gambar yang dipilih pengguna (mode Deferred Upload) */
+  file?: File | null
+  /** Callback saat file dipilih secara lokal */
+  onFileChange?: (file: File | null) => void
   outletId?: string
   disabled?: boolean
   className?: string
@@ -14,12 +18,14 @@ export interface ProductImageUploaderProps {
 
 /**
  * [TERAPAN SPESIFIK PRODUK]
- * Komponen pembungkus khusus modul produk yang mengunggah ke Cloudinary
- * folder dinamis `{env}/{business_id}/{outlet_id}/products` dengan kompresi WebP otomatis.
+ * Komponen pembungkus khusus modul produk. Mendukung mode Deferred Upload
+ * (file baru diunggah saat tombol Simpan ditekan) untuk mencegah orphaned asset di Cloudinary.
  */
 export function ProductImageUploader({
   value,
   onChange,
+  file,
+  onFileChange,
   outletId,
   disabled = false,
   className,
@@ -28,6 +34,8 @@ export function ProductImageUploader({
     <ImageUploader
       value={value}
       onChange={onChange}
+      file={file}
+      onFileChange={onFileChange}
       purpose="products"
       outletId={outletId}
       shape="rounded"

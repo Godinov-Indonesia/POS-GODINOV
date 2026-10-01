@@ -13,6 +13,10 @@ import { cn } from '@/lib/utils/cn'
 export interface ImageUploaderProps {
   value?: string
   onChange: (url: string) => void
+  /** File gambar yang dipilih (untuk mode Deferred Upload) */
+  file?: File | null
+  /** Callback saat file lokal dipilih/diubah tanpa langsung mengunggah ke cloud */
+  onFileChange?: (file: File | null) => void
   /** Kategori target Cloudinary (e.g. 'products', 'profiles', 'general') */
   purpose?: UploadPurpose
   /** ID outlet untuk struktur folder dinamis: env/business_id/outlet_id/products */
@@ -37,6 +41,8 @@ const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 export function ImageUploader({
   value = '',
   onChange,
+  file,
+  onFileChange,
   purpose = 'general',
   outletId,
   shape = 'rounded',
@@ -57,6 +63,21 @@ export function ImageUploader({
   const [previewLocalUrl, setPreviewLocalUrl] = React.useState<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
+  // Object URL preview untuk mode deferred (file prop)
+  const filePreviewUrl = React.useMemo(() => {
+    if (!file) return null
+    return URL.createObjectURL(file)
+  }, [file])
+
+  React.useEffect(() => {
+    return () => {
+      if (filePreviewUrl) {
+        URL.revokeObjectURL(filePreviewUrl)
+      }
+    }
+  }, [filePreviewUrl])
+
+  // Object URL preview untuk mode immediate upload (previewLocalUrl state)
   React.useEffect(() => {
     return () => {
       if (previewLocalUrl) {
@@ -65,26 +86,34 @@ export function ImageUploader({
     }
   }, [previewLocalUrl])
 
-  const handleFileProcess = async (file: File) => {
-    if (!ACCEPTED_TYPES.includes(file.type)) {
+  const handleFileProcess = async (selectedFile: File) => {
+    if (!ACCEPTED_TYPES.includes(selectedFile.type)) {
       toast.error('Format file tidak didukung. Harap gunakan JPG, PNG, atau WebP.')
       return
     }
 
-    if (file.size > maxSizeMB * 1024 * 1024) {
+    if (selectedFile.size > maxSizeMB * 1024 * 1024) {
       toast.error(`Ukuran file melebihi batas maksimal ${maxSizeMB}MB.`)
       return
     }
 
-    // Buat preview instan lokal
-    const localUrl = URL.createObjectURL(file)
+    // Mode Deferred Upload: Simpan file ke state form dan buat preview lokal tanpa upload ke Cloudinary
+    if (onFileChange) {
+      onFileChange(selectedFile)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      return
+    }
+
+    // Mode Immediate Upload: Langsung upload ke Cloudinary
+    const localUrl = URL.createObjectURL(selectedFile)
     if (previewLocalUrl) URL.revokeObjectURL(previewLocalUrl)
     setPreviewLocalUrl(localUrl)
 
     setIsUploading(true)
     try {
-      // Unggah dengan kompresi WebP otomatis ke folder {env}/{business_id}/{outlet_id}/products
-      const secureUrl = await uploadImage(file, {
+      const secureUrl = await uploadImage(selectedFile, {
         purpose,
         outletId,
         compress: true,
@@ -111,16 +140,16 @@ export function ImageUploader({
     setIsDragging(false)
     if (disabled || isUploading) return
 
-    const file = e.dataTransfer.files?.[0]
-    if (file) {
-      handleFileProcess(file)
+    const droppedFile = e.dataTransfer.files?.[0]
+    if (droppedFile) {
+      handleFileProcess(droppedFile)
     }
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      handleFileProcess(file)
+    const selectedFile = e.target.files?.[0]
+    if (selectedFile) {
+      handleFileProcess(selectedFile)
     }
   }
 
@@ -129,10 +158,12 @@ export function ImageUploader({
       URL.revokeObjectURL(previewLocalUrl)
       setPreviewLocalUrl(null)
     }
+    onFileChange?.(null)
     onChange('')
   }
 
-  const activeImage = previewLocalUrl || value
+  const activePreviewUrl = filePreviewUrl || previewLocalUrl
+  const activeImage = activePreviewUrl || value
 
   const sizeClasses = {
     sm: 'size-16',
@@ -158,7 +189,7 @@ export function ImageUploader({
       />
 
       {activeImage ? (
-        // Preview Box ketika gambar telah tersedia
+        // Preview Box ketika gambar telah tersedia (baik file lokal maupun URL)
         <div className="flex flex-col sm:flex-row items-center gap-4 rounded-lg border border-border p-3 bg-bg-surface">
           <div
             className={cn(
@@ -167,10 +198,10 @@ export function ImageUploader({
               shapeClasses,
             )}
           >
-            {previewLocalUrl ? (
+            {activePreviewUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={previewLocalUrl}
+                src={activePreviewUrl}
                 alt="Preview gambar"
                 className="size-full object-cover"
               />
@@ -190,10 +221,22 @@ export function ImageUploader({
 
           <div className="flex flex-1 flex-col gap-1 text-center sm:text-left min-w-0">
             <p className="text-sm font-medium text-fg truncate">
-              {isUploading ? 'Sedang mengunggah ke Cloudinary...' : 'Gambar Berhasil Disimpan'}
+              {file
+                ? 'File gambar siap disimpan'
+                : isUploading
+                  ? 'Sedang mengunggah ke Cloudinary...'
+                  : 'Gambar Produk Tersimpan'}
             </p>
             <p className="text-xs text-fg-muted truncate">
-              {value ? value : 'Memproses upload…'}
+              {file ? (
+                <span className="text-primary font-medium">
+                  {file.name} (akan diunggah saat simpan)
+                </span>
+              ) : value ? (
+                value
+              ) : (
+                'Memproses upload…'
+              )}
             </p>
             <div className="flex items-center gap-2 mt-1 justify-center sm:justify-start">
               <Button
@@ -276,7 +319,10 @@ export function ImageUploader({
                 type="url"
                 placeholder="https://example.com/image.webp"
                 value={value}
-                onChange={(e) => onChange(e.target.value)}
+                onChange={(e) => {
+                  onFileChange?.(null)
+                  onChange(e.target.value)
+                }}
                 disabled={disabled || isUploading}
                 className="text-xs"
               />
