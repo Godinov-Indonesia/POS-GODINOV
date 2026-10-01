@@ -15,6 +15,8 @@ export interface ImageUploaderProps {
   onChange: (url: string) => void
   /** Kategori target Cloudinary (e.g. 'products', 'profiles', 'general') */
   purpose?: UploadPurpose
+  /** ID outlet untuk struktur folder dinamis: env/business_id/outlet_id/products */
+  outletId?: string
   /** Bentuk visual preview: 'rounded' (default), 'circle' (untuk avatar/profil), atau 'square' */
   shape?: 'rounded' | 'circle' | 'square'
   /** Ukuran kotak preview */
@@ -36,6 +38,7 @@ export function ImageUploader({
   value = '',
   onChange,
   purpose = 'general',
+  outletId,
   shape = 'rounded',
   previewSize = 'md',
   dropzoneLabel = 'Klik untuk unggah atau seret file gambar ke sini',
@@ -80,9 +83,10 @@ export function ImageUploader({
 
     setIsUploading(true)
     try {
-      // Unggah dengan kompresi WebP otomatis ke folder posgodinov/{business_id}/{purpose}
+      // Unggah dengan kompresi WebP otomatis ke folder {env}/{business_id}/{outlet_id}/products
       const secureUrl = await uploadImage(file, {
         purpose,
+        outletId,
         compress: true,
         maxWidth,
         maxHeight,

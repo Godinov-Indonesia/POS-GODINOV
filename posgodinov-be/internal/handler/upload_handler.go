@@ -35,16 +35,18 @@ func (h *UploadHandler) GetUploadSignature(w http.ResponseWriter, r *http.Reques
 		businessID = payload.BusinessID
 	}
 
-	purpose := domain.UploadPurposeProduct
-	// Jika terdapat request body JSON, baca field purpose opsional
+	var req domain.CreateUploadSignatureRequest
+	req.Purpose = domain.UploadPurposeProduct
+
+	// Jika terdapat request body JSON, baca field purpose & outlet_id
 	if r.Body != nil && r.ContentLength > 0 {
-		var req domain.CreateUploadSignatureRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err == nil && req.Purpose != "" {
-			purpose = req.Purpose
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.Purpose == "" {
+			req.Purpose = domain.UploadPurposeProduct
 		}
 	}
 
-	sig, err := h.svc.GenerateUploadSignature(r.Context(), businessID, purpose)
+	sig, err := h.svc.GenerateUploadSignature(r.Context(), businessID, &req)
 	if err != nil {
 		if errors.Is(err, service.ErrCloudinaryNotConfigured) {
 			response.Error(w, http.StatusServiceUnavailable, err.Error(), nil)

@@ -16,8 +16,14 @@ export interface UploadSignatureResponse {
   folder: string
 }
 
+export interface UploadSignatureParams {
+  purpose?: UploadPurpose
+  outlet_id?: string
+}
+
 export interface UploadImageOptions extends ImageCompressOptions {
   purpose?: UploadPurpose
+  outletId?: string
   /** Otomatis kompresi ke WebP dan resize proporsional sebelum upload (default: true). */
   compress?: boolean
 }
@@ -36,26 +42,31 @@ interface CloudinaryUploadResult {
 
 /**
  * Meminta token signature otentikasi upload dari backend Go.
- * Menggunakan folder dinamis berdasarkan business_id & purpose (e.g. posgodinov/{business_id}/{purpose}).
+ * Menggunakan folder dinamis: env/business_id/{outlet_id}/products atau env/business_id/{purpose}
  */
 export async function getUploadSignature(
-  purpose: UploadPurpose = 'products',
+  params: UploadSignatureParams | UploadPurpose = 'products',
 ): Promise<UploadSignatureResponse> {
+  const payload =
+    typeof params === 'string'
+      ? { purpose: params }
+      : { purpose: params.purpose ?? 'products', outlet_id: params.outlet_id }
+
   return await adminRequest<UploadSignatureResponse>('/v1/business/uploads/signature', {
     method: 'POST',
-    body: JSON.stringify({ purpose }),
+    body: JSON.stringify(payload),
   })
 }
 
 /**
  * [CORE FUNCTION] Mengunggah file gambar ke Cloudinary:
  * 1. Otomatis mengompresi ke WebP (kualitas 85%, max 1600px) untuk kecepatan & efisiensi kuota.
- * 2. Mengambil signature dinamis dari backend berdasarkan purpose ('products' | 'profiles').
+ * 2. Mengambil signature dinamis dari backend berdasarkan purpose & outletId.
  * 3. Mengunggah langsung ke Cloudinary API via FormData.
  * 4. Menyimpan otomatis ke Cache Storage browser lokal untuk zero-latency rendering.
  */
 export async function uploadImage(file: File, options: UploadImageOptions = {}): Promise<string> {
-  const { purpose = 'products', compress = true, ...compressOptions } = options
+  const { purpose = 'products', outletId, compress = true, ...compressOptions } = options
 
   // 1. Kompresi gambar ke WebP di sisi klien (menghemat 70-85% bandwidth upload)
   let fileToUpload = file
@@ -68,7 +79,7 @@ export async function uploadImage(file: File, options: UploadImageOptions = {}):
   }
 
   // 2. Ambil signature dinamis multi-tenant dari backend
-  const sig = await getUploadSignature(purpose)
+  const sig = await getUploadSignature({ purpose, outlet_id: outletId })
 
   // 3. Susun payload multipart/form-data
   const formData = new FormData()

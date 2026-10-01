@@ -13,7 +13,8 @@ const (
 
 // CreateUploadSignatureRequest payload dari frontend saat meminta signature upload.
 type CreateUploadSignatureRequest struct {
-	Purpose UploadPurpose `json:"purpose"`
+	Purpose  UploadPurpose `json:"purpose"`
+	OutletID string        `json:"outlet_id,omitempty"`
 }
 
 // UploadSignatureResponse berisi token/signature dan kredensial yang dibutuhkan
@@ -28,5 +29,5 @@ type UploadSignatureResponse struct {
 
 // UploadService menyediakan layanan lisensi/signature upload aset multi-tenant.
 type UploadService interface {
-	GenerateUploadSignature(ctx context.Context, businessID string, purpose UploadPurpose) (*UploadSignatureResponse, error)
+	GenerateUploadSignature(ctx context.Context, businessID string, req *CreateUploadSignatureRequest) (*UploadSignatureResponse, error)
 }

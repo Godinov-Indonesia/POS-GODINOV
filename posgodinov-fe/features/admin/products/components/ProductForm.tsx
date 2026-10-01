@@ -267,6 +267,7 @@ function ProductFormShell({
             <ProductImageUploader
               value={values.image_url}
               onChange={(url) => setValues((v) => ({ ...v, image_url: url }))}
+              outletId={outletId}
               disabled={pending}
             />
           </Field>

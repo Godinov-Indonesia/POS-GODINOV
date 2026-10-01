@@ -7,6 +7,7 @@ import { ImageUploader } from '@/components/ui/image-uploader'
 export interface ProductImageUploaderProps {
   value: string
   onChange: (url: string) => void
+  outletId?: string
   disabled?: boolean
   className?: string
 }
@@ -14,11 +15,12 @@ export interface ProductImageUploaderProps {
 /**
  * [TERAPAN SPESIFIK PRODUK]
  * Komponen pembungkus khusus modul produk yang mengunggah ke Cloudinary
- * folder dinamis `posgodinov/{business_id}/products` dengan kompresi WebP otomatis.
+ * folder dinamis `{env}/{business_id}/{outlet_id}/products` dengan kompresi WebP otomatis.
  */
 export function ProductImageUploader({
   value,
   onChange,
+  outletId,
   disabled = false,
   className,
 }: ProductImageUploaderProps) {
@@ -27,6 +29,7 @@ export function ProductImageUploader({
       value={value}
       onChange={onChange}
       purpose="products"
+      outletId={outletId}
       shape="rounded"
       previewSize="md"
       dropzoneLabel="Klik untuk unggah gambar produk atau seret ke sini"

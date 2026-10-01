@@ -31,11 +31,13 @@ func NewUploadService(cfg *config.Config) domain.UploadService {
 }
 
 // GenerateUploadSignature menghasilkan signature dengan folder dinamis multi-tenant:
-// Format folder: {root_folder}/{business_id}/{purpose} (mis. posgodinov/biz-123/products)
+// - Produk dengan outlet_id: {env}/{business_id}/{outlet_id}/products
+// - Produk tanpa outlet_id: {env}/{business_id}/products
+// - Profil bisnis / target lain: {env}/{business_id}/{purpose}
 func (s *uploadService) GenerateUploadSignature(
 	ctx context.Context,
 	businessID string,
-	purpose domain.UploadPurpose,
+	req *domain.CreateUploadSignatureRequest,
 ) (*domain.UploadSignatureResponse, error) {
 	if s.cfg.CloudinaryCloudName == "" || s.cfg.CloudinaryAPIKey == "" || s.cfg.CloudinaryAPISecret == "" {
 		return nil, ErrCloudinaryNotConfigured
@@ -43,14 +45,9 @@ func (s *uploadService) GenerateUploadSignature(
 
 	ts := s.now().Unix()
 
-	rootFolder := strings.Trim(s.cfg.CloudinaryFolder, "/")
-	if rootFolder == "" {
-		rootFolder = "posgodinov"
-	}
-
-	sanitizedPurpose := strings.ToLower(strings.TrimSpace(string(purpose)))
-	if sanitizedPurpose == "" {
-		sanitizedPurpose = string(domain.UploadPurposeProduct)
+	env := strings.ToLower(strings.TrimSpace(s.cfg.AppEnv))
+	if env == "" {
+		env = "local"
 	}
 
 	sanitizedBizID := strings.TrimSpace(businessID)
@@ -58,8 +55,28 @@ func (s *uploadService) GenerateUploadSignature(
 		sanitizedBizID = "general"
 	}
 
-	// Folder dinamis multi-tenant
-	folder := fmt.Sprintf("%s/%s/%s", rootFolder, sanitizedBizID, sanitizedPurpose)
+	purpose := domain.UploadPurposeProduct
+	outletID := ""
+	if req != nil {
+		if req.Purpose != "" {
+			purpose = req.Purpose
+		}
+		outletID = strings.TrimSpace(req.OutletID)
+	}
+
+	sanitizedPurpose := strings.ToLower(strings.TrimSpace(string(purpose)))
+	if sanitizedPurpose == "" {
+		sanitizedPurpose = string(domain.UploadPurposeProduct)
+	}
+
+	var folder string
+	if sanitizedPurpose == string(domain.UploadPurposeProduct) && outletID != "" {
+		folder = fmt.Sprintf("%s/%s/%s/products", env, sanitizedBizID, outletID)
+	} else if outletID != "" {
+		folder = fmt.Sprintf("%s/%s/%s/%s", env, sanitizedBizID, outletID, sanitizedPurpose)
+	} else {
+		folder = fmt.Sprintf("%s/%s/%s", env, sanitizedBizID, sanitizedPurpose)
+	}
 
 	params := url.Values{}
 	params.Set("timestamp", strconv.FormatInt(ts, 10))
