@@ -73,7 +73,7 @@ export function OutletList() {
               <TR key={outlet.id}>
                 <TD className="font-medium">{outlet.name}</TD>
                 <TD className="font-mono">{outlet.id}</TD>
-                <TD className="font-mono">{outlet.serial_tenant}</TD>
+                <TD className="font-mono">{outlet.serial_tenant || outlet.serial_outlet || '—'}</TD>
                 <TD className="text-fg-muted">{outlet.address || '—'}</TD>
                 <TD className="text-fg-muted">{formatDateTimeId(outlet.created_at)}</TD>
                 <TD>

@@ -480,6 +480,7 @@ export type Outlet = {
   business_id: BusinessId
   /** `serial_business` + nomor urut 3 digit. Dibutuhkan teknisi untuk device binding. */
   serial_tenant: string
+  serial_outlet?: string
   name: string
   address: string
   created_at: IsoDateTime

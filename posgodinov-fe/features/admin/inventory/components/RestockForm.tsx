@@ -14,11 +14,12 @@ import { useCreateRestockBulk } from '@/features/admin/inventory/hooks/useInvent
 import { useRawMaterials } from '@/features/admin/inventory/hooks/useRawMaterials'
 import { OutletGuard } from '@/features/admin/shell/OutletGuard'
 import { PageHeader } from '@/features/admin/shell/PageHeader'
-import { toMajor, toMinor } from '@/lib/money'
+import { formatIdr, toMajor, toMinor } from '@/lib/money'
 
 type Row = {
   key: string
   raw_material_id: string
+  unit_type: 'package' | 'unit'
   quantity: string
   cost_per_unit: string
   supplier_name: string
@@ -27,6 +28,7 @@ type Row = {
 const newRow = (): Row => ({
   key: `r-${Math.random().toString(36).slice(2)}`,
   raw_material_id: '',
+  unit_type: 'package',
   quantity: '',
   cost_per_unit: '',
   supplier_name: '',
@@ -90,12 +92,26 @@ function RestockInner({ outletId }: { outletId: string }) {
 
     try {
       await createRestock.mutateAsync(
-        filled.map((row) => ({
-          raw_material_id: row.raw_material_id,
-          quantity: num(row.quantity),
-          cost_per_unit_minor: toMinor(num(row.cost_per_unit)),
-          supplier_name: row.supplier_name.trim() || undefined,
-        })),
+        filled.map((row) => {
+          const material = byId.get(row.raw_material_id)
+          const qpp =
+            material?.quantity_per_package && material.quantity_per_package > 0
+              ? material.quantity_per_package
+              : 1
+          const isPkg = row.unit_type === 'package' && Boolean(material?.package_unit && qpp > 0)
+
+          const baseQuantity = isPkg ? num(row.quantity) * qpp : num(row.quantity)
+          const baseCostMinor = isPkg
+            ? Math.round(toMinor(num(row.cost_per_unit)) / qpp)
+            : toMinor(num(row.cost_per_unit))
+
+          return {
+            raw_material_id: row.raw_material_id,
+            quantity: baseQuantity,
+            cost_per_unit_minor: baseCostMinor,
+            supplier_name: row.supplier_name.trim() || undefined,
+          }
+        }),
       )
       toast.success(`${filled.length} restock dicatat`)
       router.replace('/admin/reports/restock')
@@ -123,15 +139,32 @@ function RestockInner({ outletId }: { outletId: string }) {
           </Button>
         </CardHeader>
 
-        <CardContent className="flex flex-col gap-2">
+        <CardContent className="flex flex-col gap-3">
+          <div className="hidden lg:grid lg:grid-cols-[1.2fr_6.5rem_7rem_8rem_1fr_6.5rem_2.5rem] items-center gap-2 px-1 pb-2 text-pos-xs font-semibold text-fg-muted border-b border-border">
+            <span>Bahan Baku</span>
+            <span>Jumlah</span>
+            <span>Satuan</span>
+            <span>Harga Beli</span>
+            <span>Pemasok</span>
+            <span className="text-right">Subtotal</span>
+            <span></span>
+          </div>
+
           {rows.map((row) => {
             const material = byId.get(row.raw_material_id)
+            const hasPkg = Boolean(
+              material?.package_unit &&
+                material?.quantity_per_package &&
+                material.quantity_per_package > 0,
+            )
+            const qpp = hasPkg ? material!.quantity_per_package! : 1
+            const isPkg = row.unit_type === 'package' && hasPkg
             const subtotal = Math.round(num(row.quantity) * toMinor(num(row.cost_per_unit)))
 
             return (
               <div
                 key={row.key}
-                className="grid grid-cols-2 items-center gap-2 rounded-lg border border-border p-2 lg:grid-cols-[1fr_7rem_4rem_8rem_1fr_7rem_3rem] lg:border-0 lg:p-0"
+                className="grid grid-cols-2 items-start gap-2 rounded-lg border border-border p-3 lg:grid-cols-[1.2fr_6.5rem_7rem_8rem_1fr_6.5rem_2.5rem] lg:border-0 lg:p-0"
               >
                 <div className="col-span-2 lg:col-span-1">
                   <Select
@@ -139,10 +172,26 @@ function RestockInner({ outletId }: { outletId: string }) {
                     aria-label="Bahan baku"
                     onChange={(e) => {
                       const next = byId.get(e.target.value)
+                      const nextHasPkg = Boolean(
+                        next?.package_unit &&
+                          next?.quantity_per_package &&
+                          next.quantity_per_package > 0,
+                      )
+                      const defaultUnitType: 'package' | 'unit' = nextHasPkg ? 'package' : 'unit'
+                      const nextQpp = nextHasPkg ? next!.quantity_per_package! : 1
+                      const baseCostMajor = next ? toMajor(next.cost_per_unit_minor) : 0
+                      const initialCost =
+                        baseCostMajor > 0
+                          ? defaultUnitType === 'package'
+                            ? (baseCostMajor * nextQpp).toString()
+                            : baseCostMajor.toString()
+                          : ''
+
                       update(row.key, {
                         raw_material_id: e.target.value,
-                        // Prasi harga beli terakhir yang diketahui, tetap dapat diubah.
-                        cost_per_unit: next ? toMajor(next.cost_per_unit_minor).toString() : '',
+                        unit_type: defaultUnitType,
+                        quantity: '',
+                        cost_per_unit: initialCost,
                       })
                     }}
                   >
@@ -155,36 +204,103 @@ function RestockInner({ outletId }: { outletId: string }) {
                   </Select>
                 </div>
 
-                <NumericInput
-                  inputMode="decimal"
-                  aria-label="Jumlah masuk"
-                  placeholder="Jumlah"
-                  value={row.quantity}
-                  onChange={(e) => update(row.key, { quantity: e.target.value })}
-                />
+                <div className="col-span-1 flex flex-col gap-1">
+                  <NumericInput
+                    inputMode="decimal"
+                    aria-label="Jumlah masuk"
+                    placeholder="Jumlah"
+                    value={row.quantity}
+                    onChange={(e) => update(row.key, { quantity: e.target.value })}
+                  />
+                  {isPkg && num(row.quantity) > 0 ? (
+                    <span className="text-pos-xs text-fg-muted font-medium">
+                      = {(num(row.quantity) * qpp).toLocaleString('id-ID')} {material?.unit}
+                    </span>
+                  ) : null}
+                </div>
 
-                <span className="text-pos-sm text-fg-muted">{material?.unit ?? '—'}</span>
+                <div className="col-span-1 flex h-touch items-center">
+                  {hasPkg ? (
+                    <Select
+                      value={row.unit_type}
+                      aria-label="Pilih satuan atau kemasan"
+                      onChange={(e) => {
+                        const nextType = e.target.value as 'package' | 'unit'
+                        if (nextType === row.unit_type) return
 
-                <NumericInput
-                  inputMode="decimal"
-                  aria-label="Harga beli per unit"
-                  placeholder="Harga/unit"
-                  value={row.cost_per_unit}
-                  onChange={(e) => update(row.key, { cost_per_unit: e.target.value })}
-                />
+                        let newQty = row.quantity
+                        let newCost = row.cost_per_unit
 
-                <Input
-                  aria-label="Nama pemasok"
-                  placeholder="Pemasok (opsional)"
-                  value={row.supplier_name}
-                  onChange={(e) => update(row.key, { supplier_name: e.target.value })}
-                />
+                        if (nextType === 'unit') {
+                          if (row.quantity) {
+                            newQty = (num(row.quantity) * qpp).toString()
+                          }
+                          if (row.cost_per_unit) {
+                            newCost = (num(row.cost_per_unit) / qpp).toString()
+                          }
+                        } else {
+                          if (row.quantity) {
+                            newQty = (num(row.quantity) / qpp).toString()
+                          }
+                          if (row.cost_per_unit) {
+                            newCost = (num(row.cost_per_unit) * qpp).toString()
+                          }
+                        }
 
-                <span className="text-right">
-                  {material ? <Money minor={subtotal} size="sm" /> : <span className="text-fg-subtle">—</span>}
-                </span>
+                        update(row.key, {
+                          unit_type: nextType,
+                          quantity: newQty,
+                          cost_per_unit: newCost,
+                        })
+                      }}
+                    >
+                      <option value="package">{material?.package_unit}</option>
+                      <option value="unit">{material?.unit}</option>
+                    </Select>
+                  ) : (
+                    <span className="text-pos-sm text-fg-muted px-2">
+                      {material?.unit ?? '—'}
+                    </span>
+                  )}
+                </div>
 
-                <div className="flex justify-end">
+                <div className="col-span-2 sm:col-span-1 flex flex-col gap-1">
+                  <NumericInput
+                    inputMode="decimal"
+                    aria-label="Harga beli per unit"
+                    placeholder={
+                      isPkg
+                        ? `Harga/${material?.package_unit}`
+                        : `Harga/${material?.unit ?? 'unit'}`
+                    }
+                    value={row.cost_per_unit}
+                    onChange={(e) => update(row.key, { cost_per_unit: e.target.value })}
+                  />
+                  {isPkg && num(row.cost_per_unit) > 0 ? (
+                    <span className="text-pos-xs text-fg-muted font-medium">
+                      = {formatIdr(Math.round(toMinor(num(row.cost_per_unit)) / qpp))}/{material?.unit}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="col-span-2 sm:col-span-1">
+                  <Input
+                    aria-label="Nama pemasok"
+                    placeholder="Pemasok (opsional)"
+                    value={row.supplier_name}
+                    onChange={(e) => update(row.key, { supplier_name: e.target.value })}
+                  />
+                </div>
+
+                <div className="col-span-1 flex h-touch items-center justify-end text-right">
+                  {material ? (
+                    <Money minor={subtotal} size="sm" />
+                  ) : (
+                    <span className="text-fg-subtle">—</span>
+                  )}
+                </div>
+
+                <div className="col-span-1 flex h-touch items-center justify-end">
                   <Button
                     variant="ghost"
                     size="icon"
