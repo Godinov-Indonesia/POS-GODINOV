@@ -164,6 +164,7 @@ type SOFormResponse struct {
 type SOFormMaterialDTO struct {
 	RawMaterialID      string   `json:"raw_material_id"`
 	RawMaterialName    string   `json:"raw_material_name"`
+	SKU                *string  `json:"sku,omitempty"`
 	Unit               string   `json:"unit"`
 	PackageUnit        *string  `json:"package_unit"`
 	QuantityPerPackage *float64 `json:"quantity_per_package"`
@@ -323,6 +324,9 @@ type OpnameSessionService interface {
 
 	// GetMyCounts mengembalikan hitungan kasir sendiri pada suatu form.
 	GetMyCounts(ctx context.Context, businessID, outletID, formID, staffID string) (*SOCountSheet, error)
+
+	// GetStaffData mengembalikan daftar staf di outlet untuk login & validasi PIN perangkat SO.
+	GetStaffData(ctx context.Context, businessID, outletID string) ([]*POSMasterStaff, error)
 }
 
 // ════════════════════════════════════════════════════════════════════════════

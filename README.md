@@ -24,10 +24,14 @@ Proyek ini terbagi menjadi beberapa komponen utama:
    - Aplikasi kasir **offline-first** untuk Tablet Android 10" (*landscape*) dan Handheld POS (Sunmi / iMin), termasuk mode Kiosk pesan mandiri.
    - Basis data lokal **Drift/SQLite**, sinkronisasi latar lewat **WorkManager**, cetak struk **ESC/POS** (Bluetooth SPP, BLE, USB, TCP).
 
-4. **`posgodinov-landingpage/` (Landing Page)**:
+4. **`posgodinov-so/` (Aplikasi Stock Opname Mobile Handheld Flutter)**:
+   - Aplikasi mobile khusus **penghitungan fisik inventori (Stock Opname)** untuk smartphone Android (*portrait*).
+   - Mendukung **Multi-Staff Collaborative Blind Counting**, kalkulator **Dual-Stock** (Dus + Eceran) dengan stepper touch-optimized, pemindai **Barcode 1D (Garis Lurus) & 2D QR Code**, verifikasi PIN offline via BCrypt isolate, dan integrasi instan ke backend.
+
+5. **`posgodinov-landingpage/` (Landing Page)**:
    - Halaman pemasaran dan perkenalan produk POS Godinov.
 
-5. **`docs/` (Dokumentasi Teknis)**:
+6. **`docs/` (Dokumentasi Teknis)**:
    - [01 — Architecture Overview](docs/01-architecture-overview.md)
    - [02 — Database Schema](docs/02-database-schema.md)
    - [03 — API Specifications](docs/03-api-specifications.md)
@@ -38,6 +42,7 @@ Proyek ini terbagi menjadi beberapa komponen utama:
    - [08 — UAT Test Scenarios](docs/08-uat-test-scenarios.md) (Dokumen skenario pengujian komprehensif)
    - [09 — Flutter Mobile Architecture](docs/09-flutter-mobile-architecture.md)
    - [10 — Flutter Implementation Plan](docs/10-flutter-implementation-plan.md)
+   - [13 — Stock Opname Mobile App](docs/13-stock-opname-mobile-app.md) (Arsitektur & Spesifikasi App SO)
 
 ---
 
@@ -200,6 +205,36 @@ KASIR**.
 > ```bash
 > adb shell monkey -p id.godinov.pos -c android.intent.category.LAUNCHER 1
 > ```
+
+---
+
+### 5. Stock Opname Mobile App (Flutter — Handheld Smartphone)
+
+Aplikasi `posgodinov-so` diperuntukkan bagi staf opname untuk menghitung fisik bahan baku secara mobile menggunakan smartphone.
+
+```bash
+cd posgodinov-so
+flutter pub get
+flutter devices               # pastikan smartphone Android terbaca (USB debugging)
+```
+
+**Port Forwarding untuk Pengujian Perangkat Fisik**:
+Bila menguji menggunakan kabel USB pada smartphone fisik, arahkan port 8080 host ke perangkat:
+
+```bash
+adb reverse tcp:8080 tcp:8080
+```
+
+Jalankan aplikasi ke perangkat:
+
+```bash
+flutter run -d <device-id>
+```
+
+Alur pertama kali:
+1. Layar **Pemasangan Perangkat**: Masukkan Serial Bisnis (`POSGO180726`), Serial Outlet (`POSGO180726001`), dan Password Pemilik (`password123`).
+2. Layar **Login Staf**: Masukkan ID Staf (dari seeder) dan PIN (`123456`).
+3. Pilih **Sesi Opname Aktif** (berstatus `PUBLISHED`), lalu mulai menghitung fisik bahan baku menggunakan pencarian atau pemindai barcode 1D/2D.
 
 ---
 
