@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/crypto/pin_verifier.dart';
 import '../../core/di/injection.dart';
+import '../../core/error/error_formatter.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/token_storage.dart';
 import '../../core/theme/app_theme.dart';
@@ -66,7 +67,10 @@ class _StaffSelectScreenState extends State<StaffSelectScreen> {
     } catch (e) {
       if (mounted && _staffs.isEmpty) {
         setState(() {
-          _errorMessage = 'Gagal memuat data staf: ${e.toString()}';
+          _errorMessage = ErrorFormatter.format(
+            e,
+            fallback: 'Gagal memuat data staf dari server.',
+          );
         });
       }
     } finally {
@@ -132,7 +136,10 @@ class _StaffSelectScreenState extends State<StaffSelectScreen> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Terjadi kesalahan login: ${e.toString()}';
+        _errorMessage = ErrorFormatter.format(
+          e,
+          fallback: 'Terjadi kendala saat login. Silakan coba lagi.',
+        );
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -209,7 +216,7 @@ class _StaffSelectScreenState extends State<StaffSelectScreen> {
                     padding: const EdgeInsets.all(12),
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: AppTheme.danger.withOpacity(0.1),
+                      color: AppTheme.danger.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AppTheme.danger),
                     ),

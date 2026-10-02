@@ -138,6 +138,7 @@ func (s *opnameSessionService) buildFormResponse(ctx context.Context, session *d
 		materialDTOs = append(materialDTOs, &domain.SOFormMaterialDTO{
 			RawMaterialID:      rm.ID,
 			RawMaterialName:    rm.Name,
+			SKU:                rm.SKU,
 			Unit:               rm.Unit,
 			PackageUnit:        rm.PackageUnit,
 			QuantityPerPackage: rm.QuantityPerPackage,

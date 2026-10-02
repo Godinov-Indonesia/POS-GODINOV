@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../core/di/injection.dart';
+import '../../core/error/error_formatter.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/token_storage.dart';
 import '../../core/theme/app_theme.dart';
 import '../counting/counting_master_screen.dart';
-import '../device_binding/device_binding_screen.dart';
 import '../staff_auth/staff_select_screen.dart';
 
 class SessionListScreen extends StatefulWidget {
@@ -29,7 +29,29 @@ class _SessionListScreenState extends State<SessionListScreen> {
   Future<void> _loadInitialData() async {
     final tokenStorage = getIt<TokenStorage>();
     final name = await tokenStorage.getActiveStaffName() ?? 'Staf';
-    setState(() => _staffName = name);
+    if (mounted) {
+      setState(() => _staffName = name);
+      // Sapaan awal berupa Toast / SnackBar yang otomatis hilang setelah 5 detik
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.waving_hand, color: Colors.amber, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Halo, $name! Selamat bertugas.',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          duration: const Duration(seconds: 5),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
     await _fetchSessions();
   }
 
@@ -42,13 +64,20 @@ class _SessionListScreenState extends State<SessionListScreen> {
     try {
       final apiClient = getIt<ApiClient>();
       final sessions = await apiClient.getAvailableSessions();
-      setState(() {
-        _sessions = sessions;
-      });
+      if (mounted) {
+        setState(() {
+          _sessions = sessions;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Tidak dapat memuat sesi: ${e.toString()}';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = ErrorFormatter.format(
+            e,
+            fallback: 'Tidak dapat memuat sesi opname. Periksa koneksi ke server.',
+          );
+        });
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -77,7 +106,18 @@ class _SessionListScreenState extends State<SessionListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sesi Stock Opname'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Sesi Stock Opname'),
+            if (_staffName.isNotEmpty)
+              Text(
+                'Staf: $_staffName',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+              ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.switch_account_outlined),
@@ -88,15 +128,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Pengaturan Perangkat',
-            onPressed: () {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const DeviceBindingScreen()),
-              );
-            },
-          ),
         ],
       ),
       body: RefreshIndicator(
@@ -104,45 +135,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Staff greeting banner
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.primary.withOpacity(0.2)),
-              ),
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    backgroundColor: AppTheme.primary,
-                    child: Icon(Icons.person, color: Colors.white),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Halo, $_staffName',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Pilih sesi opname aktif di bawah untuk mulai menghitung.',
-                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
             const Text(
               'SESI TERSEDIA',
               style: TextStyle(
@@ -152,7 +144,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
                 color: AppTheme.textSecondary,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
 
             if (_isLoading)
               const Center(
@@ -165,7 +157,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.danger.withOpacity(0.1),
+                  color: AppTheme.danger.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -239,8 +231,8 @@ class _SessionListScreenState extends State<SessionListScreen> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: isCounting
-                                      ? AppTheme.primary.withOpacity(0.15)
-                                      : AppTheme.warning.withOpacity(0.15),
+                                      ? AppTheme.primary.withValues(alpha: 0.15)
+                                      : AppTheme.warning.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(

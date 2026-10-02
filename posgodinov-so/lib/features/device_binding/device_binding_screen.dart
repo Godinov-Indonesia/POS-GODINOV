@@ -1,7 +1,6 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import '../../core/config/app_config.dart';
 import '../../core/di/injection.dart';
+import '../../core/error/error_formatter.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/token_storage.dart';
 import '../../core/theme/app_theme.dart';
@@ -19,7 +18,6 @@ class _DeviceBindingScreenState extends State<DeviceBindingScreen> {
   final _businessController = TextEditingController();
   final _outletController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _urlController = TextEditingController(text: AppConfig.baseUrl);
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
@@ -29,7 +27,6 @@ class _DeviceBindingScreenState extends State<DeviceBindingScreen> {
     _businessController.dispose();
     _outletController.dispose();
     _passwordController.dispose();
-    _urlController.dispose();
     super.dispose();
   }
 
@@ -42,9 +39,7 @@ class _DeviceBindingScreenState extends State<DeviceBindingScreen> {
     });
 
     try {
-      AppConfig.baseUrl = _urlController.text.trim();
       final apiClient = getIt<ApiClient>();
-      apiClient.dio.options.baseUrl = AppConfig.baseUrl;
       final tokenStorage = getIt<TokenStorage>();
 
       final res = await apiClient.bindDevice(
@@ -75,19 +70,11 @@ class _DeviceBindingScreenState extends State<DeviceBindingScreen> {
         );
       }
     } catch (e) {
-      String msg = 'Gagal menghubungkan perangkat: ${e.toString()}';
-      if (e is DioException) {
-        final resp = e.response?.data;
-        if (resp is Map<String, dynamic> && resp['message'] != null) {
-          msg = resp['message'] as String;
-        } else if (e.type == DioExceptionType.connectionTimeout ||
-            e.type == DioExceptionType.connectionError) {
-          msg =
-              'Tidak dapat terhubung ke server (${AppConfig.baseUrl}). Pastikan URL benar dan server aktif.';
-        }
-      }
       setState(() {
-        _errorMessage = msg;
+        _errorMessage = ErrorFormatter.format(
+          e,
+          fallback: 'Gagal menghubungkan perangkat. Periksa data serial dan koneksi.',
+        );
       });
     } finally {
       if (mounted) {
@@ -139,7 +126,7 @@ class _DeviceBindingScreenState extends State<DeviceBindingScreen> {
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        color: AppTheme.danger.withOpacity(0.1),
+                        color: AppTheme.danger.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: AppTheme.danger),
                       ),
@@ -191,17 +178,6 @@ class _DeviceBindingScreenState extends State<DeviceBindingScreen> {
                     ),
                     validator: (v) =>
                         (v == null || v.isEmpty) ? 'Password wajib diisi' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _urlController,
-                    decoration: const InputDecoration(
-                      labelText: 'Server API URL',
-                      prefixIcon: Icon(Icons.cloud_outlined),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'URL server wajib diisi' : null,
                   ),
                   const SizedBox(height: 24),
                   FilledButton(

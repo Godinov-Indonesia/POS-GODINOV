@@ -164,6 +164,7 @@ type SOFormResponse struct {
 type SOFormMaterialDTO struct {
 	RawMaterialID      string   `json:"raw_material_id"`
 	RawMaterialName    string   `json:"raw_material_name"`
+	SKU                *string  `json:"sku,omitempty"`
 	Unit               string   `json:"unit"`
 	PackageUnit        *string  `json:"package_unit"`
 	QuantityPerPackage *float64 `json:"quantity_per_package"`

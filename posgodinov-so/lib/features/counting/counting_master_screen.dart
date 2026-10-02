@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/di/injection.dart';
+import '../../core/error/error_formatter.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/token_storage.dart';
 import '../../core/theme/app_theme.dart';
@@ -107,16 +108,23 @@ class _CountingMasterScreenState extends State<CountingMasterScreen> {
           final id = (map['raw_material_id'] ?? map['id'] ?? '').toString();
           final name =
               (map['raw_material_name'] ?? map['name'] ?? 'Bahan').toString();
+          final sku = map['sku']?.toString();
           map['id'] = id;
           map['raw_material_id'] = id;
           map['name'] = name;
           map['raw_material_name'] = name;
+          map['sku'] = (sku != null && sku.isNotEmpty) ? sku : '-';
+          map['barcode'] = map['barcode']?.toString() ??
+              (sku != null && sku.isNotEmpty ? sku : '');
           return map;
         }).toList();
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Gagal memuat form: ${e.toString()}';
+        _errorMessage = ErrorFormatter.format(
+          e,
+          fallback: 'Gagal memuat detail form opname.',
+        );
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -502,7 +510,7 @@ class _CountingMasterScreenState extends State<CountingMasterScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppTheme.success.withOpacity(0.12),
+                        color: AppTheme.success.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -527,7 +535,7 @@ class _CountingMasterScreenState extends State<CountingMasterScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.15),
+                        color: Colors.grey.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
@@ -543,7 +551,7 @@ class _CountingMasterScreenState extends State<CountingMasterScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'SKU: $sku ${barcode.isNotEmpty ? '· Barcode: $barcode' : ''}',
+                'SKU: $sku${(barcode.isNotEmpty && barcode != sku && barcode != '-') ? ' · Barcode: $barcode' : ''}',
                 style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
               if (hasPackage) ...[

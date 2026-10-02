@@ -1,9 +1,8 @@
 class AppConfig {
-  static const String defaultBaseUrl = 'http://localhost:8080';
-  static const String storageKeyBaseUrl = 'posgodinov_so_base_url';
-
-  static String baseUrl = const String.fromEnvironment(
+  /// Hardcoded static base URL for server API.
+  /// Dapat dioverride saat build via --dart-define=API_BASE_URL=... jika diperlukan.
+  static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: defaultBaseUrl,
+    defaultValue: 'http://localhost:8080',
   );
 }

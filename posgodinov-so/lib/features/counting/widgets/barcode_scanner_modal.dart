@@ -28,9 +28,11 @@ class BarcodeScannerModal extends StatefulWidget {
 }
 
 class _BarcodeScannerModalState extends State<BarcodeScannerModal> {
+  // Aktifkan semua format barcode: 1D linear (EAN-13, Code 128, Code 39, dsb.) dan 2D (QR Code)
   final MobileScannerController _controller = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
     facing: CameraFacing.back,
+    formats: const [BarcodeFormat.all],
   );
   bool _hasDetected = false;
 
@@ -67,17 +69,39 @@ class _BarcodeScannerModalState extends State<BarcodeScannerModal> {
               controller: _controller,
               onDetect: _onDetect,
             ),
-            // Targeting viewfinder frame
+
+            // Viewfinder frame persegi panjang (optimal untuk barcode garis lurus 1D dan QR Code)
             Center(
-              child: Container(
-                width: 260,
-                height: 260,
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppTheme.primary, width: 3),
-                  borderRadius: BorderRadius.circular(16),
-                ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 300,
+                    height: 170,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppTheme.primary, width: 3),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  // Garis laser pemindai horizontal (panduan barcode garis lurus)
+                  Container(
+                    width: 280,
+                    height: 2,
+                    decoration: BoxDecoration(
+                      color: AppTheme.danger,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.danger.withValues(alpha: 0.8),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
+
             Positioned(
               top: 16,
               left: 16,
@@ -90,7 +114,7 @@ class _BarcodeScannerModalState extends State<BarcodeScannerModal> {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const Text(
-                    'Pindai Barcode / SKU Rak',
+                    'Pindai Barcode / QR',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -104,20 +128,21 @@ class _BarcodeScannerModalState extends State<BarcodeScannerModal> {
                 ],
               ),
             ),
+
             Positioned(
               bottom: 24,
               left: 24,
               right: 24,
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
                 decoration: BoxDecoration(
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
-                  'Arahkan kamera ke stiker barcode bahan baku di rak atau kardus',
+                  'Arahkan kamera ke barcode atau QR Code pada kemasan / rak',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  style: TextStyle(color: Colors.white, fontSize: 13),
                 ),
               ),
             ),

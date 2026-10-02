@@ -37,7 +37,7 @@ class MySummaryScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.primary.withOpacity(0.25),
+                    color: AppTheme.primary.withValues(alpha: 0.25),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
