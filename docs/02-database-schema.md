@@ -588,19 +588,9 @@ Seluruhnya merupakan indeks implisit yang dibuat PostgreSQL dari constraint `PRI
 | `product_recipes` | `(id)`, `(product_id, raw_material_id)` | PK + UK komposit |
 | `products`, `product_categories`, `raw_materials`, `waste_logs`, `stock_opnames`, `restock_logs`, `shifts`, `transactions`, `transaction_items`, `product_wastes`, `audit_logs` | `(id)` saja | PK |
 
-### `[NEEDS DISCUSSION]` — Indeks yang hilang
+### `[RESOLVED]` — Indeks Performa & Foreign Key (Migrasi `000029`)
 
-PostgreSQL **tidak** membuat indeks otomatis untuk kolom foreign key. Akibatnya, setiap query pada tabel-tabel besar akan melakukan *sequential scan*. Beberapa yang paling berdampak:
-
-| Query | Kolom yang dipindai berurutan | Frekuensi |
-|---|---|---|
-| Dashboard laporan | `transactions(business_id, outlet_id, status, created_at)` | Tiap kali dashboard dibuka |
-| Produk terlaris (top products) | `transaction_items(product_id, transaction_id)` | Tiap kali dashboard dibuka |
-| Master data POS | `products(outlet_id)`, `product_categories(outlet_id)`, `users(outlet_id)` | Setiap sinkronisasi perangkat |
-| Pemotongan stok saat sync | `product_recipes(product_id)` | Setiap baris item transaksi |
-| Riwayat transaksi POS | `transactions(outlet_id, created_at)` | Setiap pembukaan riwayat |
-
-Usulan migrasi (`000017_add_performance_indexes.up.sql`):
+Seluruh foreign key dan jalur query laporan/sinkronisasi telah dioptimasi dengan indeks B-Tree eksplisit melalui migrasi `000029_add_performance_and_foreign_key_indexes.up.sql`:
 
 ```sql
 -- Jalur laporan (paling berdampak)
