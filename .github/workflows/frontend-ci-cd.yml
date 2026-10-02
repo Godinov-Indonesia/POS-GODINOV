@@ -2,12 +2,14 @@ name: Frontend CI/CD (posgodinov-fe)
 
 on:
   push:
+    # Memicu build dev/snapshot saat ada update di folder frontend pada branch dev
     branches:
-      - main
+      - dev
     paths:
       - 'posgodinov-fe/**'
+    # Memicu build SemVer resmi saat Anda membuat tag rilis di main
     tags:
-      - 'frontend/v*'
+      - 'posgodinov-fe-v*'
   workflow_dispatch:
 
 jobs:
@@ -56,6 +58,20 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # LANGKAH PENTING: Ekstrak tipe event dan nama versi SemVer untuk tag Docker Frontend
+      - name: Docker Meta (Extract Version)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-frontend
+          tags: |
+            # Jika dipicu oleh Git Tag posgodinov-fe-v1.0.0 -> menghasilkan tag Docker :1.0.0
+            type=match,pattern=posgodinov-fe-v(.*),group=1
+            # Jika dipicu oleh Git Tag -> buat juga tag :latest untuk produksi
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+            # Jika dipicu oleh branch dev -> menghasilkan tag :dev-sha
+            type=raw,value=dev-${{ github.sha }},enable=${{ github.ref == 'refs/heads/dev' }}
+
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
@@ -64,14 +80,16 @@ jobs:
           push: true
           build-args: |
             NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080' }}
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-frontend:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-frontend:${{ github.sha }}
+          # Menggunakan tag dinamis yang sudah diproses oleh docker/metadata-action
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
   deploy:
     name: 4. Deploy via SSH
     needs: build-and-push
     runs-on: ubuntu-latest
+    # Hanya lakukan deploy otomatis ke server jika dipicu oleh Rilis Tag Resmi (SemVer)
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Deploy to Remote Server via SSH
         uses: appleboy/ssh-action@v1.0.3
