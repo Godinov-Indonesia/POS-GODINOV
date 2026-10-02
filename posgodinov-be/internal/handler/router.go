@@ -106,6 +106,7 @@ func SetupRouter(
 	mux.HandleFunc("GET /v1/so/{form_id}", opnameDevice(opnameSessionHandler.GetFormForCounting))
 	mux.HandleFunc("PUT /v1/so/{form_id}/counts", opnameDevice(opnameSessionHandler.SubmitCounts))
 	mux.HandleFunc("GET /v1/so/{form_id}/my-counts", opnameDevice(opnameSessionHandler.GetMyCounts))
+	mux.HandleFunc("GET /v1/so/sync/staff-data", opnameDevice(opnameSessionHandler.GetStaffData))
 	
 	// Reports Routes
 	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/reports/dashboard", chain(reportHandler.GetDashboard))

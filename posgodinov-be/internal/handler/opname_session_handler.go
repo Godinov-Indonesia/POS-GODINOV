@@ -334,3 +334,21 @@ func (h *OpnameSessionHandler) GetMyCounts(w http.ResponseWriter, r *http.Reques
 
 	response.Success(w, http.StatusOK, "Hitungan saya", result)
 }
+
+func (h *OpnameSessionHandler) GetStaffData(w http.ResponseWriter, r *http.Request) {
+	businessID, outletID, _, ok := deviceContext(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "Tidak terotorisasi", nil)
+		return
+	}
+
+	result, err := h.service.GetStaffData(r.Context(), businessID, outletID)
+	if err != nil {
+		writeServiceError(w, err, "Gagal memuat data staf")
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Data staf berhasil disinkronisasi", map[string]interface{}{
+		"staffs": result,
+	})
+}

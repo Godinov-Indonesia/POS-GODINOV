@@ -826,3 +826,31 @@ func (s *opnameSessionService) GetMyCounts(ctx context.Context, businessID, outl
 
 	return sheet, nil
 }
+
+func (s *opnameSessionService) GetStaffData(ctx context.Context, businessID, outletID string) ([]*domain.POSMasterStaff, error) {
+	if err := s.assertOutlet(ctx, businessID, outletID); err != nil {
+		return nil, err
+	}
+	if s.staffRepo == nil {
+		return []*domain.POSMasterStaff{}, nil
+	}
+	staffs, err := s.staffRepo.GetAllByOutletID(ctx, outletID)
+	if err != nil {
+		return nil, errors.New("gagal memuat data staf")
+	}
+	var res []*domain.POSMasterStaff
+	for _, st := range staffs {
+		if !st.IsActive {
+			continue
+		}
+		res = append(res, &domain.POSMasterStaff{
+			ID:              st.ID,
+			StaffIdentifier: st.StaffIdentifier,
+			Name:            st.Name,
+			PINHash:         st.PINHash,
+			Role:            st.Role,
+			Permissions:     st.Permissions,
+		})
+	}
+	return res, nil
+}

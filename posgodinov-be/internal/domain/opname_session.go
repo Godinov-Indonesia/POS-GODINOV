@@ -323,6 +323,9 @@ type OpnameSessionService interface {
 
 	// GetMyCounts mengembalikan hitungan kasir sendiri pada suatu form.
 	GetMyCounts(ctx context.Context, businessID, outletID, formID, staffID string) (*SOCountSheet, error)
+
+	// GetStaffData mengembalikan daftar staf di outlet untuk login & validasi PIN perangkat SO.
+	GetStaffData(ctx context.Context, businessID, outletID string) ([]*POSMasterStaff, error)
 }
 
 // ════════════════════════════════════════════════════════════════════════════
