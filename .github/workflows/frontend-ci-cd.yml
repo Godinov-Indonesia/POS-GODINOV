@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - 'posgodinov-fe/**'
+    tags:
+      - 'frontend/v*'
   workflow_dispatch:
 
 jobs:

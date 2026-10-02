@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - 'posgodinov-be/**'
+    tags:
+      - 'backend/v*'
   workflow_dispatch:
 
 jobs:
