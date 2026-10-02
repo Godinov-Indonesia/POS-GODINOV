@@ -311,5 +311,6 @@ Manfaatnya: repository tidak perlu tahu apakah dirinya sedang berjalan di dalam 
 | Token | PASETO v4 local (terenkripsi), 3 audiens: access / refresh / device |
 | Multi-tenancy | Shared DB + shared schema; diskriminator `outlet_id` (+ `business_id` pada tabel POS); ditegakkan di service layer |
 | Otorisasi | Isolasi tenant ✅ · RBAC ❌ (kolom `role` ada tetapi tidak dipakai) |
-| Model POS | Offline-first; login kasir sepenuhnya lokal; sinkronisasi *idempotent* melalui UUID buatan klien |
-| Cakupan test | 13 unit test + 13 feature test, memakai `MockTransactionManager` |
+| Model POS & SO | Offline-first; login kasir & staf sepenuhnya lokal via PIN bcrypt; sinkronisasi *idempotent* melalui UUID buatan klien |
+| Klien Ekosistem | 1) **Admin Web Dashboard** (`posgodinov-fe`), 2) **Kasir Tablet POS** (`posgodinov-mobile`), 3) **Handheld Stock Opname App** (`posgodinov-so`) |
+| Cakupan test | Unit & feature test di backend (Go) + UI & unit test di mobile (`flutter test`) |
