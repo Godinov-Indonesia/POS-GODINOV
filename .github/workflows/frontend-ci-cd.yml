@@ -1,0 +1,104 @@
+name: Frontend CI/CD (posgodinov-fe)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'posgodinov-fe/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: 1. Run Tests & Build Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: posgodinov-fe
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: posgodinov-fe/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Next.js Build Verification
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080' }}
+
+  build-and-push:
+    name: 2 & 3. Build & Push Docker Image
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./posgodinov-fe
+          file: ./posgodinov-fe/Dockerfile
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080' }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-frontend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-frontend:${{ github.sha }}
+
+  deploy:
+    name: 4. Deploy via SSH
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Remote Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e
+            echo "==> Pulling latest frontend image..."
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-frontend:latest
+
+            echo "==> Deploying frontend container..."
+            if [ -f "/opt/posgodinov/docker-compose.yml" ]; then
+              cd /opt/posgodinov
+              docker compose pull frontend
+              docker compose up -d frontend
+            else
+              docker stop posgodinov_frontend 2>/dev/null || true
+              docker rm posgodinov_frontend 2>/dev/null || true
+              docker run -d \
+                --name posgodinov_frontend \
+                --restart always \
+                -p 3000:3000 \
+                ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-frontend:latest
+            fi
+
+            echo "==> Cleaning up unused images..."
+            docker image prune -f
+
+            echo "==> Frontend deployment finished successfully."

@@ -1,0 +1,101 @@
+name: Backend CI/CD (posgodinov-be)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'posgodinov-be/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: 1. Run Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: posgodinov-be
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '>=1.23'
+          cache: true
+          cache-dependency-path: posgodinov-be/go.sum
+
+      - name: Download Dependencies
+        run: go mod download
+
+      - name: Run Unit & Feature Tests
+        run: go test -v ./tests/unit/... ./tests/feature/...
+
+  build-and-push:
+    name: 2 & 3. Build & Push Docker Image
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./posgodinov-be
+          file: ./posgodinov-be/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-backend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-backend:${{ github.sha }}
+
+  deploy:
+    name: 4. Deploy via SSH
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Remote Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e
+            echo "==> Pulling latest backend image..."
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-backend:latest
+
+            echo "==> Deploying backend container..."
+            if [ -f "/opt/posgodinov/docker-compose.yml" ]; then
+              cd /opt/posgodinov
+              docker compose pull backend
+              docker compose up -d backend
+            else
+              docker stop posgodinov_backend 2>/dev/null || true
+              docker rm posgodinov_backend 2>/dev/null || true
+              docker run -d \
+                --name posgodinov_backend \
+                --restart always \
+                -p 8080:8080 \
+                --env-file /opt/posgodinov/backend.env \
+                ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-backend:latest
+            fi
+
+            echo "==> Cleaning up unused images..."
+            docker image prune -f
+
+            echo "==> Backend deployment finished successfully."
