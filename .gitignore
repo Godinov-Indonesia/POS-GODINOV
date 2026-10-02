@@ -30,3 +30,6 @@ Thumbs.db
 # Artefak runner QA Web (qa_runner_web.sh) — log layanan & binary sementara.
 /.qa-logs/
 /.qa-build/
+
+.idea
+
