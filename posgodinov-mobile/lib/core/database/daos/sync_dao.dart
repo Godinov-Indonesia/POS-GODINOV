@@ -116,7 +116,8 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
 
     final DateTime cutoff = rows.first.startedAt;
     return (delete(db.syncLogs)
-          ..where(($SyncLogsTable l) => l.startedAt.isSmallerOrEqualValue(cutoff)))
+          ..where(
+              ($SyncLogsTable l) => l.startedAt.isSmallerOrEqualValue(cutoff),))
         .go();
   }
 }

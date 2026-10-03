@@ -30,27 +30,24 @@ Future<void> bootstrap() async {
   _installErrorHandlers();
   await configureDependencies();
 
-  // Pemicu dipasang SETELAH dependensi siap, dan langsung menjalankan putaran
-  // `startup` yang menangkap antrean dari sesi sebelumnya ([09 §6.4]).
-  getIt<SyncTriggers>().install();
+  // Layanan latar (Printer Bluetooth, WorkManager, Sync listeners) diinisialisasi
+  // secara non-blocking agar frame pertama UI langsung muncul tanpa delay.
+  unawaited(_initBackgroundServices());
+}
 
-  // Indikator antrean mulai menyimak sebelum layar pertama digambar, sehingga
-  // StatusBar tidak pernah menampilkan "0 antre" yang keliru selama sekejap.
-  await getIt<SyncCubit>().observe();
-
-  // Printer dipulihkan sebelum layar pertama: kasir yang membuka aplikasi
-  // langsung melihat apakah printernya siap, bukan mengetahuinya saat struk
-  // pertama gagal keluar.
-  await getIt<PrinterCubit>().observe();
-
-  // Antrean cetak ikut menyimak sejak awal ([11 §M14.1]).
-  //
-  // Ia juga melakukan `flush()` pertama di sini: struk yang tertinggal dari
-  // sesi sebelumnya — printer mati saat tutup toko, misalnya — harus terbit
-  // begitu perangkat menyala kembali, tanpa menunggu kasir menyadarinya.
-  await getIt<PrintQueueCubit>().observe();
-
-  await _scheduleBackgroundSync();
+Future<void> _initBackgroundServices() async {
+  try {
+    getIt<SyncTriggers>().install();
+    await getIt<SyncCubit>().observe();
+    await getIt<PrinterCubit>().observe();
+    await getIt<PrintQueueCubit>().observe();
+    await _scheduleBackgroundSync();
+  } on Object catch (e, stack) {
+    if (kDebugMode) {
+      debugPrint('[BackgroundInit] Error: $e');
+      debugPrintStack(stackTrace: stack);
+    }
+  }
 }
 
 /// Menyiapkan sinkronisasi latar.

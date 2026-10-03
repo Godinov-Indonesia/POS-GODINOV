@@ -170,6 +170,7 @@ class RegisterRepositoryImpl implements RegisterRepository {
     String? authorizedBy,
     String cashierName = '',
     String? authorizedByName,
+    bool skipPrint = false,
   }) async {
     final int decrease = quantityBefore - quantityAfter;
     if (decrease <= 0) return;
@@ -218,32 +219,34 @@ class RegisterRepositoryImpl implements RegisterRepository {
     // Aturan R6: kegagalan cetak tidak pernah menggulung pembatalan yang sudah
     // sah. `enqueueCancelReceipt` sendiri berjanji tidak melempar; `try` di
     // sini menjaga janji itu tetap benar bila kelak berubah.
-    try {
-      await _printQueue.enqueueCancelReceipt(
-        voidLogId,
-        CancelReceiptData(
-          outletName: await _printQueue.resolveOutletName(),
-          issuedAt: now,
-          scope: VoidScope.cartLine,
-          // Tidak ada kode struk maupun label pesanan: baris ini dibatalkan
-          // SEBELUM menjadi transaksi apa pun. Keduanya sengaja dibiarkan null
-          // alih-alih diisi teks karangan yang tampak seperti nomor sungguhan.
-          cashierName: cashierName,
-          authorizedByName: authorizedByName,
-          reasonCode: reasonCode,
-          reasonNotes: reasonNotes,
-          lines: <AuditReceiptLine>[
-            AuditReceiptLine(
-              productName: line.productName,
-              quantity: decrease,
-              unitPriceMinor: line.unitPriceMinor,
-            ),
-          ],
-          totalCancelledMinor: valueMinor,
-        ),
-      );
-    } on Object {
-      // sengaja ditelan — lihat catatan di atas
+    if (!skipPrint) {
+      try {
+        await _printQueue.enqueueCancelReceipt(
+          voidLogId,
+          CancelReceiptData(
+            outletName: await _printQueue.resolveOutletName(),
+            issuedAt: now,
+            scope: VoidScope.cartLine,
+            // Tidak ada kode struk maupun label pesanan: baris ini dibatalkan
+            // SEBELUM menjadi transaksi apa pun. Keduanya sengaja dibiarkan null
+            // alih-alih diisi teks karangan yang tampak seperti nomor sungguhan.
+            cashierName: cashierName,
+            authorizedByName: authorizedByName,
+            reasonCode: reasonCode,
+            reasonNotes: reasonNotes,
+            lines: <AuditReceiptLine>[
+              AuditReceiptLine(
+                productName: line.productName,
+                quantity: decrease,
+                unitPriceMinor: line.unitPriceMinor,
+              ),
+            ],
+            totalCancelledMinor: valueMinor,
+          ),
+        );
+      } on Object {
+        // sengaja ditelan — lihat catatan di atas
+      }
     }
   }
 

@@ -37,7 +37,8 @@ enum PaymentMethod {
 
   /// Mengurai nilai kawat menjadi enum. Melempar bila tidak dikenal — lebih baik
   /// gagal keras daripada mencemari laporan dengan nilai liar.
-  static PaymentMethod fromWire(String value) => PaymentMethod.values.firstWhere(
+  static PaymentMethod fromWire(String value) =>
+      PaymentMethod.values.firstWhere(
         (PaymentMethod m) => m.wireValue == value,
         orElse: () => throw ArgumentError.value(
           value,

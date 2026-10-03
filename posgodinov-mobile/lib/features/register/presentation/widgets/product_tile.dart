@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:posgodinov_mobile/core/di/injection.dart';
+import 'package:posgodinov_mobile/core/storage/product_image_storage.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/catalog.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
 import 'package:posgodinov_mobile/shared/theme/app_theme.dart';
@@ -73,21 +77,84 @@ class ProductTile extends StatelessWidget {
   }
 }
 
-/// Gambar produk dengan **dua lapis fallback**.
+/// Gambar produk dengan **cache lokal offline-first**.
 ///
-/// Perangkat kasir sering sepenuhnya offline, sehingga `Image.network` gagal
-/// diam-diam dan menyisakan kotak kosong. Inisial produk di atas latar
-/// berwarna tetap memberi kasir sesuatu untuk dikenali.
-class _Thumbnail extends StatelessWidget {
+/// Gambar dibaca dari storage lokal Android via [ProductImageStorage]. Bila
+/// belum ada dan ada koneksi, gambar diunduh satu kali di background dan
+/// disimpan ke disk. Bila offline dan belum ada di cache, tampilkan [_InitialAvatar].
+class _Thumbnail extends StatefulWidget {
   const _Thumbnail({required this.product});
 
   final CatalogProduct product;
 
   @override
-  Widget build(BuildContext context) {
-    final String? url = product.imageUrl;
+  State<_Thumbnail> createState() => _ThumbnailState();
+}
 
-    if (url == null || url.isEmpty) return _InitialAvatar(name: product.name);
+class _ThumbnailState extends State<_Thumbnail> {
+  File? _localFile;
+  bool _checked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLocalImage();
+  }
+
+  @override
+  void didUpdateWidget(_Thumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.product.id != widget.product.id ||
+        oldWidget.product.imageUrl != widget.product.imageUrl) {
+      _checkLocalImage();
+    }
+  }
+
+  Future<void> _checkLocalImage() async {
+    if (!getIt.isRegistered<ProductImageStorage>()) {
+      if (mounted) setState(() => _checked = true);
+      return;
+    }
+    final ProductImageStorage storage = getIt<ProductImageStorage>();
+    final File? file = await storage.getLocalImageFile(widget.product.id);
+    if (file != null && mounted) {
+      setState(() {
+        _localFile = file;
+        _checked = true;
+      });
+      return;
+    }
+
+    if (mounted) setState(() => _checked = true);
+
+    final String? url = widget.product.imageUrl;
+    if (url != null && url.isNotEmpty) {
+      final File? downloaded = await storage.cacheImage(widget.product.id, url);
+      if (downloaded != null && mounted) {
+        setState(() => _localFile = downloaded);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_localFile != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(Radii.sm),
+        child: Image.file(
+          _localFile!,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          errorBuilder: (_, __, ___) =>
+              _InitialAvatar(name: widget.product.name),
+        ),
+      );
+    }
+
+    final String? url = widget.product.imageUrl;
+    if (url == null || url.isEmpty || !_checked) {
+      return _InitialAvatar(name: widget.product.name);
+    }
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(Radii.sm),
@@ -95,16 +162,7 @@ class _Thumbnail extends StatelessWidget {
         url,
         fit: BoxFit.cover,
         width: double.infinity,
-        // Kegagalan jaringan TIDAK menampilkan ikon rusak.
-        errorBuilder: (_, __, ___) => _InitialAvatar(name: product.name),
-        loadingBuilder: (
-          BuildContext context,
-          Widget child,
-          ImageChunkEvent? progress,
-        ) {
-          if (progress == null) return child;
-          return _InitialAvatar(name: product.name);
-        },
+        errorBuilder: (_, __, ___) => _InitialAvatar(name: widget.product.name),
       ),
     );
   }

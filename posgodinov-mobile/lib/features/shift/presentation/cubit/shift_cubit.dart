@@ -202,7 +202,9 @@ class ShiftCubit extends Cubit<ShiftState> {
     final ShiftState s = state;
     if (s is! ShiftClosing) return;
 
-    if (declaredCashMinor < 0 || declaredEdcMinor < 0 || declaredQrisMinor < 0) {
+    if (declaredCashMinor < 0 ||
+        declaredEdcMinor < 0 ||
+        declaredQrisMinor < 0) {
       emit(const ShiftFailure('Nilai deklarasi tidak boleh negatif.'));
       return;
     }

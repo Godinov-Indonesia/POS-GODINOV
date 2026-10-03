@@ -196,8 +196,8 @@ class _ReturnPageState extends State<ReturnPage> {
         final int qty = _picked[item.transactionItemId] ?? 0;
         if (qty == 0) continue;
 
-        final int limit = item.originalQuantity -
-            (fresh[item.transactionItemId] ?? 0);
+        final int limit =
+            item.originalQuantity - (fresh[item.transactionItemId] ?? 0);
         if (qty > limit) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -299,11 +299,9 @@ class _ReturnPageState extends State<ReturnPage> {
               style: PosText.sm,
             ),
           ),
-
           const SizedBox(height: Gap.lg),
           const Text('Item yang diretur', style: PosText.buttonLg),
           const SizedBox(height: Gap.sm),
-
           for (final ReturnableItem item in d.returnableItems)
             _ItemTile(
               item: item,
@@ -313,8 +311,9 @@ class _ReturnPageState extends State<ReturnPage> {
               onQty: (int next) => setState(() {
                 // Penjepitan pada `returnable`, BUKAN pada kuantitas asli.
                 // Inilah batas yang mencegah barang yang sama diretur dua kali.
-                _picked[item.transactionItemId] =
-                    next < 0 ? 0 : (next > item.returnable ? item.returnable : next);
+                _picked[item.transactionItemId] = next < 0
+                    ? 0
+                    : (next > item.returnable ? item.returnable : next);
               }),
               onRestock: (bool value) =>
                   setState(() => _restock[item.transactionItemId] = value),
@@ -324,9 +323,9 @@ class _ReturnPageState extends State<ReturnPage> {
                 }
               }),
             ),
-
           const SizedBox(height: Gap.lg),
-          Text('Metode pengembalian', style: PosText.sm.copyWith(color: t.fgMuted)),
+          Text('Metode pengembalian',
+              style: PosText.sm.copyWith(color: t.fgMuted),),
           const SizedBox(height: Gap.xs),
           DropdownButtonFormField<RefundMethod>(
             initialValue: _refundMethod,
@@ -338,9 +337,9 @@ class _ReturnPageState extends State<ReturnPage> {
             onChanged: (RefundMethod? v) =>
                 setState(() => _refundMethod = v ?? RefundMethod.cash),
           ),
-
           const SizedBox(height: Gap.lg),
-          Text('Alasan retur (wajib)', style: PosText.sm.copyWith(color: t.fgMuted)),
+          Text('Alasan retur (wajib)',
+              style: PosText.sm.copyWith(color: t.fgMuted),),
           const SizedBox(height: Gap.xs),
           DropdownButtonFormField<String>(
             initialValue: _reasonCode,
@@ -355,7 +354,6 @@ class _ReturnPageState extends State<ReturnPage> {
             ],
             onChanged: (String? v) => setState(() => _reasonCode = v),
           ),
-
           const SizedBox(height: Gap.md),
           TextField(
             controller: _notes,
@@ -369,7 +367,6 @@ class _ReturnPageState extends State<ReturnPage> {
               hintText: 'Contoh: kemasan bocor saat diterima pelanggan',
             ),
           ),
-
           const SizedBox(height: Gap.xl),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -378,7 +375,6 @@ class _ReturnPageState extends State<ReturnPage> {
               MoneyText(_selectedTotalMinor, size: MoneySize.xl),
             ],
           ),
-
           const SizedBox(height: Gap.lg),
           TouchButton(
             label: 'Proses Retur',
@@ -439,7 +435,6 @@ class _ItemTile extends StatelessWidget {
             ' · sisa ${item.returnable}',
             style: PosText.xs.copyWith(color: t.fgMuted),
           ),
-
           if (item.isExhausted)
             Padding(
               padding: const EdgeInsets.only(top: Gap.xs),
@@ -477,7 +472,6 @@ class _ItemTile extends StatelessWidget {
                 ),
               ],
             ),
-
             if (picked > 0) ...<Widget>[
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,

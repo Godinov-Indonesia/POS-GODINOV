@@ -73,7 +73,6 @@ class _BindingPageState extends State<BindingPage> {
                       style: PosText.base.copyWith(color: t.fgMuted),
                     ),
                     const SizedBox(height: Gap.xl),
-
                     _Field(
                       controller: _business,
                       label: 'Serial Bisnis',
@@ -81,7 +80,6 @@ class _BindingPageState extends State<BindingPage> {
                       enabled: !busy,
                     ),
                     const SizedBox(height: Gap.lg),
-
                     _Field(
                       controller: _outlet,
                       label: 'Serial Outlet',
@@ -90,7 +88,6 @@ class _BindingPageState extends State<BindingPage> {
                       enabled: !busy,
                     ),
                     const SizedBox(height: Gap.lg),
-
                     _Field(
                       controller: _password,
                       label: 'Password Pemilik',
@@ -111,12 +108,10 @@ class _BindingPageState extends State<BindingPage> {
                             : 'Sembunyikan password',
                       ),
                     ),
-
                     if (state is BindingFailure) ...<Widget>[
                       const SizedBox(height: Gap.lg),
                       _ErrorBanner(message: state.message),
                     ],
-
                     const SizedBox(height: Gap.xl),
                     TouchButton(
                       label: 'Pasang Perangkat',
@@ -124,7 +119,6 @@ class _BindingPageState extends State<BindingPage> {
                       isLoading: busy,
                       onPressed: busy ? null : _submit,
                     ),
-
                     const SizedBox(height: Gap.xl),
                     const _UnbindWarning(),
                   ],

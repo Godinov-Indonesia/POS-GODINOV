@@ -65,6 +65,7 @@ class HistoryRemoteDataSource {
               DateTime.now().toUtc(),
       customerName: json['customer_name'] as String? ?? '',
       cancelNotes: json['cancel_notes'] as String? ?? '',
+      shortCode: json['short_code'] as String?,
       // Baris server tidak dapat di-void maupun dicetak ulang: itemnya tidak
       // membawa nama produk, sehingga struk tidak dapat dirakit ulang.
       isLocal: false,

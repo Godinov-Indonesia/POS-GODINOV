@@ -93,7 +93,8 @@ class PrintQueueService {
   /* ── Enqueue ─────────────────────────────────────────────────────────── */
 
   /// **Butir 6** — dipakai KETIGA cakupan void.
-  Future<String?> enqueueCancelReceipt(String voidLogId, CancelReceiptData data) =>
+  Future<String?> enqueueCancelReceipt(
+          String voidLogId, CancelReceiptData data,) =>
       _enqueue(
         kind: PrintJobKind.cancelReceipt,
         refType: 'void_log',
@@ -110,7 +111,8 @@ class PrintQueueService {
         render: () => _audit.buildWaste(data),
       );
 
-  Future<String?> enqueueReturnReceipt(String returnId, ReturnReceiptData data) =>
+  Future<String?> enqueueReturnReceipt(
+          String returnId, ReturnReceiptData data,) =>
       _enqueue(
         kind: PrintJobKind.returnReceipt,
         refType: 'return',
@@ -256,7 +258,8 @@ class PrintQueueService {
 
     // `markFailed` yang memutuskan kapan menyerah (≤ 3 percobaan), bukan
     // pemanggilnya — batasnya hidup di satu tempat bersama kolomnya.
-    final PrintJobStatus next = await _dao.markFailed(job.id, 'Printer menolak data');
+    final PrintJobStatus next =
+        await _dao.markFailed(job.id, 'Printer menolak data');
 
     if (next == PrintJobStatus.abandoned) {
       // ── R9 — jejaknya ikut antrean sync ────────────────────────────────
@@ -461,7 +464,8 @@ class PrintQueueService {
   /// menekan tombol ini adalah perubahan itu.
   Future<void> retryAllAbandoned() async {
     try {
-      final List<LocalPrintJob> jobs = await _dao.byStatus(PrintJobStatus.abandoned);
+      final List<LocalPrintJob> jobs =
+          await _dao.byStatus(PrintJobStatus.abandoned);
       for (final LocalPrintJob job in jobs) {
         await _dao.requeue(job.id);
       }

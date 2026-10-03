@@ -67,8 +67,7 @@ class ConnectivityState extends Equatable {
       );
 
   @override
-  List<Object?> get props =>
-      <Object?>[status, consecutiveFailures, lastOkAt];
+  List<Object?> get props => <Object?>[status, consecutiveFailures, lastOkAt];
 }
 
 /// Satu-satunya muara status jaringan di sisi UI ([11 §M12.1]).
@@ -116,11 +115,13 @@ class ConnectivityCubit extends Cubit<ConnectivityState> {
     // Antarmuka kembali TIDAK berarti server terjangkau: inilah momen captive
     // portal paling sering muncul. Status naik ke `degraded`, bukan langsung
     // `online`; putaran sinkronisasi berikutnya yang membuktikannya.
-    emit(state.copyWith(
-      status: state.consecutiveFailures > 0
-          ? NetworkStatus.degraded
-          : NetworkStatus.online,
-    ),);
+    emit(
+      state.copyWith(
+        status: state.consecutiveFailures > 0
+            ? NetworkStatus.degraded
+            : NetworkStatus.online,
+      ),
+    );
   }
 
   /// Dipanggil mesin sync setiap kali sebuah permintaan benar-benar berhasil.
@@ -140,16 +141,18 @@ class ConnectivityCubit extends Cubit<ConnectivityState> {
   /// server.
   void reportFailure() {
     final int failures = state.consecutiveFailures + 1;
-    emit(state.copyWith(
-      consecutiveFailures: failures,
-      // Pernyataan `offline` dari sistem operasi lebih otoritatif daripada
-      // tebakan kita; jangan menimpanya menjadi `degraded`.
-      status: state.status == NetworkStatus.offline
-          ? NetworkStatus.offline
-          : failures >= degradedThreshold
-              ? NetworkStatus.degraded
-              : state.status,
-    ),);
+    emit(
+      state.copyWith(
+        consecutiveFailures: failures,
+        // Pernyataan `offline` dari sistem operasi lebih otoritatif daripada
+        // tebakan kita; jangan menimpanya menjadi `degraded`.
+        status: state.status == NetworkStatus.offline
+            ? NetworkStatus.offline
+            : failures >= degradedThreshold
+                ? NetworkStatus.degraded
+                : state.status,
+      ),
+    );
   }
 
   @override

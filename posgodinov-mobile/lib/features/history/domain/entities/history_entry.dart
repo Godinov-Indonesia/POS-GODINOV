@@ -21,6 +21,7 @@ class HistoryEntry extends Equatable {
     this.lines = const <HistoryLine>[],
     this.receiptPrintedAt,
     this.itemIds = const <String>[],
+    this.shortCode,
   });
 
   final String id;
@@ -57,6 +58,11 @@ class HistoryEntry extends Equatable {
   /// muncul di dua baris dengan harga snapshot berbeda.
   final List<String> itemIds;
 
+  /// Kode struk dari server, mis. `AB1234-250820-K7QF` ([11 §3.2]).
+  ///
+  /// `null` untuk baris lokal yang belum tersinkron atau server pra-v2.
+  final String? shortCode;
+
   /// `true` untuk `voided` MAUPUN `cancelled` (warisan v1).
   ///
   /// Memeriksa salah satunya saja akan membuat transaksi lama tampak masih
@@ -68,8 +74,11 @@ class HistoryEntry extends Equatable {
   /// Getter ini semata menyaring baris server yang itemnya tidak lengkap.
   bool get canCancel => isLocal && !isCancelled;
 
-  /// Delapan karakter pertama UUID, huruf besar ([06 §2.6]).
+  /// Kode struk yang dapat dibaca kasir.
+  ///
+  /// Prioritas: [shortCode] server → irisan 8 karakter UUID sebagai fallback.
   String get shortId =>
+      shortCode?.toUpperCase() ??
       id.replaceAll('-', '').padRight(8, '0').substring(0, 8).toUpperCase();
 
   @override

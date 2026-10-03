@@ -1,13 +1,15 @@
-name: Backend CI/CD (posgodinov-be)
+name: Backend CI/CD
 
 on:
   push:
+    # Memicu build snapshot/dev saat ada update di folder backend pada branch dev
     branches:
-      - main
+      - dev
     paths:
       - 'posgodinov-be/**'
+    # Memicu build SemVer resmi saat Anda membuat tag rilis di main
     tags:
-      - 'backend/v*'
+      - 'posgodinov-be-v*'
   workflow_dispatch:
 
 jobs:
@@ -54,20 +56,36 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # LANGKAH PENTING: Ekstrak tipe event dan nama versi SemVer untuk tag Docker
+      - name: Docker Meta (Extract Version)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-backend
+          tags: |
+            # Jika dipicu oleh Git Tag posgodinov-be-vX.X.X -> menghasilkan tag Docker :X.X.X
+            type=match,pattern=posgodinov-be-v(.*),group=1
+            # Jika dipicu oleh Git Tag -> buat juga tag :latest untuk produksi
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+            # Jika dipicu oleh branch dev -> menghasilkan tag :dev-sha
+            type=raw,value=dev-${{ github.sha }},enable=${{ github.ref == 'refs/heads/dev' }}
+
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: ./posgodinov-be
           file: ./posgodinov-be/Dockerfile
           push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-backend:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-backend:${{ github.sha }}
+          # Menggunakan tag dinamis yang sudah diproses oleh docker/metadata-action
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
   deploy:
     name: 4. Deploy via SSH
     needs: build-and-push
     runs-on: ubuntu-latest
+    # Hanya lakukan deploy otomatis ke server jika dipicu oleh Rilis Tag Resmi
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Deploy to Remote Server via SSH
         uses: appleboy/ssh-action@v1.0.3

@@ -93,6 +93,5 @@ class ReconcileDecision {
   }
 
   /// `true` hanya bila seluruh hitungan cocok dan tidak ada transaksi ditolak.
-  bool get ok =>
-      allShiftsOk && allWastesOk && failedTransactionIds.isEmpty;
+  bool get ok => allShiftsOk && allWastesOk && failedTransactionIds.isEmpty;
 }

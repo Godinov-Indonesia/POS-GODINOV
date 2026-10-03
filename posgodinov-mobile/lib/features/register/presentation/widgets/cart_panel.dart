@@ -157,7 +157,8 @@ class _EmptyCart extends StatelessWidget {
 }
 
 class _Footer extends StatelessWidget {
-  const _Footer({required this.state, required this.onHold, required this.onPay});
+  const _Footer(
+      {required this.state, required this.onHold, required this.onPay,});
 
   final CartState state;
   final VoidCallback? onHold;
@@ -305,8 +306,11 @@ class CartLineTile extends StatelessWidget {
           ),
           Row(
             children: <Widget>[
-              MoneyText(line.unitPriceMinor, size: MoneySize.sm,
-                  tone: MoneyTone.muted,),
+              MoneyText(
+                line.unitPriceMinor,
+                size: MoneySize.sm,
+                tone: MoneyTone.muted,
+              ),
               Text(
                 ' × ${line.quantity}',
                 style: PosText.xsMono.copyWith(color: t.fgMuted),

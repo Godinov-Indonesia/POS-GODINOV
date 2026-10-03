@@ -204,7 +204,8 @@ class KioskGuard {
     }
 
     _consecutiveFailures++;
-    final int attemptsLeft = (maxAttempts - _consecutiveFailures).clamp(0, maxAttempts);
+    final int attemptsLeft =
+        (maxAttempts - _consecutiveFailures).clamp(0, maxAttempts);
 
     // Apakah PIN-nya milik staff yang TIDAK berwenang?
     //

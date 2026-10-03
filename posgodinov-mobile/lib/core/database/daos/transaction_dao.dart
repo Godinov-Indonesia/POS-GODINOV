@@ -68,11 +68,12 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     int limit = SyncLimits.maxTransactionsPerBatch,
   }) async {
     final List<LocalTransaction> rows = await (select(db.transactions)
-          ..where(($TransactionsTable t) =>
-              t.synced.equals(false) & t.quarantined.equals(false),)
-          ..orderBy(<OrderClauseGenerator<$TransactionsTable>>[
+          ..where(
             ($TransactionsTable t) =>
-                OrderingTerm.asc(t.clientCreatedAt),
+                t.synced.equals(false) & t.quarantined.equals(false),
+          )
+          ..orderBy(<OrderClauseGenerator<$TransactionsTable>>[
+            ($TransactionsTable t) => OrderingTerm.asc(t.clientCreatedAt),
           ])
           ..limit(limit))
         .get();
@@ -101,8 +102,10 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     final JoinedSelectStatement<HasResultSet, dynamic> query =
         selectOnly(db.transactions)
           ..addColumns(<Expression<Object>>[count])
-          ..where(db.transactions.synced.equals(false) &
-              db.transactions.quarantined.equals(false),);
+          ..where(
+            db.transactions.synced.equals(false) &
+                db.transactions.quarantined.equals(false),
+          );
 
     return query.map((TypedResult row) => row.read(count) ?? 0).watchSingle();
   }
@@ -121,8 +124,10 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     if (needle.isEmpty) return null;
 
     final LocalTransaction? row = await (select(db.transactions)
-          ..where(($TransactionsTable t) =>
-              t.id.equals(needle) | t.shortCode.equals(needle.toUpperCase()),)
+          ..where(
+            ($TransactionsTable t) =>
+                t.id.equals(needle) | t.shortCode.equals(needle.toUpperCase()),
+          )
           ..limit(1))
         .getSingleOrNull();
 
@@ -161,8 +166,7 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     final List<LocalTransaction> rows = await (select(db.transactions)
           ..where(($TransactionsTable t) => t.shiftId.equals(shiftId))
           ..orderBy(<OrderClauseGenerator<$TransactionsTable>>[
-            ($TransactionsTable t) =>
-                OrderingTerm.desc(t.clientCreatedAt),
+            ($TransactionsTable t) => OrderingTerm.desc(t.clientCreatedAt),
           ]))
         .get();
 
@@ -175,21 +179,19 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
   /// ([04 §A.3]).
   Future<int> cashTotalOfShift(String shiftId) async {
     final Expression<int> total = db.transactions.totalAmountMinor.sum();
-    final JoinedSelectStatement<HasResultSet, dynamic> query =
-        selectOnly(db.transactions)
-          ..addColumns(<Expression<Object>>[total])
-          ..where(
-            db.transactions.shiftId.equals(shiftId) &
-                db.transactions.status
-                    .equalsValue(TransactionStatus.completed) &
-                // `PaymentSummary.cash`, BUKAN `split`. Transaksi split yang
-                // sebagian tunai TIDAK ikut terjumlah di sini: nominal tunainya
-                // diketahui dari baris tender, dan menjumlahkan seluruh nilai
-                // transaksi akan membuat laci tampak berisi uang yang sebagian
-                // tergesek di EDC ([11 §M17.2]).
-                db.transactions.paymentMethod
-                    .equalsValue(PaymentSummary.cash),
-          );
+    final JoinedSelectStatement<HasResultSet, dynamic> query = selectOnly(
+        db.transactions,)
+      ..addColumns(<Expression<Object>>[total])
+      ..where(
+        db.transactions.shiftId.equals(shiftId) &
+            db.transactions.status.equalsValue(TransactionStatus.completed) &
+            // `PaymentSummary.cash`, BUKAN `split`. Transaksi split yang
+            // sebagian tunai TIDAK ikut terjumlah di sini: nominal tunainya
+            // diketahui dari baris tender, dan menjumlahkan seluruh nilai
+            // transaksi akan membuat laci tampak berisi uang yang sebagian
+            // tergesek di EDC ([11 §M17.2]).
+            db.transactions.paymentMethod.equalsValue(PaymentSummary.cash),
+      );
 
     final TypedResult row = await query.getSingle();
     return row.read(total) ?? 0;
@@ -279,17 +281,20 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     final Map<String, List<LocalTransactionItem>> grouped =
         <String, List<LocalTransactionItem>>{};
     for (final LocalTransactionItem item in items) {
-      grouped.putIfAbsent(
-        item.transactionId,
-        () => <LocalTransactionItem>[],
-      ).add(item);
+      grouped
+          .putIfAbsent(
+            item.transactionId,
+            () => <LocalTransactionItem>[],
+          )
+          .add(item);
     }
 
     // Tender ditarik dalam kueri yang sama, bukan per-transaksi: batch sync 200
     // transaksi tidak boleh berubah menjadi 200 kueri tambahan ([09 §5.1]).
     final List<LocalTransactionPayment> payments =
         await (select(db.transactionPayments)
-              ..where(($TransactionPaymentsTable p) => p.transactionId.isIn(ids))
+              ..where(
+                  ($TransactionPaymentsTable p) => p.transactionId.isIn(ids),)
               ..orderBy(<OrderClauseGenerator<$TransactionPaymentsTable>>[
                 ($TransactionPaymentsTable p) => OrderingTerm.asc(p.sequence),
               ]))
@@ -298,10 +303,12 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     final Map<String, List<LocalTransactionPayment>> tenders =
         <String, List<LocalTransactionPayment>>{};
     for (final LocalTransactionPayment payment in payments) {
-      tenders.putIfAbsent(
-        payment.transactionId,
-        () => <LocalTransactionPayment>[],
-      ).add(payment);
+      tenders
+          .putIfAbsent(
+            payment.transactionId,
+            () => <LocalTransactionPayment>[],
+          )
+          .add(payment);
     }
 
     return rows
@@ -322,7 +329,8 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
   /// tindakan". Yang berubah hanya keanggotaannya di antrean, supaya satu baris
   /// cacat permanen berhenti menahan seluruh baris di belakangnya.
   Future<void> markQuarantined(String id, DateTime at, String reason) {
-    return (update(db.transactions)..where(($TransactionsTable t) => t.id.equals(id)))
+    return (update(db.transactions)
+          ..where(($TransactionsTable t) => t.id.equals(id)))
         .write(
       TransactionsCompanion(
         quarantined: const Value<bool>(true),
@@ -343,5 +351,4 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
 
     return query.map((TypedResult row) => row.read(count) ?? 0).watchSingle();
   }
-
 }

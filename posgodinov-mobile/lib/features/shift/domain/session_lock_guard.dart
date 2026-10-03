@@ -59,8 +59,7 @@ class SessionLockGuard {
   /// sekali. Memakai [isLocked] di sini akan menulis satu baris audit setiap
   /// kali layar digambar ulang, dan sinyal yang sesungguhnya — seseorang
   /// benar-benar mencoba keluar — tenggelam di antara ratusan duplikat.
-  Future<bool> isLockedSilently() async =>
-      await _shiftDao.openShift() != null;
+  Future<bool> isLockedSilently() async => await _shiftDao.openShift() != null;
 
   Future<void> _record(LocalShift shift, String source) async {
     try {

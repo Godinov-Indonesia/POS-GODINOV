@@ -138,9 +138,8 @@ class TouchButton extends StatelessWidget {
           minimumSize: const Size(Touch.standard, Touch.standard),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(Radii.md),
-            side: outline == null
-                ? BorderSide.none
-                : BorderSide(color: outline),
+            side:
+                outline == null ? BorderSide.none : BorderSide(color: outline),
           ),
         ),
         child: child,

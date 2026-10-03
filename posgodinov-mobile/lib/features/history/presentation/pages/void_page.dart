@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:posgodinov_mobile/core/di/injection.dart';
 import 'package:posgodinov_mobile/core/pos/cancellation_policy.dart';
+import 'package:posgodinov_mobile/core/printer/print_queue_service.dart';
 import 'package:posgodinov_mobile/core/sync/sync_triggers.dart';
+import 'package:posgodinov_mobile/features/printing/presentation/widgets/receipt_preview_dialog.dart';
 import 'package:posgodinov_mobile/features/auth/presentation/cubit/cashier_auth_cubit.dart';
 import 'package:posgodinov_mobile/features/history/domain/entities/history_entry.dart';
 import 'package:posgodinov_mobile/features/history/presentation/cubit/history_cubit.dart';
@@ -40,25 +42,13 @@ class VoidPage extends StatefulWidget {
 class _VoidPageState extends State<VoidPage> {
   bool _busy = false;
 
-  CancellationDecision get _decision => decideCancellation(
-        CancellableTransaction(
-          id: widget.entry.id,
-          status: widget.entry.status,
-          receiptPrintedAt: widget.entry.receiptPrintedAt,
-          items: <CancellableItem>[
-            for (int i = 0; i < widget.entry.lines.length; i++)
-              CancellableItem(
-                id: i < widget.entry.itemIds.length
-                    ? widget.entry.itemIds[i]
-                    : '',
-                productId: widget.entry.lines[i].productId,
-                productName: widget.entry.lines[i].productName,
-                quantity: widget.entry.lines[i].quantity,
-                unitPriceMinor: widget.entry.lines[i].unitPriceMinor,
-              ),
-          ],
-        ),
-      );
+  CancellationDecision get _decision {
+    if (widget.entry.status.isCancellation) {
+      return const CancellationDecision.forbidden(
+          ForbiddenReason.alreadyVoided,);
+    }
+    return const CancellationDecision.void_(requiresAuth: true);
+  }
 
   Future<void> _submit() async {
     // Keputusan diambil ULANG tepat sebelum menulis: antara render dan ketukan,
@@ -110,7 +100,38 @@ class _VoidPageState extends State<VoidPage> {
           onVoided: () async => getIt<SyncTriggers>().onVoidSaved(),
         );
 
-    if (mounted) Navigator.of(context).pop();
+    final String outletName =
+        await getIt<PrintQueueService>().resolveOutletName();
+
+    if (mounted) {
+      Navigator.of(context).pop();
+      await ReceiptPreviewDialog.open(
+        context,
+        title: 'TRANSAKSI DIBATALKAN (VOID)',
+        subtitle: 'No. ${widget.entry.shortId}',
+        outletName: outletName,
+        dateTime: DateTime.now(),
+        cashierName: auth.session.name,
+        supervisorName: null,
+        items: widget.entry.lines
+            .map(
+              (HistoryLine l) => ReceiptPreviewItem(
+                name: l.productName,
+                quantity: l.quantity,
+                priceMinor:
+                    l.lineTotalMinor ~/ (l.quantity > 0 ? l.quantity : 1),
+                totalMinor: l.lineTotalMinor,
+              ),
+            )
+            .toList(),
+        totalAmountMinor: widget.entry.totalMinor,
+        summaryRows: <String, String>{
+          'Status': 'DIBATALKAN / VOID',
+          'Alasan': kVoidReasonLabels[result.reasonCode] ?? result.reasonCode,
+          if (result.reasonNotes.isNotEmpty) 'Catatan': result.reasonNotes,
+        },
+      );
+    }
   }
 
   void _showBlocked(CancellationDecision decision) {
@@ -185,7 +206,6 @@ class _VoidPageState extends State<VoidPage> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: Gap.xl),
                 if (_decision.isReturn)
                   // Butir 15 dinyatakan APA ADANYA, bukan dengan menyembunyikan
@@ -224,7 +244,6 @@ class _VoidPageState extends State<VoidPage> {
                     'terlihat oleh pemilik pada laporan.',
                     style: PosText.sm.copyWith(color: t.fgMuted),
                   ),
-
                 const SizedBox(height: Gap.xxl),
                 TouchButton(
                   label: 'Batalkan Transaksi',

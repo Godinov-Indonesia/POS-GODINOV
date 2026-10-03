@@ -65,6 +65,14 @@ class CartState extends Equatable {
   bool get isEmpty => lines.isEmpty;
   bool get isNotEmpty => lines.isNotEmpty;
 
+  /// `true` saat keranjang berisi item audit (Waste/Void) —
+  /// semua tombol kecuali CASHOUT harus di-disable.
+  bool get isAuditLocked => lines.any(
+        (CartLine l) =>
+            l.note.toLowerCase().contains('waste') ||
+            l.note.toLowerCase().contains('void'),
+      );
+
   CartState copyWith({
     List<CartLine>? lines,
     String? customerName,
@@ -105,11 +113,12 @@ class CartCubit extends Cubit<CartState> {
     required String productName,
     required int priceMinor,
     int quantity = 1,
+    String note = '',
   }) {
     if (quantity <= 0) return;
 
-    final int idx =
-        state.lines.indexWhere((CartLine l) => l.productId == productId);
+    final int idx = state.lines
+        .indexWhere((CartLine l) => l.productId == productId && l.note == note);
 
     if (idx >= 0) {
       final List<CartLine> updated = List<CartLine>.of(state.lines);
@@ -139,6 +148,7 @@ class CartCubit extends Cubit<CartState> {
             productName: productName,
             unitPriceMinor: priceMinor,
             quantity: quantity,
+            note: note,
           ),
         ],
         peakQuantity: _raisePeak(newId, quantity),
@@ -161,7 +171,8 @@ class CartCubit extends Cubit<CartState> {
       state.copyWith(
         lines: state.lines
             .map(
-              (CartLine l) => l.id == lineId ? l.copyWith(quantity: quantity) : l,
+              (CartLine l) =>
+                  l.id == lineId ? l.copyWith(quantity: quantity) : l,
             )
             .toList(growable: false),
         peakQuantity: _raisePeak(lineId, quantity),
@@ -294,7 +305,6 @@ class CartCubit extends Cubit<CartState> {
     return null;
   }
 }
-
 
 /// Hasil pemeriksaan ambang penurunan — **butir 5** ([11 §M13.4]).
 ///

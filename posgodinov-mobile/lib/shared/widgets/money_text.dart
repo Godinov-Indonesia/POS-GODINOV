@@ -103,7 +103,8 @@ class MoneyText extends StatelessWidget {
       MoneyTone.danger => tokens.danger,
     };
 
-    final String text = signed ? Money.formatSigned(minor) : Money.format(minor);
+    final String text =
+        signed ? Money.formatSigned(minor) : Money.format(minor);
 
     return Semantics(
       // Pembaca layar melafalkan nominal sebagai satu kalimat utuh, bukan

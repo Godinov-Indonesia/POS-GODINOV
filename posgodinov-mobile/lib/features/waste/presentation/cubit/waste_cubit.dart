@@ -32,7 +32,8 @@ class WasteState extends Equatable {
       );
 
   @override
-  List<Object?> get props => <Object?>[recent, submitting, error, lastSubmitted];
+  List<Object?> get props =>
+      <Object?>[recent, submitting, error, lastSubmitted];
 }
 
 /// P-11 — lapor waste produk.

@@ -146,16 +146,19 @@ class _VoidReasonSheetState extends State<_VoidReasonSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                Text('Nilai yang dibatalkan', style: PosText.sm.copyWith(color: t.fgMuted)),
+                Text('Nilai yang dibatalkan',
+                    style: PosText.sm.copyWith(color: t.fgMuted),),
                 MoneyText(widget.valueMinor, size: MoneySize.lg),
               ],
             ),
 
             const SizedBox(height: Gap.sm),
-            Text(widget.description, style: PosText.sm.copyWith(color: t.fgMuted)),
+            Text(widget.description,
+                style: PosText.sm.copyWith(color: t.fgMuted),),
 
             const SizedBox(height: Gap.lg),
-            Text('Alasan pembatalan (wajib)', style: PosText.sm.copyWith(color: t.fgMuted)),
+            Text('Alasan pembatalan (wajib)',
+                style: PosText.sm.copyWith(color: t.fgMuted),),
             const SizedBox(height: Gap.xs),
             DropdownButtonFormField<String>(
               initialValue: _reasonCode,
@@ -185,7 +188,8 @@ class _VoidReasonSheetState extends State<_VoidReasonSheet> {
               onChanged: (_) => setState(() {}),
               style: PosText.base,
               decoration: const InputDecoration(
-                hintText: 'Contoh: pelanggan mengurangi pesanan sebelum dibayar',
+                hintText:
+                    'Contoh: pelanggan mengurangi pesanan sebelum dibayar',
               ),
             ),
 

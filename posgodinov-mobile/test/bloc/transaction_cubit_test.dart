@@ -43,6 +43,7 @@ class _FakeRegisterRepository implements RegisterRepository {
     String? authorizedBy,
     String cashierName = '',
     String? authorizedByName,
+    bool skipPrint = false,
   }) async {}
 
   /// Tender yang diterima pemanggil terakhir — dipakai uji M17.2.
@@ -133,10 +134,19 @@ void main() {
     );
 
     blocTest<TransactionCubit, TransactionState>(
-      'total nol tidak membuka pembayaran',
+      'total negatif tidak membuka pembayaran',
+      build: _build,
+      act: (TransactionCubit c) => c.startPayment(-1),
+      expect: () => <Matcher>[],
+    );
+
+    blocTest<TransactionCubit, TransactionState>(
+      'total nol membuka pembayaran',
       build: _build,
       act: (TransactionCubit c) => c.startPayment(0),
-      expect: () => <Matcher>[],
+      expect: () => <Matcher>[
+        equals(const TxSelectingPayment(totalMinor: 0)),
+      ],
     );
 
     blocTest<TransactionCubit, TransactionState>(

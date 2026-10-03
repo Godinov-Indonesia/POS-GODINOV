@@ -103,5 +103,6 @@ class BackgroundSync {
       );
 
   /// Dipakai saat perangkat ditolak server atau dilepas teknisi.
-  Future<void> cancel() => Workmanager().cancelByUniqueName(kBackgroundSyncTask);
+  Future<void> cancel() =>
+      Workmanager().cancelByUniqueName(kBackgroundSyncTask);
 }

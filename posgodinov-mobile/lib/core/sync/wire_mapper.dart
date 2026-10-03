@@ -246,8 +246,7 @@ abstract final class WireMapper {
     return <String, dynamic>{
       ...transaction(t),
       'payment_method': summary,
-      'payments':
-          payments.map(payment).toList(growable: false),
+      'payments': payments.map(payment).toList(growable: false),
       'device_id': tx.deviceId == 'legacy' ? deviceId : tx.deviceId,
       'short_code': tx.shortCode,
       'receipt_printed_at':

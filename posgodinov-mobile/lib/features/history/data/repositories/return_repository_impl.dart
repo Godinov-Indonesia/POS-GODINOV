@@ -7,7 +7,6 @@ import 'package:posgodinov_mobile/core/printer/print_queue_service.dart';
 import 'package:posgodinov_mobile/features/history/domain/repositories/return_repository.dart';
 import 'package:uuid/uuid.dart';
 
-
 /// Penulisan retur — **butir 15** ([11 §M13.3]).
 ///
 /// Transaksi asal **tidak disentuh sama sekali**. Yang lahir adalah baris

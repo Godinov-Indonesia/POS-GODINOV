@@ -51,8 +51,10 @@ class SecurityEventDao extends DatabaseAccessor<AppDatabase>
   /// dimiliki pemilik tentang apa yang terjadi saat perangkat offline.
   Future<List<LocalSecurityEvent>> pending({int limit = 500}) {
     return (select(db.securityEvents)
-          ..where(($SecurityEventsTable e) =>
-              e.synced.equals(false) & e.quarantined.equals(false),)
+          ..where(
+            ($SecurityEventsTable e) =>
+                e.synced.equals(false) & e.quarantined.equals(false),
+          )
           ..orderBy(<OrderClauseGenerator<$SecurityEventsTable>>[
             ($SecurityEventsTable e) => OrderingTerm.asc(e.clientCreatedAt),
           ])
@@ -117,7 +119,8 @@ class SecurityEventDao extends DatabaseAccessor<AppDatabase>
   /// tindakan". Yang berubah hanya keanggotaannya di antrean, supaya satu baris
   /// cacat permanen berhenti menahan seluruh baris di belakangnya.
   Future<void> markQuarantined(String id, DateTime at, String reason) {
-    return (update(db.securityEvents)..where(($SecurityEventsTable t) => t.id.equals(id)))
+    return (update(db.securityEvents)
+          ..where(($SecurityEventsTable t) => t.id.equals(id)))
         .write(
       SecurityEventsCompanion(
         quarantined: const Value<bool>(true),
@@ -138,5 +141,4 @@ class SecurityEventDao extends DatabaseAccessor<AppDatabase>
 
     return query.map((TypedResult row) => row.read(count) ?? 0).watchSingle();
   }
-
 }

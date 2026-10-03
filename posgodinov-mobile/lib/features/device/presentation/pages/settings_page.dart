@@ -7,7 +7,6 @@ import 'package:posgodinov_mobile/core/database/daos/sync_dao.dart';
 import 'package:posgodinov_mobile/core/di/injection.dart';
 import 'package:posgodinov_mobile/core/kiosk/kiosk_service.dart';
 import 'package:posgodinov_mobile/core/sync/battery_optimization.dart';
-import 'package:posgodinov_mobile/features/kiosk/presentation/cubit/kiosk_cubit.dart';
 import 'package:posgodinov_mobile/features/device/presentation/cubit/master_sync_cubit.dart';
 import 'package:posgodinov_mobile/features/printer/presentation/cubit/printer_cubit.dart';
 import 'package:posgodinov_mobile/features/printer/presentation/pages/printer_setup_page.dart';
@@ -53,6 +52,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final KioskService _kiosk = KioskService();
   bool _batteryExempt = false;
   bool _isDeviceOwner = false;
+  bool _isKioskLocked = false;
   bool _aggressiveVendor = false;
   String _vendor = '';
 
@@ -64,12 +64,20 @@ class _SettingsPageState extends State<SettingsPage> {
           await getIt<SyncDao>().readMeta(SyncMetaKeys.outletName);
       if (mounted && name != null) _outlet.text = name;
       await _refreshBattery();
-
-      final bool owner = await _kiosk.isDeviceOwner;
-      if (mounted) setState(() => _isDeviceOwner = owner);
-
+      await _refreshKiosk();
       await _refreshLock();
     });
+  }
+
+  Future<void> _refreshKiosk() async {
+    final bool owner = await _kiosk.isDeviceOwner;
+    final bool locked = await _kiosk.isLocked;
+    if (mounted) {
+      setState(() {
+        _isDeviceOwner = owner;
+        _isKioskLocked = locked;
+      });
+    }
   }
 
   /// Membaca keadaan kunci **tanpa mencatat apa pun**.
@@ -176,7 +184,6 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
           ),
-
           _Section(
             title: 'PRINTER',
             child: BlocBuilder<PrinterCubit, PrinterUiState>(
@@ -197,7 +204,6 @@ class _SettingsPageState extends State<SettingsPage> {
               },
             ),
           ),
-
           _Section(
             title: 'DATA',
             child: BlocConsumer<MasterSyncCubit, MasterSyncState>(
@@ -225,11 +231,15 @@ class _SettingsPageState extends State<SettingsPage> {
                   children: <Widget>[
                     _ActionTile(
                       icon: Icons.cloud_download_outlined,
-                      label: isSyncing ? 'Menarik data...' : 'Tarik ulang data outlet',
+                      label: isSyncing
+                          ? 'Menarik data...'
+                          : 'Tarik ulang data outlet',
                       hint: isSyncing
                           ? 'Sedang mengunduh seluruh katalog data outlet...'
                           : 'Produk, kategori, dan kasir. Menarik SELURUH katalog.',
-                      onTap: isSyncing ? null : () => getIt<MasterSyncCubit>().sync(),
+                      onTap: isSyncing
+                          ? null
+                          : () => getIt<MasterSyncCubit>().sync(),
                     ),
                     const SizedBox(height: Gap.sm),
 
@@ -260,18 +270,21 @@ class _SettingsPageState extends State<SettingsPage> {
               },
             ),
           ),
-
           _Section(
             title: 'MODE KIOSK',
             child: _KioskCard(
               isDeviceOwner: _isDeviceOwner,
+              isLocked: _isKioskLocked,
               onEnable: () async {
-                await getIt<KioskCubit>().enable();
-                if (context.mounted) Navigator.of(context).pop();
+                await getIt<KioskService>().enter();
+                await _refreshKiosk();
+              },
+              onDisable: () async {
+                await getIt<KioskService>().exit();
+                await _refreshKiosk();
               },
             ),
           ),
-
           _Section(
             title: 'SINKRONISASI LATAR',
             child: _BatteryCard(
@@ -281,7 +294,6 @@ class _SettingsPageState extends State<SettingsPage> {
               onRequest: _requestBattery,
             ),
           ),
-
           const _Section(
             title: 'PERANGKAT',
             child: _DeviceWarning(),
@@ -299,14 +311,69 @@ class _SettingsPageState extends State<SettingsPage> {
 /// yang mengira perangkatnya terkunci penuh padahal hanya ter-*pin* akan
 /// menemukan pelanggan keluar ke Home dalam tiga detik ([09 §4.4]).
 class _KioskCard extends StatelessWidget {
-  const _KioskCard({required this.isDeviceOwner, required this.onEnable});
+  const _KioskCard({
+    required this.isDeviceOwner,
+    required this.isLocked,
+    required this.onEnable,
+    required this.onDisable,
+  });
 
   final bool isDeviceOwner;
+  final bool isLocked;
   final Future<void> Function() onEnable;
+  final Future<void> Function() onDisable;
 
   @override
   Widget build(BuildContext context) {
     final GodinovTokens t = context.tokens;
+
+    if (isLocked) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.all(Gap.lg),
+            margin: const EdgeInsets.only(bottom: Gap.md),
+            decoration: BoxDecoration(
+              color: t.successSubtle,
+              borderRadius: BorderRadius.circular(Radii.md),
+              border: Border.all(color: t.success),
+            ),
+            child: Row(
+              children: <Widget>[
+                Icon(Icons.lock, color: t.successText),
+                const SizedBox(width: Gap.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text(
+                        'Mode Kiosk Sedang Aktif',
+                        style: PosText.base,
+                      ),
+                      const SizedBox(height: Gap.xs),
+                      Text(
+                        isDeviceOwner
+                            ? 'Aplikasi dikunci penuh (Device Owner). Tombol navigasi sistem dinonaktifkan.'
+                            : 'Layar sedang disematkan (Screen Pinning).',
+                        style: PosText.sm.copyWith(color: t.fg),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TouchButton(
+            label: 'Nonaktifkan / Keluar Mode Kiosk',
+            icon: Icons.lock_open,
+            height: Touch.standard,
+            variant: TouchVariant.danger,
+            onPressed: onDisable,
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -335,7 +402,7 @@ class _KioskCard extends StatelessWidget {
                       ),
                       const SizedBox(height: Gap.xs),
                       Text(
-                        'Mode Kiosk hanya akan menyematkan layar. Pelanggan '
+                        'Mode Kiosk hanya akan menyematkan layar. Kasir '
                         'masih dapat keluar dengan menahan tombol Kembali + '
                         'Recents.\n\nUntuk penguncian penuh, perangkat harus '
                         'direset pabrik dan dipasang ulang oleh teknisi '
@@ -377,12 +444,6 @@ class _KioskCard extends StatelessWidget {
           height: Touch.standard,
           variant: TouchVariant.secondary,
           onPressed: onEnable,
-        ),
-        const SizedBox(height: Gap.sm),
-        Text(
-          // Gerbang keluar sengaja tidak diiklankan di layar Kiosk itu sendiri.
-          'Keluar dari Kiosk: ketuk logo 5× lalu masukkan PIN staff.',
-          style: PosText.xs.copyWith(color: t.fgSubtle),
         ),
       ],
     );
@@ -520,7 +581,8 @@ class _DeviceWarning extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const Text('Perangkat tidak dapat dilepas', style: PosText.base),
+                const Text('Perangkat tidak dapat dilepas',
+                    style: PosText.base,),
                 const SizedBox(height: Gap.xs),
                 Text(
                   // [03 §2.1] — tidak ada endpoint unbind, tidak ada daftar

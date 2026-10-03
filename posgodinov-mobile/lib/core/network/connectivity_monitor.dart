@@ -51,8 +51,7 @@ class ConnectivityMonitor {
   /// Jeda sebelum status `online` dipancarkan.
   final Duration onlineDebounce;
 
-  final StreamController<bool> _controller =
-      StreamController<bool>.broadcast();
+  final StreamController<bool> _controller = StreamController<bool>.broadcast();
 
   StreamSubscription<List<ConnectivityResult>>? _subscription;
   Timer? _onlineTimer;
@@ -116,8 +115,7 @@ class ConnectivityMonitor {
   /// perangkat dapat terhubung ke Wi-Fi dan seluler sekaligus.
   bool _isConnected(List<ConnectivityResult> results) {
     if (results.isEmpty) return false;
-    return results
-        .any((ConnectivityResult r) => r != ConnectivityResult.none);
+    return results.any((ConnectivityResult r) => r != ConnectivityResult.none);
   }
 
   void _emit(bool online) {

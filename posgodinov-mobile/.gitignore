@@ -53,3 +53,4 @@ Thumbs.db
 # ── Artefak uji ─────────────────────────────────────────────────────────────
 coverage/
 test/**/failures/
+.maestro

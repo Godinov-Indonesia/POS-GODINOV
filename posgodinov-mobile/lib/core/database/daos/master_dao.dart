@@ -35,7 +35,8 @@ class MasterDao extends DatabaseAccessor<AppDatabase> with _$MasterDaoMixin {
 
       // Buang baris dari snapshot sebelumnya yang tidak ikut terbarui.
       await (delete(db.staffs)
-            ..where(($StaffsTable t) => t.syncedAt.isSmallerThanValue(syncedAt)))
+            ..where(
+                ($StaffsTable t) => t.syncedAt.isSmallerThanValue(syncedAt),))
           .go();
       await (delete(db.categories)
             ..where(
@@ -97,7 +98,8 @@ class MasterDao extends DatabaseAccessor<AppDatabase> with _$MasterDaoMixin {
   /// `true` bila perangkat belum pernah menarik master data — gerbang navigasi
   /// mengarahkan ke P-02 ([09 §8]).
   Future<bool> isEmpty() async {
-    final Product? any = await (select(db.products)..limit(1)).getSingleOrNull();
+    final Product? any =
+        await (select(db.products)..limit(1)).getSingleOrNull();
     return any == null;
   }
 }

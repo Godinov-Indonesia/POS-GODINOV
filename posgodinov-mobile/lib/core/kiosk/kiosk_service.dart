@@ -55,7 +55,8 @@ class KioskService {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     try {
-      final bool full = await _channel.invokeMethod<bool>('enterKiosk') ?? false;
+      final bool full =
+          await _channel.invokeMethod<bool>('enterKiosk') ?? false;
       return full ? KioskLockLevel.full : KioskLockLevel.pinningOnly;
     } on Object {
       // Kanal gagal — mundur dengan bersih, jangan meninggalkan layar dalam

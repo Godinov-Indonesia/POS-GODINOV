@@ -17,15 +17,16 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 ///    mengaktifkannya kelak cukup menukar satu baris di `openDatabase()`.
 class SecureStorageService {
   SecureStorageService({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage(
-          aOptions: AndroidOptions(
-            encryptedSharedPreferences: true,
-            // JANGAN hapus diam-diam saat gagal baca. Nilai `true` akan
-            // membuang device_token yang TIDAK DAPAT dipulihkan tanpa
-            // kunjungan teknisi ke outlet.
-            resetOnError: false,
-          ),
-        );
+      : _storage = storage ??
+            const FlutterSecureStorage(
+              aOptions: AndroidOptions(
+                encryptedSharedPreferences: true,
+                // JANGAN hapus diam-diam saat gagal baca. Nilai `true` akan
+                // membuang device_token yang TIDAK DAPAT dipulihkan tanpa
+                // kunjungan teknisi ke outlet.
+                resetOnError: false,
+              ),
+            );
 
   final FlutterSecureStorage _storage;
 

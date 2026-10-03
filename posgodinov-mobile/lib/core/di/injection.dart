@@ -15,8 +15,8 @@ import 'package:posgodinov_mobile/core/printer/printer_manager.dart';
 import 'package:posgodinov_mobile/core/printer/printer_preferences.dart';
 import 'package:posgodinov_mobile/core/printer/printer_registry.dart';
 import 'package:posgodinov_mobile/core/printer/receipt_printer.dart';
-import 'package:posgodinov_mobile/core/kiosk/kiosk_guard.dart';
 import 'package:posgodinov_mobile/core/kiosk/kiosk_service.dart';
+import 'package:posgodinov_mobile/core/storage/product_image_storage.dart';
 import 'package:posgodinov_mobile/core/storage/secure_storage_service.dart';
 import 'package:posgodinov_mobile/core/sync/reconciler.dart';
 import 'package:posgodinov_mobile/core/sync/sync_engine.dart';
@@ -47,7 +47,6 @@ import 'package:posgodinov_mobile/features/device/presentation/cubit/master_sync
 import 'package:posgodinov_mobile/features/shift/data/repositories/shift_repository_impl.dart';
 import 'package:posgodinov_mobile/features/shift/domain/repositories/shift_repository.dart';
 import 'package:posgodinov_mobile/features/shift/presentation/cubit/shift_cubit.dart';
-import 'package:posgodinov_mobile/features/kiosk/presentation/cubit/kiosk_cubit.dart';
 import 'package:posgodinov_mobile/features/printer/presentation/cubit/printer_cubit.dart';
 import 'package:posgodinov_mobile/features/sync/presentation/cubit/sync_cubit.dart';
 import 'package:posgodinov_mobile/core/database/daos/print_job_dao.dart';
@@ -132,8 +131,10 @@ Future<void> configureDependencies() async {
   );
   getIt.registerSingleton<ApiClient>(apiClient);
 
-  // ── Kriptografi ────────────────────────────────────────────────────────────
-  getIt.registerSingleton<PinVerifier>(const PinVerifier());
+  // ── Kriptografi & Storage ──────────────────────────────────────────────────
+  getIt
+    ..registerSingleton<PinVerifier>(const PinVerifier())
+    ..registerSingleton<ProductImageStorage>(ProductImageStorage());
 
   // ⚠️ Blok printer WAJIB berada SEBELUM blok repositori.
   //
@@ -331,20 +332,7 @@ Future<void> configureDependencies() async {
     )
     ..registerSingleton<PrinterCubit>(PrinterCubit(getIt<PrinterManager>()))
     ..registerSingleton<WasteCubit>(WasteCubit(getIt<WasteRepository>()))
-    ..registerSingleton<KioskCubit>(
-      KioskCubit(
-        service: KioskService(),
-        // `securityEventDao` + `syncDao` WAJIB sejak M17.4: gerbang keluar
-        // Kiosk kini memeriksa IZIN (dari `config`) dan MENCATAT setiap
-        // percobaan ([11 §M17.4]).
-        guard: KioskGuard(
-          masterDao: getIt<MasterDao>(),
-          securityEventDao: getIt<SecurityEventDao>(),
-          syncDao: getIt<SyncDao>(),
-        ),
-        heldCarts: getIt<HeldCartRepository>(),
-      ),
-    )
+    ..registerSingleton<KioskService>(KioskService())
     ..registerSingleton<SyncCubit>(
       SyncCubit(
         engine: getIt<SyncEngine>(),
@@ -368,7 +356,6 @@ Future<void> resetDependencies() async {
   if (getIt.isRegistered<HeldCartCubit>()) {
     await getIt<HeldCartCubit>().close();
   }
-  if (getIt.isRegistered<KioskCubit>()) await getIt<KioskCubit>().close();
   if (getIt.isRegistered<WasteCubit>()) await getIt<WasteCubit>().close();
   if (getIt.isRegistered<PrinterCubit>()) await getIt<PrinterCubit>().close();
   if (getIt.isRegistered<PrinterManager>()) {

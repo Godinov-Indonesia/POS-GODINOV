@@ -51,7 +51,9 @@ class ShiftDao extends DatabaseAccessor<AppDatabase> with _$ShiftDaoMixin {
   /// menandainya. Mengirim ulang aman — upsert backend hanya menyentuh kolom
   /// penutupan ([02 §2.11]).
   Future<List<LocalShift>> byIds(Iterable<String> ids) {
-    if (ids.isEmpty) return Future<List<LocalShift>>.value(const <LocalShift>[]);
+    if (ids.isEmpty) {
+      return Future<List<LocalShift>>.value(const <LocalShift>[]);
+    }
     return (select(db.shifts)
           ..where(($ShiftsTable s) => s.id.isIn(ids.toList(growable: false))))
         .get();
@@ -83,7 +85,8 @@ class ShiftDao extends DatabaseAccessor<AppDatabase> with _$ShiftDaoMixin {
     bool blindClose = true,
     String? closedBy,
   }) {
-    return (update(db.shifts)..where(($ShiftsTable s) => s.id.equals(id))).write(
+    return (update(db.shifts)..where(($ShiftsTable s) => s.id.equals(id)))
+        .write(
       ShiftsCompanion(
         status: const Value<ShiftStatus>(ShiftStatus.closed),
         declaredCashMinor: Value<int>(declaredCashMinor),
@@ -104,7 +107,8 @@ class ShiftDao extends DatabaseAccessor<AppDatabase> with _$ShiftDaoMixin {
   }
 
   Future<void> markSynced(String id) {
-    return (update(db.shifts)..where(($ShiftsTable s) => s.id.equals(id))).write(
+    return (update(db.shifts)..where(($ShiftsTable s) => s.id.equals(id)))
+        .write(
       const ShiftsCompanion(
         synced: Value<bool>(true),
         syncError: Value<String?>(null),
@@ -160,5 +164,4 @@ class ShiftDao extends DatabaseAccessor<AppDatabase> with _$ShiftDaoMixin {
 
     return query.map((TypedResult row) => row.read(count) ?? 0).watchSingle();
   }
-
 }

@@ -112,8 +112,10 @@ class _OpenShiftPageState extends State<OpenShiftPage> {
       await _evaluateGate();
     } on Object catch (e) {
       if (mounted) {
-        setState(() => _pullError =
-            'Tidak dapat menghubungi server. Periksa jaringan outlet lalu coba lagi. ($e)',);
+        setState(
+          () => _pullError =
+              'Tidak dapat menghubungi server. Periksa jaringan outlet lalu coba lagi. ($e)',
+        );
       }
     } finally {
       if (mounted) setState(() => _pulling = false);

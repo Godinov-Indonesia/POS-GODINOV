@@ -35,7 +35,7 @@ class PosNumpad extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 264),
+      constraints: const BoxConstraints(maxWidth: 340),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
@@ -45,12 +45,12 @@ class PosNumpad extends StatelessWidget {
             <String>['7', '8', '9'],
           ])
             Padding(
-              padding: const EdgeInsets.only(bottom: Gap.sm),
+              padding: const EdgeInsets.only(bottom: Gap.md),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
                   for (int i = 0; i < row.length; i++) ...<Widget>[
-                    if (i > 0) const SizedBox(width: Gap.sm),
+                    if (i > 0) const SizedBox(width: Gap.md),
                     _Key(
                       label: row[i],
                       enabled: enabled,
@@ -68,9 +68,10 @@ class PosNumpad extends StatelessWidget {
                 enabled: enabled,
                 onPressed: () => onDigits('000'),
               ),
-              const SizedBox(width: Gap.sm),
-              _Key(label: '0', enabled: enabled, onPressed: () => onDigits('0')),
-              const SizedBox(width: Gap.sm),
+              const SizedBox(width: Gap.md),
+              _Key(
+                  label: '0', enabled: enabled, onPressed: () => onDigits('0'),),
+              const SizedBox(width: Gap.md),
               _Key(
                 icon: Icons.backspace_outlined,
                 enabled: enabled,
@@ -80,10 +81,10 @@ class PosNumpad extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: Gap.sm),
+          const SizedBox(height: Gap.md),
           SizedBox(
-            width: 264,
-            height: Touch.standard,
+            width: double.infinity,
+            height: 52,
             child: OutlinedButton(
               onPressed: enabled ? onClear : null,
               style: OutlinedButton.styleFrom(
@@ -93,7 +94,7 @@ class PosNumpad extends StatelessWidget {
                   borderRadius: BorderRadius.circular(Radii.md),
                 ),
               ),
-              child: const Text('C  Hapus', style: PosText.base),
+              child: const Text('C  Hapus', style: PosText.buttonLg),
             ),
           ),
         ],
@@ -128,8 +129,8 @@ class _Key extends StatelessWidget {
       label: semanticLabel,
       button: true,
       child: SizedBox(
-        width: Touch.frequent,
-        height: Touch.frequent,
+        width: 96,
+        height: 68,
         child: OutlinedButton(
           onPressed: enabled
               ? () {
@@ -147,11 +148,11 @@ class _Key extends StatelessWidget {
             ),
           ),
           child: icon != null
-              ? Icon(icon, size: 22)
+              ? Icon(icon, size: 28)
               : FittedBox(
                   child: Text(
                     label!,
-                    style: PosText.moneyLg.copyWith(color: fg),
+                    style: PosText.moneyXl.copyWith(color: fg),
                   ),
                 ),
         ),

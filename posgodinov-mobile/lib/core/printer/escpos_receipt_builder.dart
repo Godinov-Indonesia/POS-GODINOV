@@ -94,7 +94,8 @@ class EscPosReceiptBuilder {
       // pemilik merujuk string yang sama persis dengan isi kolom
       // `payment_method` ([06 §4.6.2]).
       bytes.addAll(
-        _kv(g, 'METODE', '${r.paymentMethod.label} (${r.paymentMethod.wireValue})'),
+        _kv(g, 'METODE',
+            '${r.paymentMethod.label} (${r.paymentMethod.wireValue})',),
       );
     }
 
@@ -107,7 +108,8 @@ class EscPosReceiptBuilder {
     bytes.addAll(
       g.text(
         r.transactionId,
-        styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontB),
+        styles: const PosStyles(
+            align: PosAlign.center, fontType: PosFontType.fontB,),
       ),
     );
 

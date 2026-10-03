@@ -15,8 +15,7 @@ enum SupervisorDenial {
 
 /// Putusan otorisasi.
 class SupervisorVerdict {
-  const SupervisorVerdict.granted(this.staffId, this.staffName)
-      : denial = null;
+  const SupervisorVerdict.granted(this.staffId, this.staffName) : denial = null;
 
   const SupervisorVerdict.denied(this.denial)
       : staffId = '',
@@ -87,7 +86,8 @@ class SupervisorAuthorizer {
     // bcrypt DIJALANKAN walau staff tidak ditemukan — pola yang sama dengan
     // login kasir, dan alasannya sama: selisih waktu jawaban cukup untuk
     // menebak identifier mana yang sah ([09 §5.3]).
-    final bool cocok = await _verifier.verify(pin: pin, pinHash: staff?.pinHash);
+    final bool cocok =
+        await _verifier.verify(pin: pin, pinHash: staff?.pinHash);
     if (!cocok || staff == null) {
       return const SupervisorVerdict.denied(SupervisorDenial.badCredentials);
     }

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:posgodinov_mobile/core/config/constants.dart';
+import 'package:posgodinov_mobile/features/register/domain/entities/cart_line.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/tender_draft.dart';
 import 'package:posgodinov_mobile/features/register/presentation/cubit/transaction_cubit.dart';
 import 'package:posgodinov_mobile/features/register/presentation/pages/payment/payment_card_page.dart';
 import 'package:posgodinov_mobile/features/register/presentation/pages/payment/payment_cash_page.dart';
-import 'package:posgodinov_mobile/features/register/presentation/pages/payment/payment_method_page.dart';
 import 'package:posgodinov_mobile/features/register/presentation/pages/payment/payment_split_page.dart';
 
 /// Alur pembayaran — **butir 11** ([11 §M17.2]).
@@ -42,24 +42,37 @@ abstract final class PaymentFlow {
     BuildContext context, {
     required TransactionCubit cubit,
     required int totalMinor,
-    required Future<void> Function(List<TenderDraft> tenders, int cashReceivedMinor)
+    required Future<void> Function(
+            List<TenderDraft> tenders, int cashReceivedMinor,)
         onConfirm,
+    List<CartLine> lines = const <CartLine>[],
+    String customerName = '',
+    String outletName = '',
   }) async {
     cubit.startPayment(totalMinor);
 
     final bool? done = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        settings: const RouteSettings(name: methodRoute),
+        settings: const RouteSettings(name: 'payment/cash'),
         builder: (_) => BlocProvider<TransactionCubit>.value(
           value: cubit,
-          child: PaymentMethodPage(totalMinor: totalMinor, onConfirm: onConfirm),
+          child: PaymentCashPage(
+            remainingMinor: totalMinor,
+            lines: lines,
+            customerName: customerName,
+            outletName: outletName,
+            onSubmit: (TenderDraft tender, int cashReceived) async {
+              await onConfirm(<TenderDraft>[tender], cashReceived);
+              if (context.mounted) {
+                Navigator.of(context).pop(true);
+              }
+            },
+          ),
         ),
       ),
     );
 
     if (done != true) {
-      // Alur ditinggalkan tanpa transaksi. State cubit dikembalikan ke idle
-      // supaya layar kasir tidak menyangka pembayaran masih berlangsung.
       cubit.cancel();
     }
     return done ?? false;
@@ -69,7 +82,11 @@ abstract final class PaymentFlow {
   static Route<bool> cash({
     required TransactionCubit cubit,
     required int remainingMinor,
-    required Future<void> Function(TenderDraft tender, int cashReceivedMinor) onSubmit,
+    required Future<void> Function(TenderDraft tender, int cashReceivedMinor)
+        onSubmit,
+    List<CartLine> lines = const <CartLine>[],
+    String customerName = '',
+    String outletName = '',
   }) =>
       MaterialPageRoute<bool>(
         settings: const RouteSettings(name: 'payment/cash'),
@@ -77,6 +94,9 @@ abstract final class PaymentFlow {
           value: cubit,
           child: PaymentCashPage(
             remainingMinor: remainingMinor,
+            lines: lines,
+            customerName: customerName,
+            outletName: outletName,
             onSubmit: onSubmit,
           ),
         ),

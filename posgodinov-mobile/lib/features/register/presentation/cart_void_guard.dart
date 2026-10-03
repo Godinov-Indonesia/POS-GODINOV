@@ -59,18 +59,9 @@ class CartVoidGuard {
     required int nextQuantity,
   }) async {
     final CartCubit cart = context.read<CartCubit>();
-    final PosConfig config = await PosConfig.read(getIt<SyncDao>());
 
-    final DecrementVerdict verdict = cart.canDecrementTo(
-      line.id,
-      nextQuantity,
-      config.voidThresholdQty,
-    );
-
-    // Di bawah ambang: penurunan biasa, tanpa gesekan. Butir 5 mengaudit
-    // penurunan BESAR — memaksa alasan untuk setiap ketukan minus akan
-    // melumpuhkan kasir dan membuat kamus alasannya runtuh menjadi "Lainnya".
-    if (verdict.allowed) {
+    final int decrease = line.quantity - nextQuantity;
+    if (decrease <= 0) {
       cart.applyAudited(line.id, nextQuantity);
       return true;
     }
@@ -79,29 +70,21 @@ class CartVoidGuard {
 
     final VoidReasonResult? result = await showVoidReasonSheet(
       context,
-      title: 'Penurunan besar memerlukan pembatalan',
-      description:
-          '${verdict.totalDecrease} unit ${line.productName} akan lenyap dari '
-          'keranjang ini — melewati ambang ${verdict.threshold} unit. '
-          'Penurunan sebesar ini tidak dapat lewat tombol biasa; ia dicatat '
-          'sebagai pembatalan beserta alasannya.',
-      valueMinor: verdict.totalDecrease * line.unitPriceMinor,
-      requiresAuth: config.requireSupervisorForVoid,
-      submitLabel: 'Catat & turunkan',
+      title: 'Pembatalan Item Terpilih',
+      description: '$decrease unit ${line.productName} akan dibatalkan. '
+          'Setiap pembatalan item tercatat pada audit dan mencetak struk void.',
+      valueMinor: decrease * line.unitPriceMinor,
+      requiresAuth: true,
+      submitLabel: 'Void & Cetak Struk',
     );
 
-    // Kasir mundur. Kuantitas TIDAK berubah — inilah yang membuat gerbangnya
-    // berarti: membiarkannya turun setelah sheet ditutup akan mengubah Void
-    // Sheet menjadi formalitas yang dapat dilewati dengan menekan back.
     if (result == null) return false;
 
     await getIt<RegisterRepository>().recordCartLineVoid(
       shiftId: shiftId,
       staffId: staffId,
       line: line,
-      // PUNCAK, bukan kuantitas saat ini: yang dibatalkan adalah seluruh
-      // penurunan sejak barang itu masuk keranjang.
-      quantityBefore: nextQuantity + verdict.totalDecrease,
+      quantityBefore: line.quantity,
       quantityAfter: nextQuantity,
       reasonCode: result.reasonCode,
       reasonNotes: result.reasonNotes,
@@ -111,8 +94,6 @@ class CartVoidGuard {
     if (!context.mounted) return false;
     cart.applyAudited(line.id, nextQuantity);
 
-    // Pembatalan memakai pemicunya sendiri agar `syncLog` mencatat alasan yang
-    // paling layak ditelusuri auditor ([11 §M12.2]).
     getIt<SyncTriggers>().onVoidSaved();
     return true;
   }
@@ -152,13 +133,6 @@ class CartVoidGuard {
       totalValueMinor += peak * l.unitPriceMinor;
     }
 
-    if (totalDecrease <= config.voidThresholdQty) {
-      if (!context.mounted) return;
-      final bool? yakin = await _confirmPlainClear(context, lines.length);
-      if (yakin == true && context.mounted) cart.clear();
-      return;
-    }
-
     if (!context.mounted) return;
 
     final VoidReasonResult? result = await showVoidReasonSheet(
@@ -193,32 +167,5 @@ class CartVoidGuard {
     if (!context.mounted) return;
     cart.clear();
     getIt<SyncTriggers>().onVoidSaved();
-  }
-
-  /// Konfirmasi biasa untuk pengosongan DI BAWAH ambang.
-  ///
-  /// Tetap ada karena mengosongkan keranjang tidak dapat dibatalkan, tetapi
-  /// tidak menuntut alasan: gesekan harus sebanding dengan yang dipertaruhkan.
-  Future<bool?> _confirmPlainClear(BuildContext context, int itemCount) {
-    return showDialog<bool>(
-      context: context,
-      builder: (BuildContext ctx) => AlertDialog(
-        title: const Text('Kosongkan keranjang?'),
-        content: Text(
-          '$itemCount item akan dibuang. Bila pesanan ini masih mungkin '
-          'dilanjutkan, gunakan "Tahan" agar dapat diambil kembali.',
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Kosongkan'),
-          ),
-        ],
-      ),
-    );
   }
 }

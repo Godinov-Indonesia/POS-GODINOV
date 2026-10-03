@@ -86,14 +86,16 @@ class EscPosAuditBuilder {
     bytes.addAll(
       g.text(
         'Simpan bersama setoran laci.',
-        styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontB),
+        styles: const PosStyles(
+            align: PosAlign.center, fontType: PosFontType.fontB,),
       ),
     );
     // Angka selisih SENGAJA tidak ada — lihat catatan pada [ShiftReportData].
     bytes.addAll(
       g.text(
         'Rekonsiliasi dilakukan di kantor.',
-        styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontB),
+        styles: const PosStyles(
+            align: PosAlign.center, fontType: PosFontType.fontB,),
       ),
     );
     bytes.addAll(g.feed(2));
@@ -116,7 +118,8 @@ class EscPosAuditBuilder {
     if (r.isReprint) bytes.addAll(_reprintMark(g));
 
     bytes.addAll(g.hr());
-    bytes.addAll(_kv(g, 'Jenis', ReasonLabels.voidScopes[r.scope] ?? r.scope.wireValue));
+    bytes.addAll(
+        _kv(g, 'Jenis', ReasonLabels.voidScopes[r.scope] ?? r.scope.wireValue),);
     bytes.addAll(_kv(g, 'Waktu', _formatDateTime(r.issuedAt)));
 
     // Rujukan ke dokumen asal — kunci penelusuran saat audit. Tanpa ini, struk
@@ -150,7 +153,10 @@ class EscPosAuditBuilder {
     bytes.addAll(g.hr());
     bytes.addAll(
       g.row(<PosColumn>[
-        PosColumn(text: 'TOTAL DIBATALKAN', width: 7, styles: const PosStyles(bold: true)),
+        PosColumn(
+            text: 'TOTAL DIBATALKAN',
+            width: 7,
+            styles: const PosStyles(bold: true),),
         PosColumn(
           text: Money.format(r.totalCancelledMinor),
           width: 5,
@@ -174,7 +180,8 @@ class EscPosAuditBuilder {
     bytes.addAll(_title(g, 'STRUK'));
     bytes.addAll(_title(g, 'PEMBUANGAN'));
     bytes.addAll(
-      g.text('/ WASTE', styles: const PosStyles(align: PosAlign.center, bold: true)),
+      g.text('/ WASTE',
+          styles: const PosStyles(align: PosAlign.center, bold: true),),
     );
     bytes.addAll(_subtitle(g, r.outletName));
     if (r.isReprint) bytes.addAll(_reprintMark(g));
@@ -219,7 +226,8 @@ class EscPosAuditBuilder {
     bytes.addAll(_notes(g, r.reasonNotes));
 
     bytes.addAll(g.hr());
-    bytes.addAll(g.text('ITEM YANG DIRETUR', styles: const PosStyles(bold: true)));
+    bytes.addAll(
+        g.text('ITEM YANG DIRETUR', styles: const PosStyles(bold: true)),);
 
     for (final AuditReceiptLine line in r.lines) {
       bytes.addAll(_itemRow(g, line));
@@ -243,7 +251,10 @@ class EscPosAuditBuilder {
     );
     bytes.addAll(
       g.row(<PosColumn>[
-        PosColumn(text: 'TOTAL REFUND', width: 6, styles: const PosStyles(bold: true)),
+        PosColumn(
+            text: 'TOTAL REFUND',
+            width: 6,
+            styles: const PosStyles(bold: true),),
         PosColumn(
           text: Money.format(r.refundAmountMinor),
           width: 6,
@@ -316,7 +327,8 @@ class EscPosAuditBuilder {
       // `Generator.text` membungkus sendiri pada batas kertas; catatan alasan
       // TIDAK boleh dipotong — bagian yang terpotong justru sering memuat
       // keterangan yang membuat pembatalannya masuk akal.
-      ...g.text(notes.trim(), styles: const PosStyles(fontType: PosFontType.fontB)),
+      ...g.text(notes.trim(),
+          styles: const PosStyles(fontType: PosFontType.fontB),),
     ];
   }
 
@@ -352,11 +364,13 @@ class EscPosAuditBuilder {
         ...g.hr(),
         ...g.text(
           'Simpan bersama laporan shift.',
-          styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontB),
+          styles: const PosStyles(
+              align: PosAlign.center, fontType: PosFontType.fontB,),
         ),
         ...g.text(
           'Bukan bukti pembayaran.',
-          styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontB),
+          styles: const PosStyles(
+              align: PosAlign.center, fontType: PosFontType.fontB,),
         ),
         ...g.feed(2),
         ...g.cut(),

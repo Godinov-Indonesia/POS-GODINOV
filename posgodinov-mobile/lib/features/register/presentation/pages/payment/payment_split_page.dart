@@ -85,7 +85,6 @@ class PaymentSplitPage extends StatelessWidget {
                 ],
               ),
             ),
-
             if (_remaining < 0) ...<Widget>[
               const SizedBox(height: Gap.sm),
               Text(
@@ -94,7 +93,6 @@ class PaymentSplitPage extends StatelessWidget {
                 style: PosText.sm.copyWith(color: t.danger),
               ),
             ],
-
             const SizedBox(height: Gap.xl),
             if (tenders.isEmpty)
               Text(
@@ -111,7 +109,6 @@ class PaymentSplitPage extends StatelessWidget {
                 ),
                 const SizedBox(height: Gap.sm),
               ],
-
             if (_remaining > 0) ...<Widget>[
               const SizedBox(height: Gap.md),
               TouchButton(
@@ -121,7 +118,6 @@ class PaymentSplitPage extends StatelessWidget {
                 onPressed: onAdd,
               ),
             ],
-
             if (tenders.length == 1) ...<Widget>[
               const SizedBox(height: Gap.md),
               Text(
@@ -130,7 +126,6 @@ class PaymentSplitPage extends StatelessWidget {
                 style: PosText.sm.copyWith(color: t.fgMuted),
               ),
             ],
-
             const SizedBox(height: Gap.xl),
             TouchButton(
               label: 'SELESAIKAN TRANSAKSI',
@@ -163,7 +158,8 @@ class _SummaryRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: <Widget>[
-        Text(label, style: PosText.base.copyWith(color: context.tokens.fgMuted)),
+        Text(label,
+            style: PosText.base.copyWith(color: context.tokens.fgMuted),),
         MoneyText(minor, size: size, tone: tone),
       ],
     );
