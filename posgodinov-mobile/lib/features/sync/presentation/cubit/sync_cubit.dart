@@ -193,11 +193,11 @@ class SyncCubit extends Cubit<SyncState> {
           (int count) => emit(state.copyWith(quarantinedCount: count)),
         );
     _onlineSub = _connectivity.isOnline.listen(
-          (bool online) => emit(state.copyWith(isOnline: online)),
-        );
+      (bool online) => emit(state.copyWith(isOnline: online)),
+    );
     _skewSub = _clockSkew.changes.listen(
-          (ClockSkew skew) => emit(state.copyWith(skew: skew)),
-        );
+      (ClockSkew skew) => emit(state.copyWith(skew: skew)),
+    );
   }
 
   /// Tombol sync manual di P-13.
@@ -242,9 +242,12 @@ class SyncCubit extends Cubit<SyncState> {
       );
     }
     if (outcome.hasWasteMismatch) {
-      bagian.add('waste tersimpan ${outcome.wastesSynced}/${outcome.wastesSent}');
+      bagian
+          .add('waste tersimpan ${outcome.wastesSynced}/${outcome.wastesSent}');
     }
-    return bagian.isEmpty ? 'Sebagian data belum tersimpan.' : bagian.join(' · ');
+    return bagian.isEmpty
+        ? 'Sebagian data belum tersimpan.'
+        : bagian.join(' · ');
   }
 
   Future<void> _cancelAll() async {

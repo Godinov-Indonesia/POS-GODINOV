@@ -7,8 +7,7 @@ part 'void_log_dao.g.dart';
 
 /// Akses `void_logs` — butir 5, 6, 13, 15 ([11 §M13]).
 @DriftAccessor(tables: <Type>[VoidLogs])
-class VoidLogDao extends DatabaseAccessor<AppDatabase>
-    with _$VoidLogDaoMixin {
+class VoidLogDao extends DatabaseAccessor<AppDatabase> with _$VoidLogDaoMixin {
   VoidLogDao(super.db);
 
   Future<void> insertLog(VoidLogsCompanion log) =>
@@ -21,8 +20,10 @@ class VoidLogDao extends DatabaseAccessor<AppDatabase>
     int limit = SyncLimits.maxTransactionsPerBatch,
   }) {
     return (select(db.voidLogs)
-          ..where(($VoidLogsTable v) =>
-              v.synced.equals(false) & v.quarantined.equals(false),)
+          ..where(
+            ($VoidLogsTable v) =>
+                v.synced.equals(false) & v.quarantined.equals(false),
+          )
           ..orderBy(<OrderClauseGenerator<$VoidLogsTable>>[
             ($VoidLogsTable v) => OrderingTerm.asc(v.clientCreatedAt),
           ])
@@ -141,5 +142,4 @@ class VoidLogDao extends DatabaseAccessor<AppDatabase>
 
     return query.map((TypedResult row) => row.read(count) ?? 0).watchSingle();
   }
-
 }

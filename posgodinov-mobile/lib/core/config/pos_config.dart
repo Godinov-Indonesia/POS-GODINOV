@@ -74,6 +74,7 @@ class PosConfig {
   final bool requireSupervisorForVoid;
   final bool requireSupervisorForReturn;
   final bool blindCloseEnabled;
+
   /// ⚠️ **Belum punya pemakai di aplikasi mobile** — dan itu keadaan yang
   /// benar, bukan kelalaian ([11 §M16.6], [11 §M18.2]).
   ///

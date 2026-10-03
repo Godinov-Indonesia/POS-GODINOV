@@ -49,8 +49,9 @@ class CatalogState extends Equatable {
       CatalogState(
         categories: categories ?? this.categories,
         products: products ?? this.products,
-        selectedCategoryId:
-            resetCategory ? null : (selectedCategoryId ?? this.selectedCategoryId),
+        selectedCategoryId: resetCategory
+            ? null
+            : (selectedCategoryId ?? this.selectedCategoryId),
         query: query ?? this.query,
         loading: loading ?? this.loading,
         totalProductCount: totalProductCount ?? this.totalProductCount,
@@ -104,8 +105,8 @@ class CatalogCubit extends Cubit<CatalogState> {
   Future<void> _listen(String? categoryId) async {
     await _sub?.cancel();
     _sub = _repository.watchProducts(categoryId: categoryId).listen(
-      (List<CatalogProduct> items) => emit(state.copyWith(products: items)),
-    );
+          (List<CatalogProduct> items) => emit(state.copyWith(products: items)),
+        );
   }
 
   @override

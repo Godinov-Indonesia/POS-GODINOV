@@ -163,9 +163,8 @@ class CloseShiftSaga {
     // harus sampai, hanya kasirnya yang tidak perlu menunggunya.
     bool synced = false;
     try {
-      final SyncOutcome outcome = await _sync
-          .syncUp(SyncTrigger.shiftClose)
-          .timeout(_syncWait);
+      final SyncOutcome outcome =
+          await _sync.syncUp(SyncTrigger.shiftClose).timeout(_syncWait);
       synced = outcome.ok;
     } on Object {
       // TimeoutException maupun kegagalan jaringan mendarat di sini, dan

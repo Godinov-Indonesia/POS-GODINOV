@@ -135,7 +135,7 @@ class TransactionCubit extends Cubit<TransactionState> {
 
   /// Membuka modal pembayaran.
   void startPayment(int totalMinor) {
-    if (totalMinor <= 0) return;
+    if (totalMinor < 0) return;
     emit(TxSelectingPayment(totalMinor: totalMinor));
   }
 
@@ -205,7 +205,8 @@ class TransactionCubit extends Cubit<TransactionState> {
       TxConfirming(totalMinor: final int v) => v,
       _ => -1,
     };
-    if (total < 0 || lines.isEmpty) return;
+    if (total < 0) return;
+    if (lines.isEmpty) return;
 
     // Jalur lama (dialog metode tunggal) masih menuntut `TxConfirming` dan
     // `isPayable`; jalur baru membawa tendernya sendiri.
@@ -214,9 +215,11 @@ class TransactionCubit extends Cubit<TransactionState> {
       if (!s.isPayable) return;
     }
 
-    final PaymentMethod method = s is TxConfirming ? s.method : PaymentMethod.cash;
-    final int cashReceived =
-        tenders.isEmpty && s is TxConfirming ? s.cashReceivedMinor : cashReceivedMinor;
+    final PaymentMethod method =
+        s is TxConfirming ? s.method : PaymentMethod.cash;
+    final int cashReceived = tenders.isEmpty && s is TxConfirming
+        ? s.cashReceivedMinor
+        : cashReceivedMinor;
 
     emit(const TxPersisting());
 

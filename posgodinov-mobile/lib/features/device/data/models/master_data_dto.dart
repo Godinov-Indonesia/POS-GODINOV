@@ -23,8 +23,8 @@ class StaffDto {
         // bukan kompatibilitas ([11 §M15.2]).
         role: json['role'] as String? ?? '',
         permissions: <String>[
-          for (final Object? p in (json['permissions'] as List<Object?>?) ??
-              const <Object?>[])
+          for (final Object? p
+              in (json['permissions'] as List<Object?>?) ?? const <Object?>[])
             if (p is String) p,
         ],
       );

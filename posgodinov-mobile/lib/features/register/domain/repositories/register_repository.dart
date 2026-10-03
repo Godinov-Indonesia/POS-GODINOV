@@ -62,6 +62,7 @@ abstract interface class RegisterRepository {
     String? authorizedBy,
     String cashierName,
     String? authorizedByName,
+    bool skipPrint = false,
   });
 }
 

@@ -59,13 +59,15 @@ class PrintJobDao extends DatabaseAccessor<AppDatabase>
     }
   }
 
-  Future<void> enqueue(PrintJobsCompanion job) => into(db.printJobs).insert(job);
+  Future<void> enqueue(PrintJobsCompanion job) =>
+      into(db.printJobs).insert(job);
 
   /// Job yang menunggu giliran cetak, urut kronologis.
   Future<List<LocalPrintJob>> pending({int limit = 20}) {
     return (select(db.printJobs)
-          ..where(($PrintJobsTable j) =>
-              j.status.equalsValue(PrintJobStatus.pending),)
+          ..where(
+            ($PrintJobsTable j) => j.status.equalsValue(PrintJobStatus.pending),
+          )
           ..orderBy(<OrderClauseGenerator<$PrintJobsTable>>[
             ($PrintJobsTable j) => OrderingTerm.asc(j.createdAt),
           ])
@@ -86,9 +88,11 @@ class PrintJobDao extends DatabaseAccessor<AppDatabase>
   /// angkanya disetel.
   Future<List<LocalPrintJob>> due({int limit = 20}) async {
     final List<LocalPrintJob> rows = await (select(db.printJobs)
-          ..where(($PrintJobsTable j) =>
-              j.status.equalsValue(PrintJobStatus.pending) |
-              j.status.equalsValue(PrintJobStatus.failed),)
+          ..where(
+            ($PrintJobsTable j) =>
+                j.status.equalsValue(PrintJobStatus.pending) |
+                j.status.equalsValue(PrintJobStatus.failed),
+          )
           ..orderBy(<OrderClauseGenerator<$PrintJobsTable>>[
             ($PrintJobsTable j) => OrderingTerm.asc(j.createdAt),
           ]))
@@ -106,8 +110,9 @@ class PrintJobDao extends DatabaseAccessor<AppDatabase>
   /// Jeda menuju job berikutnya yang akan jatuh tempo; `null` bila tidak ada.
   Future<Duration?> untilNextDue() async {
     final List<LocalPrintJob> rows = await (select(db.printJobs)
-          ..where(($PrintJobsTable j) =>
-              j.status.equalsValue(PrintJobStatus.failed),))
+          ..where(
+            ($PrintJobsTable j) => j.status.equalsValue(PrintJobStatus.failed),
+          ))
         .get();
 
     DateTime? soonest;
@@ -151,7 +156,8 @@ class PrintJobDao extends DatabaseAccessor<AppDatabase>
   /// Dipakai tombol "Cetak Ulang" pada banner, yang hanya menyentuh
   /// [PrintJobStatus.abandoned] — job yang sudah menghabiskan jatah
   /// percobaannya dan menunggu keputusan manusia.
-  Future<List<LocalPrintJob>> byStatus(PrintJobStatus status, {int limit = 50}) {
+  Future<List<LocalPrintJob>> byStatus(PrintJobStatus status,
+      {int limit = 50,}) {
     return (select(db.printJobs)
           ..where(($PrintJobsTable j) => j.status.equalsValue(status))
           ..orderBy(<OrderClauseGenerator<$PrintJobsTable>>[
@@ -164,8 +170,10 @@ class PrintJobDao extends DatabaseAccessor<AppDatabase>
   /// Seluruh job untuk satu entitas — dasar fitur cetak ulang.
   Future<List<LocalPrintJob>> byRef(String refType, String refId) {
     return (select(db.printJobs)
-          ..where(($PrintJobsTable j) =>
-              j.refType.equals(refType) & j.refId.equals(refId),)
+          ..where(
+            ($PrintJobsTable j) =>
+                j.refType.equals(refType) & j.refId.equals(refId),
+          )
           ..orderBy(<OrderClauseGenerator<$PrintJobsTable>>[
             ($PrintJobsTable j) => OrderingTerm.asc(j.createdAt),
           ]))

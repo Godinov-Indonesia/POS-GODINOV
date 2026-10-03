@@ -99,7 +99,6 @@ class _Completed extends StatelessWidget {
           'No. ${transaction.shortId}',
           style: PosText.xsMono.copyWith(color: t.fgMuted),
         ),
-
         const SizedBox(height: Gap.lg),
         for (final CartLine l in transaction.lines)
           Padding(
@@ -118,10 +117,12 @@ class _Completed extends StatelessWidget {
               ],
             ),
           ),
-
         const Divider(height: Gap.xl),
-        _Row(label: 'TOTAL', minor: transaction.totalAmountMinor,
-            size: MoneySize.xl,),
+        _Row(
+          label: 'TOTAL',
+          minor: transaction.totalAmountMinor,
+          size: MoneySize.xl,
+        ),
         if (transaction.paymentMethod.isCash) ...<Widget>[
           const SizedBox(height: Gap.xs),
           _Row(
@@ -144,7 +145,6 @@ class _Completed extends StatelessWidget {
               style: PosText.sm.copyWith(color: t.fgMuted),
             ),
           ),
-
         if (!printOk) ...<Widget>[
           const SizedBox(height: Gap.lg),
           Container(
@@ -172,7 +172,6 @@ class _Completed extends StatelessWidget {
             ),
           ),
         ],
-
         const SizedBox(height: Gap.xl),
         Row(
           children: <Widget>[

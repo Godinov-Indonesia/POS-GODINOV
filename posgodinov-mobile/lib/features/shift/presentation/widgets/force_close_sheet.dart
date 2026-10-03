@@ -165,7 +165,8 @@ class _ForceCloseSheetState extends State<ForceCloseSheet> {
             ),
 
             const SizedBox(height: Gap.lg),
-            Text('PIN Supervisor', style: PosText.sm.copyWith(color: t.fgMuted)),
+            Text('PIN Supervisor',
+                style: PosText.sm.copyWith(color: t.fgMuted),),
             const SizedBox(height: Gap.xs),
             TextField(
               controller: _pin,
@@ -194,7 +195,8 @@ class _ForceCloseSheetState extends State<ForceCloseSheet> {
               ],
               onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
-                hintText: 'mis. kasir Andi pulang pukul 21.00 tanpa menutup shift',
+                hintText:
+                    'mis. kasir Andi pulang pukul 21.00 tanpa menutup shift',
               ),
             ),
             const SizedBox(height: Gap.xs),
@@ -218,7 +220,8 @@ class _ForceCloseSheetState extends State<ForceCloseSheet> {
               icon: Icons.gpp_maybe_outlined,
               variant: TouchVariant.danger,
               isLoading: _busy,
-              onPressed: _canSubmit && !_busy ? () => unawaited(_submit()) : null,
+              onPressed:
+                  _canSubmit && !_busy ? () => unawaited(_submit()) : null,
             ),
             const SizedBox(height: Gap.md),
             TextButton(

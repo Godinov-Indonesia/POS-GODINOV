@@ -128,10 +128,8 @@ class _WastePageState extends State<WastePage> {
                       ),
                     )
                     .toList(growable: false),
-                onChanged: (CatalogProduct? p) =>
-                    setState(() => _selected = p),
+                onChanged: (CatalogProduct? p) => setState(() => _selected = p),
               ),
-
               const SizedBox(height: Gap.lg),
               Text('Jumlah', style: PosText.sm.copyWith(color: t.fgMuted)),
               const SizedBox(height: Gap.xs),
@@ -157,7 +155,6 @@ class _WastePageState extends State<WastePage> {
                   ),
                 ],
               ),
-
               const SizedBox(height: Gap.lg),
               Text(
                 'Kategori alasan',
@@ -175,10 +172,8 @@ class _WastePageState extends State<WastePage> {
                       child: Text(ReasonLabels.wasteReasons[code] ?? code),
                     ),
                 ],
-                onChanged: (String? code) =>
-                    setState(() => _reasonCode = code),
+                onChanged: (String? code) => setState(() => _reasonCode = code),
               ),
-
               const SizedBox(height: Gap.lg),
               Text(
                 'Keterangan',
@@ -196,7 +191,6 @@ class _WastePageState extends State<WastePage> {
                   hintText: 'Contoh: tumpah saat penyajian',
                 ),
               ),
-
               if (state.error != null) ...<Widget>[
                 const SizedBox(height: Gap.lg),
                 Text(
@@ -204,7 +198,6 @@ class _WastePageState extends State<WastePage> {
                   style: PosText.base.copyWith(color: t.danger),
                 ),
               ],
-
               const SizedBox(height: Gap.xl),
               TouchButton(
                 label: 'Laporkan Waste',
@@ -213,7 +206,6 @@ class _WastePageState extends State<WastePage> {
                 isLoading: state.submitting,
                 onPressed: _canSubmit ? _submit : null,
               ),
-
               if (state.recent.isNotEmpty) ...<Widget>[
                 const SizedBox(height: Gap.xxl),
                 Text(
@@ -252,7 +244,9 @@ class _WastePageState extends State<WastePage> {
                             ),
                           ),
                           Icon(
-                            w.synced ? Icons.cloud_done_outlined : Icons.schedule,
+                            w.synced
+                                ? Icons.cloud_done_outlined
+                                : Icons.schedule,
                             size: 18,
                             color: w.synced ? t.successText : t.warningText,
                           ),

@@ -34,7 +34,8 @@ class PrintQueueBanner extends StatelessWidget {
           color: t.warningSubtle,
           child: Row(
             children: <Widget>[
-              Icon(Icons.print_disabled_outlined, color: t.warningText, size: 20),
+              Icon(Icons.print_disabled_outlined,
+                  color: t.warningText, size: 20,),
               const SizedBox(width: Gap.sm),
               Expanded(
                 child: Column(

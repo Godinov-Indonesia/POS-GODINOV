@@ -158,7 +158,8 @@ class HistoryCubit extends Cubit<HistoryState> {
       (DateTime t) => now.difference(t) > searchWindow,
     );
     if (_searchAttempts.length >= searchLimit) {
-      final Duration sisa = searchWindow - now.difference(_searchAttempts.first);
+      final Duration sisa =
+          searchWindow - now.difference(_searchAttempts.first);
       emit(
         state.copyWith(
           searchError:
@@ -201,8 +202,8 @@ class HistoryCubit extends Cubit<HistoryState> {
   }
 
   /// Membersihkan hasil pencarian saat kasir mulai mengetik lagi.
-  void clearSearch() =>
-      emit(state.copyWith(clearResult: true, clearError: true, searchAttempted: false));
+  void clearSearch() => emit(state.copyWith(
+      clearResult: true, clearError: true, searchAttempted: false,),);
 
   /// P-10 — membatalkan transaksi.
   /// Membatalkan transaksi — **butir 15** ([11 §M13.2]).

@@ -36,18 +36,18 @@ class PinKeypad extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 264),
+      constraints: const BoxConstraints(maxWidth: 340),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           for (int row = 0; row < 3; row++)
             Padding(
-              padding: const EdgeInsets.only(bottom: Gap.sm),
+              padding: const EdgeInsets.only(bottom: Gap.md),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
                   for (int col = 0; col < 3; col++) ...<Widget>[
-                    if (col > 0) const SizedBox(width: Gap.sm),
+                    if (col > 0) const SizedBox(width: Gap.md),
                     _KeypadButton(
                       label: _rows[row * 3 + col],
                       enabled: enabled,
@@ -67,13 +67,13 @@ class PinKeypad extends StatelessWidget {
                 onPressed: onClear,
                 semanticLabel: 'Kosongkan PIN',
               ),
-              const SizedBox(width: Gap.sm),
+              const SizedBox(width: Gap.md),
               _KeypadButton(
                 label: '0',
                 enabled: enabled,
                 onPressed: () => onDigit('0'),
               ),
-              const SizedBox(width: Gap.sm),
+              const SizedBox(width: Gap.md),
               _KeypadButton(
                 icon: Icons.backspace_outlined,
                 enabled: enabled,
@@ -118,12 +118,12 @@ class _KeypadButton extends StatelessWidget {
       label: semanticLabel,
       button: true,
       child: SizedBox(
-        width: Touch.frequent,
-        height: Touch.frequent,
+        width: 96,
+        height: 68,
         child: OutlinedButton(
           onPressed: enabled
               ? () {
-                  HapticFeedback.selectionClick();
+                  HapticFeedback.lightImpact();
                   onPressed();
                 }
               : null,
@@ -137,11 +137,11 @@ class _KeypadButton extends StatelessWidget {
             ),
           ),
           child: icon != null
-              ? Icon(icon, size: 22)
+              ? Icon(icon, size: 28)
               : Text(
                   label!,
                   // Digit memakai monospace agar lebarnya seragam ([06 §2.6]).
-                  style: PosText.moneyLg.copyWith(color: foreground),
+                  style: PosText.moneyXl.copyWith(color: foreground),
                 ),
         ),
       ),

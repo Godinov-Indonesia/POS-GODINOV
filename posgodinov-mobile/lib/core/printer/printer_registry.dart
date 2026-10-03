@@ -53,8 +53,7 @@ class PrinterRegistry {
       final AndroidDeviceInfo info = await _deviceInfo.androidInfo;
       final String vendor = info.manufacturer.toLowerCase();
 
-      final bool cocok =
-          _handheldVendors.any(vendor.contains);
+      final bool cocok = _handheldVendors.any(vendor.contains);
       if (!cocok) return false;
 
       // Nama vendor saja tidak cukup: sebagian model Sunmi adalah tablet meja

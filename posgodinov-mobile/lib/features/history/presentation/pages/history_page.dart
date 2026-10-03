@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:posgodinov_mobile/features/history/domain/entities/history_entry.dart';
 import 'package:posgodinov_mobile/features/history/presentation/cubit/history_cubit.dart';
-import 'package:posgodinov_mobile/features/history/presentation/pages/return_page.dart';
 import 'package:posgodinov_mobile/features/history/presentation/pages/void_page.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
 import 'package:posgodinov_mobile/shared/theme/app_theme.dart';
@@ -68,7 +67,8 @@ class _HistoryPageState extends State<HistoryPage> {
         title: Text(
           // Judul mengikuti flag: menyebut "Shift Ini" pada outlet yang
           // isolasinya dimatikan akan berbohong tentang apa yang ditampilkan.
-          context.select<HistoryCubit, bool>((HistoryCubit c) => c.state.scopeIsolated)
+          context.select<HistoryCubit, bool>(
+                  (HistoryCubit c) => c.state.scopeIsolated,)
               ? 'Riwayat Shift Ini'
               : 'Riwayat Transaksi',
         ),
@@ -78,9 +78,17 @@ class _HistoryPageState extends State<HistoryPage> {
           return Column(
             children: <Widget>[
               if (!state.scopeIsolated) const _ScopeDisabledBanner(),
-              _CodeSearch(controller: _code, state: state),
+              _CodeSearch(
+                controller: _code,
+                state: state,
+                activeShiftId: widget.shiftId,
+              ),
               Expanded(
-                child: _ShiftList(state: state, onReprint: widget.onReprint),
+                child: _ShiftList(
+                  state: state,
+                  onReprint: widget.onReprint,
+                  activeShiftId: widget.shiftId,
+                ),
               ),
             ],
           );
@@ -125,10 +133,15 @@ class _ScopeDisabledBanner extends StatelessWidget {
 
 /// Kolom pencarian kode struk — satu-satunya jalan ke transaksi lampau.
 class _CodeSearch extends StatelessWidget {
-  const _CodeSearch({required this.controller, required this.state});
+  const _CodeSearch({
+    required this.controller,
+    required this.state,
+    required this.activeShiftId,
+  });
 
   final TextEditingController controller;
   final HistoryState state;
+  final String activeShiftId;
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +183,6 @@ class _CodeSearch extends StatelessWidget {
               ),
             ],
           ),
-
           if (state.searchError != null) ...<Widget>[
             const SizedBox(height: Gap.sm),
             Text(
@@ -178,7 +190,6 @@ class _CodeSearch extends StatelessWidget {
               style: PosText.sm.copyWith(color: t.danger),
             ),
           ],
-
           if (state.searchResult != null) ...<Widget>[
             const SizedBox(height: Gap.md),
             Text(
@@ -192,6 +203,7 @@ class _CodeSearch extends StatelessWidget {
               entry: state.searchResult!,
               onReprint: null,
               fromLookup: true,
+              activeShiftId: activeShiftId,
             ),
           ],
         ],
@@ -202,10 +214,15 @@ class _CodeSearch extends StatelessWidget {
 
 /// Daftar transaksi shift berjalan.
 class _ShiftList extends StatelessWidget {
-  const _ShiftList({required this.state, required this.onReprint});
+  const _ShiftList({
+    required this.state,
+    required this.onReprint,
+    required this.activeShiftId,
+  });
 
   final HistoryState state;
   final void Function(HistoryEntry)? onReprint;
+  final String activeShiftId;
 
   @override
   Widget build(BuildContext context) {
@@ -226,6 +243,7 @@ class _ShiftList extends StatelessWidget {
       itemBuilder: (BuildContext context, int i) => _EntryTile(
         entry: state.local[i],
         onReprint: onReprint,
+        activeShiftId: activeShiftId,
       ),
     );
   }
@@ -236,6 +254,7 @@ class _EntryTile extends StatelessWidget {
     required this.entry,
     required this.onReprint,
     this.fromLookup = false,
+    this.activeShiftId,
   });
 
   final HistoryEntry entry;
@@ -248,6 +267,9 @@ class _EntryTile extends StatelessWidget {
   /// dan berpindah tangan ke pelanggan. Void disembunyikan; Retur tetap ada —
   /// lihat catatan pada tombolnya.
   final bool fromLookup;
+
+  /// Shift yang sedang aktif — retur hanya sah pada shift berjalan.
+  final String? activeShiftId;
 
   @override
   Widget build(BuildContext context) {
@@ -267,7 +289,8 @@ class _EntryTile extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              Text(entry.shortId, style: PosText.xsMono.copyWith(color: t.fgMuted)),
+              Text(entry.shortId,
+                  style: PosText.xsMono.copyWith(color: t.fgMuted),),
               const SizedBox(width: Gap.sm),
               Text(
                 _time(entry.clientCreatedAt),
@@ -337,54 +360,52 @@ class _EntryTile extends StatelessWidget {
               // Pembatalan adalah aksi destruktif: layar terpisah, bukan aksi
               // inline ([06 §2.2]).
               //
-              // LABEL DAN TUJUANNYA mengikuti keputusan ([11 §M13.1]), bukan
-              // tebakan layar ini. Transaksi yang struknya sudah tercetak
-              // mengarah ke Retur, dan tidak ada jalan dari sini menuju Void
-              // untuknya — itulah butir 15 dalam bentuk yang dilihat kasir.
-              //
-              // ⛔ Hasil PENCARIAN tidak pernah menawarkan Void, hanya Retur —
-              // butir 15 ([11 §2.1]). Transaksi dari shift lain sudah
-              // menerbitkan kertas yang berpindah tangan ke pelanggan;
-              // membatalkannya berarti menerbitkan realitas kedua yang
-              // bertentangan dengan struk di tangan pelanggan.
-              if (entry.canCancel) ...<Widget>[
-                const SizedBox(width: Gap.destructive),
-                Builder(
-                  builder: (BuildContext ctx) {
-                    // `fromLookup` memaksa jalur Retur tanpa memandang
-                    // `receiptPrintedAt`: transaksi shift lain yang struknya
-                    // entah bagaimana belum tertandai tetap tidak boleh
-                    // di-void dari sini.
-                    final bool isReturn =
-                        fromLookup || entry.receiptPrintedAt != null;
-                    return TextButton.icon(
-                      onPressed: () => Navigator.of(ctx).push<void>(
-                        MaterialPageRoute<void>(
-                          builder: (_) => BlocProvider<HistoryCubit>.value(
-                            value: ctx.read<HistoryCubit>(),
-                            child: isReturn
-                                ? ReturnPage(entry: entry)
-                                : VoidPage(entry: entry),
+              // ⛔ Retur hanya sah pada shift berjalan — transaksi dari shift
+              // lampau yang sudah ditutup tidak dapat dibatalkan/diretur.
+              if (entry.canCancel && !entry.status.isCancellation) ...<Widget>[
+                if (activeShiftId != null &&
+                    entry.shiftId != activeShiftId) ...<Widget>[
+                  const SizedBox(width: Gap.destructive),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Icon(Icons.lock_outline, size: 14, color: t.fgSubtle),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Shift Ditutup',
+                        style: PosText.xs.copyWith(color: t.fgSubtle),
+                      ),
+                    ],
+                  ),
+                ] else ...<Widget>[
+                  const SizedBox(width: Gap.destructive),
+                  Builder(
+                    builder: (BuildContext ctx) {
+                      return TextButton.icon(
+                        onPressed: () => Navigator.of(ctx).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => BlocProvider<HistoryCubit>.value(
+                              value: ctx.read<HistoryCubit>(),
+                              child: VoidPage(entry: entry),
+                            ),
                           ),
                         ),
-                      ),
-                      icon: Icon(
-                        isReturn
-                            ? Icons.assignment_return_outlined
-                            : Icons.block,
-                        size: 18,
-                        color: t.danger,
-                      ),
-                      label: Text(
-                        isReturn ? 'Retur' : 'Batalkan',
-                        style: PosText.sm.copyWith(color: t.danger),
-                      ),
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(Touch.standard, Touch.standard),
-                      ),
-                    );
-                  },
-                ),
+                        icon: Icon(
+                          Icons.block,
+                          size: 18,
+                          color: t.danger,
+                        ),
+                        label: Text(
+                          'Batalkan',
+                          style: PosText.sm.copyWith(color: t.danger),
+                        ),
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(Touch.standard, Touch.standard),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ],
             ],
           ),

@@ -44,8 +44,10 @@ class ReturnDao extends DatabaseAccessor<AppDatabase> with _$ReturnDaoMixin {
     int limit = SyncLimits.maxTransactionsPerBatch,
   }) async {
     final List<LocalReturn> rows = await (select(db.returns)
-          ..where(($ReturnsTable r) =>
-              r.synced.equals(false) & r.quarantined.equals(false),)
+          ..where(
+            ($ReturnsTable r) =>
+                r.synced.equals(false) & r.quarantined.equals(false),
+          )
           ..orderBy(<OrderClauseGenerator<$ReturnsTable>>[
             ($ReturnsTable r) => OrderingTerm.asc(r.clientCreatedAt),
           ])
@@ -63,8 +65,9 @@ class ReturnDao extends DatabaseAccessor<AppDatabase> with _$ReturnDaoMixin {
   /// ketahuan setelah pelanggan pulang.
   Future<Map<String, int>> returnedQuantitiesOf(String transactionId) async {
     final List<LocalReturn> parents = await (select(db.returns)
-          ..where(($ReturnsTable r) =>
-              r.originalTransactionId.equals(transactionId),))
+          ..where(
+            ($ReturnsTable r) => r.originalTransactionId.equals(transactionId),
+          ))
         .get();
 
     if (parents.isEmpty) return const <String, int>{};
@@ -151,9 +154,7 @@ class ReturnDao extends DatabaseAccessor<AppDatabase> with _$ReturnDaoMixin {
     final Map<String, List<LocalReturnItem>> grouped =
         <String, List<LocalReturnItem>>{};
     for (final LocalReturnItem item in items) {
-      grouped
-          .putIfAbsent(item.returnId, () => <LocalReturnItem>[])
-          .add(item);
+      grouped.putIfAbsent(item.returnId, () => <LocalReturnItem>[]).add(item);
     }
 
     return rows
@@ -194,5 +195,4 @@ class ReturnDao extends DatabaseAccessor<AppDatabase> with _$ReturnDaoMixin {
 
     return query.map((TypedResult row) => row.read(count) ?? 0).watchSingle();
   }
-
 }

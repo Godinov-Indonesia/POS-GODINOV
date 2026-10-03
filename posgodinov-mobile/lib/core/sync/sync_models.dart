@@ -140,8 +140,7 @@ class SyncUpResponse extends Equatable {
 
   factory SyncUpResponse.fromJson(Map<String, dynamic> json) => SyncUpResponse(
         shiftsSynced: (json['shifts_synced'] as num?)?.toInt() ?? 0,
-        transactionsSynced:
-            (json['transactions_synced'] as num?)?.toInt() ?? 0,
+        transactionsSynced: (json['transactions_synced'] as num?)?.toInt() ?? 0,
         wastesSynced: (json['wastes_synced'] as num?)?.toInt() ?? 0,
         // `failed_transactions` boleh `null`; normalisasinya wajib.
         failedTransactionIds: _stringList(json['failed_transactions']),
@@ -313,8 +312,7 @@ class SyncOutcome extends Equatable {
         wastesSent: wastesSent + other.wastesSent,
         returnsSynced: returnsSynced + other.returnsSynced,
         voidLogsSynced: voidLogsSynced + other.voidLogsSynced,
-        securityEventsSynced:
-            securityEventsSynced + other.securityEventsSynced,
+        securityEventsSynced: securityEventsSynced + other.securityEventsSynced,
         quarantined: quarantined + other.quarantined,
         error: error ?? other.error,
       );

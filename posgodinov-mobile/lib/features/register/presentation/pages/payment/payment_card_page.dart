@@ -213,7 +213,6 @@ class _PaymentCardPageState extends State<PaymentCardPage> {
                   decoration: const InputDecoration(hintText: 'mis. 004512'),
                 ),
               ),
-
               const SizedBox(height: Gap.lg),
               _Field(
                 label: '4 Digit Akhir Kartu',
@@ -233,7 +232,6 @@ class _PaymentCardPageState extends State<PaymentCardPage> {
                   decoration: const InputDecoration(hintText: '····'),
                 ),
               ),
-
               const SizedBox(height: Gap.lg),
               Container(
                 padding: const EdgeInsets.all(Gap.lg),
@@ -316,7 +314,8 @@ class _Field extends StatelessWidget {
         // ([06 §1.5]).
         Text(
           error != null ? '⚠ $error' : hint,
-          style: PosText.xs.copyWith(color: error != null ? t.danger : t.fgMuted),
+          style:
+              PosText.xs.copyWith(color: error != null ? t.danger : t.fgMuted),
         ),
       ],
     );

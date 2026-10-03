@@ -42,7 +42,6 @@ class HeldCartsSheet extends StatelessWidget {
                 style: PosText.sm.copyWith(color: t.fgMuted),
               ),
               const SizedBox(height: Gap.lg),
-
               if (items.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: Gap.xxl),
@@ -63,7 +62,6 @@ class HeldCartsSheet extends StatelessWidget {
                         _HeldTile(item: items[i], onResume: onResume),
                   ),
                 ),
-
               const SizedBox(height: Gap.lg),
               TouchButton(
                 label: 'Tutup',
@@ -190,7 +188,6 @@ class _HoldLabelDialogState extends State<HoldLabelDialog> {
     );
   }
 }
-
 
 /// Membatalkan pesanan tertahan — **butir 13** ([11 §M13.5]).
 ///

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
@@ -5,6 +6,8 @@ import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/database/app_database.dart';
 import 'package:posgodinov_mobile/core/database/daos/master_dao.dart';
 import 'package:posgodinov_mobile/core/database/daos/sync_dao.dart';
+import 'package:posgodinov_mobile/core/di/injection.dart';
+import 'package:posgodinov_mobile/core/storage/product_image_storage.dart';
 import 'package:posgodinov_mobile/features/device/data/models/master_data_dto.dart';
 
 /// Menyimpan master data ke Drift.
@@ -90,6 +93,21 @@ class MasterLocalDataSource {
         syncedAt,
       );
     }
+
+    // Cache gambar produk lokal & bersihkan gambar produk yang sudah dihapus
+    try {
+      if (getIt.isRegistered<ProductImageStorage>()) {
+        final ProductImageStorage imgStorage = getIt<ProductImageStorage>();
+        final Set<String> activeIds =
+            data.products.map((ProductDto p) => p.id).toSet();
+        unawaited(imgStorage.pruneImages(activeIds));
+        for (final ProductDto p in data.products) {
+          if (p.imageUrl != null && p.imageUrl!.isNotEmpty) {
+            unawaited(imgStorage.cacheImage(p.id, p.imageUrl!));
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   Future<DateTime?> lastSyncedAt() => _syncDao.masterDataSyncedAt();

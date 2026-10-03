@@ -339,7 +339,8 @@ class _Bullet extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text('•  ', style: PosText.sm.copyWith(color: context.tokens.fgMuted)),
+          Text('•  ',
+              style: PosText.sm.copyWith(color: context.tokens.fgMuted),),
           Expanded(
             child: Text(
               text,

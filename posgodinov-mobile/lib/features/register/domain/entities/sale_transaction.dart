@@ -39,9 +39,7 @@ class SaleTransaction extends Equatable {
   final int cashReceivedMinor;
 
   int get changeMinor =>
-      paymentMethod.isCash
-          ? cashReceivedMinor - totalAmountMinor
-          : 0;
+      paymentMethod.isCash ? cashReceivedMinor - totalAmountMinor : 0;
 
   /// Delapan karakter pertama UUID, huruf besar — nomor transaksi yang dibaca
   /// manusia pada struk dan riwayat ([06 §2.6]).

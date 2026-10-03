@@ -21,8 +21,6 @@ import 'package:posgodinov_mobile/features/register/domain/repositories/register
 import 'package:posgodinov_mobile/features/register/presentation/cubit/cart_cubit.dart';
 import 'package:posgodinov_mobile/features/register/presentation/cubit/catalog_cubit.dart';
 import 'package:posgodinov_mobile/features/register/presentation/cubit/transaction_cubit.dart';
-import 'package:posgodinov_mobile/features/kiosk/presentation/cubit/kiosk_cubit.dart';
-import 'package:posgodinov_mobile/features/kiosk/presentation/pages/kiosk_page.dart';
 import 'package:posgodinov_mobile/features/register/presentation/pages/register_page.dart';
 import 'package:posgodinov_mobile/features/shift/presentation/cubit/shift_cubit.dart';
 import 'package:posgodinov_mobile/features/shift/presentation/pages/open_shift_page.dart';
@@ -96,14 +94,14 @@ class _AppGateState extends State<AppGate> {
       listener: (BuildContext context, CashierAuthState state) {
         if (state is CashierLoggedOut) {
           if (Navigator.of(context).canPop()) {
-            Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
+            Navigator.of(context)
+                .popUntil((Route<dynamic> route) => route.isFirst);
           }
           _goTo(GateStep.cashierLogin);
         }
       },
       child: switch (_step) {
         GateStep.checking => const _Splash(),
-
         GateStep.binding => BlocProvider<DeviceBindingCubit>(
             create: (_) => DeviceBindingCubit(getIt<DeviceRepository>()),
             child: BindingPage(
@@ -115,21 +113,18 @@ class _AppGateState extends State<AppGate> {
               },
             ),
           ),
-
         GateStep.masterSync => BlocProvider<MasterSyncCubit>.value(
             value: getIt<MasterSyncCubit>(),
             child: MasterSyncPage(
               onCompleted: () => _goTo(GateStep.cashierLogin),
             ),
           ),
-
         GateStep.cashierLogin => BlocProvider<CashierAuthCubit>.value(
             value: getIt<CashierAuthCubit>(),
             child: PinLoginPage(onLoggedIn: () => _goTo(GateStep.openShift)),
           ),
-
-        GateStep.openShift => _OpenShiftStep(onOpened: () => _goTo(GateStep.ready)),
-
+        GateStep.openShift =>
+          _OpenShiftStep(onOpened: () => _goTo(GateStep.ready)),
         GateStep.ready => const _RegisterStep(),
       },
     );
@@ -191,28 +186,13 @@ class _RegisterStepState extends State<_RegisterStep> {
             outletName: _outletName,
             // Memicu sinkronisasi tepat setelah transaksi tersimpan —
             // fire-and-forget; antrean tetap aman bila gagal ([09 §7.3]).
-            onPersisted: () async =>
-                getIt<SyncTriggers>().onTransactionSaved(),
+            onPersisted: () async => getIt<SyncTriggers>().onTransactionSaved(),
           ),
         ),
       ],
-      // Mode Kiosk menggantikan seluruh layar kasir — bukan menumpuknya —
-      // sehingga tidak ada jalur navigasi tersisa menuju layar admin
-      // ([09 §3.6]).
-      child: BlocBuilder<KioskCubit, KioskState>(
-        bloc: getIt<KioskCubit>(),
-        builder: (BuildContext context, KioskState kiosk) {
-          if (kiosk.enabled) {
-            return BlocProvider<KioskCubit>.value(
-              value: getIt<KioskCubit>(),
-              child: const KioskPage(),
-            );
-          }
-          return RegisterPage(
-            session: session,
-            shiftId: shiftState.shift.id,
-          );
-        },
+      child: RegisterPage(
+        session: session,
+        shiftId: shiftState.shift.id,
       ),
     );
   }

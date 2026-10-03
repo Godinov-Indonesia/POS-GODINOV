@@ -1,4 +1,3 @@
-
 import 'package:flutter/services.dart';
 import 'package:posgodinov_mobile/core/printer/receipt_printer.dart';
 
@@ -71,7 +70,8 @@ class SunmiInnerPrinterAdapter implements PrinterTransport {
               }) ??
               false;
       if (!ok) {
-        throw const PrinterException('Printer internal menolak perintah cetak.');
+        throw const PrinterException(
+            'Printer internal menolak perintah cetak.',);
       }
     } on PlatformException catch (e) {
       throw PrinterException(
@@ -91,8 +91,7 @@ class SunmiInnerPrinterAdapter implements PrinterTransport {
   @override
   Future<PrinterState?> queryPaperStatus() async {
     try {
-      final int code =
-          await _channel.invokeMethod<int>('paperStatus') ?? -1;
+      final int code = await _channel.invokeMethod<int>('paperStatus') ?? -1;
 
       return switch (code) {
         0 || 1 => PrinterState.ready,

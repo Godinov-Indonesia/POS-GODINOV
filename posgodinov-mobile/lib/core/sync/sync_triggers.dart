@@ -148,9 +148,11 @@ class SyncTriggers with WidgetsBindingObserver {
   /// membiarkan `Future` gagal merambat ke zona global dan memunculkan dialog
   /// error di depan kasir yang sedang melayani pelanggan.
   void _fire(SyncTrigger trigger) {
-    unawaited(_engine.syncUp(trigger).catchError((Object _) {
-      return const SyncOutcome(ok: false);
-    }),);
+    unawaited(
+      _engine.syncUp(trigger).catchError((Object _) {
+        return const SyncOutcome(ok: false);
+      }),
+    );
   }
 
   Future<void> dispose() async {

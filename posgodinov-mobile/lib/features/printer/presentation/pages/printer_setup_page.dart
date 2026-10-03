@@ -54,7 +54,6 @@ class PrinterSetupPage extends StatelessWidget {
             children: <Widget>[
               _StatusCard(state: state),
               const SizedBox(height: Gap.xl),
-
               Text(
                 'CARI PRINTER',
                 style: PosText.sm.copyWith(
@@ -63,7 +62,8 @@ class PrinterSetupPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: Gap.sm),
-              for (final (PrinterKind kind, String label, String hint) in _kinds)
+              for (final (PrinterKind kind, String label, String hint)
+                  in _kinds)
                 Padding(
                   padding: const EdgeInsets.only(bottom: Gap.sm),
                   child: _KindTile(
@@ -73,12 +73,10 @@ class PrinterSetupPage extends StatelessWidget {
                     onTap: () => context.read<PrinterCubit>().scan(kind),
                   ),
                 ),
-
               if (state.isScanning) ...<Widget>[
                 const SizedBox(height: Gap.lg),
                 const Center(child: CircularProgressIndicator()),
               ],
-
               if (state.discovered.isNotEmpty) ...<Widget>[
                 const SizedBox(height: Gap.xl),
                 Text(
@@ -99,7 +97,6 @@ class PrinterSetupPage extends StatelessWidget {
                     ),
                   ),
               ],
-
               const SizedBox(height: Gap.xxl),
               const _PaperStatusNote(),
             ],

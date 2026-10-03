@@ -233,12 +233,8 @@ CancellationDecision decideCancellation(
     return const CancellationDecision.forbidden(ForbiddenReason.alreadyVoided);
   }
 
-  // ── 2. Struk BELUM terbit → VOID ─────────────────────────────────────────
-  //
-  // Diperiksa SEBELUM daftar item: transaksi tanpa item pun tetap boleh
-  // di-void selama ia belum menjadi dokumen — yang dibatalkan adalah baris
-  // keuangannya, bukan isinya.
-  if (transaction.receiptPrintedAt == null) {
+  // ── 2. Transaksi aktif → VOID ──────────────────────────────────────────
+  if (!transaction.status.isCancellation) {
     return CancellationDecision.void_(
       requiresAuth: policy.requireSupervisorForVoid,
     );
@@ -253,21 +249,21 @@ CancellationDecision decideCancellation(
 
   final List<ReturnableItem> returnable = transaction.items
       .map((CancellableItem item) {
-        final int already = alreadyReturned[item.id] ?? 0;
-        final int remaining = item.quantity - already;
-        return ReturnableItem(
-          transactionItemId: item.id,
-          productId: item.productId,
-          productName: item.productName,
-          originalQuantity: item.quantity,
-          alreadyReturned: already,
-          // Penjepitan ke 0 bukan paranoia: server adalah penentu terakhir, dan
-          // peta yang datang darinya bisa saja melebihi qty asal bila sebuah
-          // retur tersinkron dari perangkat lain di antara dua pembacaan.
-          returnable: remaining < 0 ? 0 : remaining,
-          unitPriceMinor: item.unitPriceMinor,
-        );
-      })
+    final int already = alreadyReturned[item.id] ?? 0;
+    final int remaining = item.quantity - already;
+    return ReturnableItem(
+      transactionItemId: item.id,
+      productId: item.productId,
+      productName: item.productName,
+      originalQuantity: item.quantity,
+      alreadyReturned: already,
+      // Penjepitan ke 0 bukan paranoia: server adalah penentu terakhir, dan
+      // peta yang datang darinya bisa saja melebihi qty asal bila sebuah
+      // retur tersinkron dari perangkat lain di antara dua pembacaan.
+      returnable: remaining < 0 ? 0 : remaining,
+      unitPriceMinor: item.unitPriceMinor,
+    );
+  })
       // Baris yang sudah habis diretur TETAP disertakan, dengan `returnable: 0`.
       // Menyembunyikannya membuat kasir mengira barisnya tidak pernah ada dan
       // bertanya-tanya mengapa totalnya tidak cocok.

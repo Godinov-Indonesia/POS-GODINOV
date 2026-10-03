@@ -26,15 +26,16 @@ class CashierSession extends Equatable {
   /// Slot kasir di StatusBar sempit; nama panjang akan terpotong elipsis di
   /// tempat yang tidak terduga.
   String get shortName {
-    final List<String> parts =
-        name.trim().split(RegExp(r'\s+')).where((String p) => p.isNotEmpty)
-            .toList(growable: false);
+    final List<String> parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((String p) => p.isNotEmpty)
+        .toList(growable: false);
 
     if (parts.length < 2) return name.trim();
     return '${parts.first} ${parts[1].substring(0, 1)}.';
   }
 
   @override
-  List<Object?> get props =>
-      <Object?>[staffId, staffIdentifier, name, loginAt];
+  List<Object?> get props => <Object?>[staffId, staffIdentifier, name, loginAt];
 }

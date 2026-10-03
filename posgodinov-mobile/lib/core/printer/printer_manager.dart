@@ -120,7 +120,8 @@ class PrinterManager implements ReceiptPrinter {
     } on Object catch (e) {
       // Kegagalan MERENDER adalah bug kita sendiri, bukan masalah perangkat
       // keras — tetap tidak boleh melempar ke pemanggil.
-      _emit(PrinterStatus(PrinterState.error, message: 'Gagal menyusun struk: $e'));
+      _emit(PrinterStatus(PrinterState.error,
+          message: 'Gagal menyusun struk: $e',),);
       return false;
     }
     return printBytes(bytes);
@@ -201,7 +202,8 @@ class PrinterManager implements ReceiptPrinter {
           ),
         );
         if (attempt < _maxReconnectAttempts) {
-          await Future<void>.delayed(_baseReconnectDelay * (1 << (attempt - 1)));
+          await Future<void>.delayed(
+              _baseReconnectDelay * (1 << (attempt - 1)),);
         }
       }
     }

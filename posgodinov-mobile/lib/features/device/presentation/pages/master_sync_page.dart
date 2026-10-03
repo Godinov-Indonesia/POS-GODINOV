@@ -69,8 +69,7 @@ class _MasterSyncPageState extends State<MasterSyncPage> {
                       message: m,
                       hasLocalData: hasLocal,
                       onRetry: () => context.read<MasterSyncCubit>().sync(),
-                      onContinueOffline:
-                          hasLocal ? widget.onCompleted : null,
+                      onContinueOffline: hasLocal ? widget.onCompleted : null,
                     ),
                 };
               },
@@ -294,7 +293,8 @@ class _Notice extends StatelessWidget {
         children: <Widget>[
           Icon(icon, color: fg),
           const SizedBox(width: Gap.md),
-          Expanded(child: Text(message, style: PosText.sm.copyWith(color: t.fg))),
+          Expanded(
+              child: Text(message, style: PosText.sm.copyWith(color: t.fg)),),
         ],
       ),
     );

@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 import 'package:posgodinov_mobile/core/di/injection.dart';
+import 'package:posgodinov_mobile/core/printer/print_queue_service.dart';
+import 'package:posgodinov_mobile/features/printing/presentation/widgets/receipt_preview_dialog.dart';
 import 'package:posgodinov_mobile/features/auth/presentation/cubit/cashier_auth_cubit.dart';
 import 'package:posgodinov_mobile/features/shift/domain/close_shift_saga.dart';
 import 'package:posgodinov_mobile/features/shift/domain/entities/shift.dart';
@@ -138,7 +141,8 @@ class _BlindCloseFormState extends State<_BlindCloseForm> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
-                    Text('Shift dimulai', style: PosText.sm.copyWith(color: t.fgMuted)),
+                    Text('Shift dimulai',
+                        style: PosText.sm.copyWith(color: t.fgMuted),),
                     Text(
                       _formatTime(widget.shift.clientOpenedAt.toLocal()),
                       style: PosText.base.copyWith(fontWeight: FontWeight.w700),
@@ -182,7 +186,8 @@ class _BlindCloseFormState extends State<_BlindCloseForm> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Icon(Icons.visibility_off_outlined, size: 20, color: t.info),
+                    Icon(Icons.visibility_off_outlined,
+                        size: 20, color: t.info,),
                     const SizedBox(width: Gap.sm),
                     Expanded(
                       child: Text(
@@ -287,18 +292,31 @@ class _BlindCloseFormState extends State<_BlindCloseForm> {
     // Ini padanan mobile dari banner "Shift ditutup" di layar Login versi web:
     // `AppGate.goTo` tidak membawa parameter, sehingga konfirmasinya harus
     // ditampilkan sebelum berpindah, bukan sesudah.
-    await Future<void>.delayed(const Duration(milliseconds: 1500));
-    if (!mounted) return;
+    final String outletName =
+        await getIt<PrintQueueService>().resolveOutletName();
+    final String cashier = getIt<CashierAuthCubit>().session?.name ?? '-';
 
-    // ── Langkah 5 & 6 — bersihkan sesi lalu arahkan ─────────────────────
-    //
-    // Sesi dibersihkan DI SINI, bukan di dalam saga: saga hidup di lapisan
-    // domain dan tidak boleh tahu apa pun tentang Cubit presentasi. Yang
-    // dijaga saga adalah urutan langkah keuangannya.
-    //
-    // `popUntil(isFirst)` pada `AppGate` membuang seluruh tumpukan navigasi,
-    // sehingga tombol back perangkat TIDAK dapat kembali ke layar ini —
-    // butir 17 ([11 §M15.4]).
+    if (mounted) {
+      await ReceiptPreviewDialog.open(
+        context,
+        title: 'LAPORAN AKHIR SHIFT (Z-REPORT)',
+        subtitle: 'Shift ${widget.shift.id.substring(0, 8).toUpperCase()}',
+        outletName: outletName,
+        dateTime: DateTime.now(),
+        cashierName: cashier,
+        summaryRows: <String, String>{
+          'Kas Fisik Dihitung':
+              'Rp ${NumberFormat('#,###', 'id_ID').format(_cashRupiah)}',
+          'EDC / Kartu':
+              'Rp ${NumberFormat('#,###', 'id_ID').format(_edcRupiah)}',
+          'QRIS':
+              'Rp ${NumberFormat('#,###', 'id_ID').format(_qrisRupiah)}',
+          'Status Shift': 'CLOSED (TUTUP)',
+        },
+      );
+    }
+
+    if (!mounted) return;
     getIt<CashierAuthCubit>().clearSession();
   }
 

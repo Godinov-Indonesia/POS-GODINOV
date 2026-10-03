@@ -14,8 +14,10 @@ class WasteDao extends DatabaseAccessor<AppDatabase> with _$WasteDaoMixin {
   /// Antrean waste yang belum tersinkron, urut kronologis.
   Future<List<LocalWaste>> pending() {
     return (select(db.wastes)
-          ..where(($WastesTable w) =>
-              w.synced.equals(false) & w.quarantined.equals(false),)
+          ..where(
+            ($WastesTable w) =>
+                w.synced.equals(false) & w.quarantined.equals(false),
+          )
           ..orderBy(<OrderClauseGenerator<$WastesTable>>[
             ($WastesTable w) => OrderingTerm.asc(w.clientCreatedAt),
           ]))
@@ -32,7 +34,8 @@ class WasteDao extends DatabaseAccessor<AppDatabase> with _$WasteDaoMixin {
   }
 
   Future<void> markSynced(String id) {
-    return (update(db.wastes)..where(($WastesTable w) => w.id.equals(id))).write(
+    return (update(db.wastes)..where(($WastesTable w) => w.id.equals(id)))
+        .write(
       const WastesCompanion(
         synced: Value<bool>(true),
         syncError: Value<String?>(null),
@@ -88,5 +91,4 @@ class WasteDao extends DatabaseAccessor<AppDatabase> with _$WasteDaoMixin {
 
     return query.map((TypedResult row) => row.read(count) ?? 0).watchSingle();
   }
-
 }
