@@ -91,6 +91,36 @@ type ImpersonateResponse struct {
 	Business    *Business `json:"business"`
 }
 
+type BusinessWithSubscription struct {
+	ID             string     `json:"id"`
+	SerialBusiness string     `json:"serial_business"`
+	Email          string     `json:"email"`
+	Name           string     `json:"name"`
+	OwnerName      string     `json:"owner_name"`
+	PlanID         string     `json:"plan_id"`
+	PlanCode       string     `json:"plan_code"`
+	PlanName       string     `json:"plan_name"`
+	SubStatus      string     `json:"subscription_status"`
+	ExpiresAt      *time.Time `json:"subscription_expires_at,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+}
+
+type BusinessDetailResponse struct {
+	Business     *Business               `json:"business"`
+	Subscription *Subscription           `json:"subscription"`
+	Wallet       *MerchantWallet         `json:"wallet"`
+	Overrides    []TenantFeatureOverride `json:"overrides"`
+	Policy       *EffectivePolicy        `json:"effective_policy"`
+}
+
+type LandlordMetricsOverview struct {
+	TotalBusinesses     int64            `json:"total_businesses"`
+	ActiveBusinesses    int64            `json:"active_businesses"`
+	SuspendedBusinesses int64            `json:"suspended_businesses"`
+	BusinessesByPlan    map[string]int64 `json:"businesses_by_plan"`
+	EstimatedMRRMinor   int64            `json:"estimated_mrr_minor"`
+}
+
 type LandlordRepository interface {
 	GetUserByEmail(ctx context.Context, email string) (*LandlordUser, error)
 	GetUserByID(ctx context.Context, id string) (*LandlordUser, error)
@@ -101,4 +131,10 @@ type LandlordRepository interface {
 	GetActiveHeroBanners(ctx context.Context) ([]LandingHeroBanner, error)
 	GetActiveFAQs(ctx context.Context) ([]LandingFAQ, error)
 	GetActiveAnnouncements(ctx context.Context) ([]SystemAnnouncement, error)
+
+	// Manajemen Tenant & Direktori
+	ListBusinesses(ctx context.Context, search, status, planID string, page, limit int) ([]*BusinessWithSubscription, int64, error)
+	GetBusinessDetail(ctx context.Context, businessID string) (*Business, *Subscription, *MerchantWallet, []TenantFeatureOverride, error)
+	SetBusinessSubscriptionStatus(ctx context.Context, businessID string, status string) error
+	GetMetricsOverview(ctx context.Context) (*LandlordMetricsOverview, error)
 }

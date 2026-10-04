@@ -151,7 +151,7 @@ func main() {
 		service.WithMasterVersionRepository(masterVersionRepo),
 		service.WithShiftReconcileService(shiftReconcileSvc),
 	)
-	reportSvc := service.NewReportService(reportRepo)
+	reportSvc := service.NewReportService(reportRepo, service.WithReportPolicyEngine(policyEngine))
 
 	// Setup Handlers
 	businessHandler := handler.NewBusinessHandler(businessSvc)

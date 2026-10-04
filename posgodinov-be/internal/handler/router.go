@@ -91,6 +91,11 @@ func SetupRouter(
 	mux.HandleFunc("POST /v1/landlord/campaigns", landlordChain(landlordHandler.CreateCampaign))
 	mux.HandleFunc("GET /v1/landlord/landing/settings", landlordChain(landlordHandler.GetLandingSettings))
 	mux.HandleFunc("PUT /v1/landlord/landing/settings/{key}", landlordChain(landlordHandler.UpdateLandingSetting))
+	mux.HandleFunc("GET /v1/landlord/businesses", landlordChain(landlordHandler.ListBusinesses))
+	mux.HandleFunc("GET /v1/landlord/businesses/{id}", landlordChain(landlordHandler.GetBusinessDetail))
+	mux.HandleFunc("POST /v1/landlord/businesses/{id}/suspend", landlordChain(landlordHandler.SuspendBusiness))
+	mux.HandleFunc("POST /v1/landlord/businesses/{id}/unsuspend", landlordChain(landlordHandler.UnsuspendBusiness))
+	mux.HandleFunc("GET /v1/landlord/metrics/overview", landlordChain(landlordHandler.GetMetricsOverview))
 
 	// Merchant SaaS & In-App Ads Routes
 	mux.HandleFunc("GET /v1/business/subscription", authMiddleware(landlordHandler.GetTenantSubscription))

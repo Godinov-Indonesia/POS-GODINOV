@@ -106,3 +106,114 @@ func (r *postgresLandlordRepository) GetActiveAnnouncements(ctx context.Context)
 		Find(&announcements).Error
 	return announcements, err
 }
+
+func (r *postgresLandlordRepository) ListBusinesses(ctx context.Context, search, status, planID string, page, limit int) ([]*domain.BusinessWithSubscription, int64, error) {
+	db := database.GetDB(ctx, r.db)
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	query := db.WithContext(ctx).Table("businesses b").
+		Select(`b.id, b.serial_business, b.email, b.name, b.owner_name, b.created_at, 
+			COALESCE(s.plan_id, '') as plan_id, 
+			COALESCE(p.code, 'FREE') as plan_code, 
+			COALESCE(p.name, 'Free Tier') as plan_name, 
+			COALESCE(s.status, 'ACTIVE') as sub_status, 
+			s.expires_at`).
+		Joins("LEFT JOIN subscriptions s ON b.id = s.business_id").
+		Joins("LEFT JOIN plans p ON s.plan_id = p.id").
+		Where("b.is_deleted = ?", false)
+
+	if search != "" {
+		likeTerm := "%" + search + "%"
+		query = query.Where("(b.name ILIKE ? OR b.email ILIKE ? OR b.owner_name ILIKE ?)", likeTerm, likeTerm, likeTerm)
+	}
+	if status != "" {
+		query = query.Where("s.status = ?", status)
+	}
+	if planID != "" {
+		query = query.Where("s.plan_id = ?", planID)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var results []*domain.BusinessWithSubscription
+	if err := query.Order("b.created_at DESC").Limit(limit).Offset(offset).Scan(&results).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return results, total, nil
+}
+
+func (r *postgresLandlordRepository) GetBusinessDetail(ctx context.Context, businessID string) (*domain.Business, *domain.Subscription, *domain.MerchantWallet, []domain.TenantFeatureOverride, error) {
+	db := database.GetDB(ctx, r.db)
+
+	var business domain.Business
+	if err := db.WithContext(ctx).Where("id = ? AND is_deleted = ?", businessID, false).First(&business).Error; err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	var subscription domain.Subscription
+	_ = db.WithContext(ctx).Preload("Plan.Features").Where("business_id = ?", businessID).First(&subscription).Error
+
+	var wallet domain.MerchantWallet
+	_ = db.WithContext(ctx).Where("business_id = ?", businessID).First(&wallet).Error
+
+	var overrides []domain.TenantFeatureOverride
+	now := time.Now()
+	_ = db.WithContext(ctx).Where("business_id = ? AND (expires_at IS NULL OR expires_at > ?)", businessID, now).Find(&overrides).Error
+
+	return &business, &subscription, &wallet, overrides, nil
+}
+
+func (r *postgresLandlordRepository) SetBusinessSubscriptionStatus(ctx context.Context, businessID string, status string) error {
+	db := database.GetDB(ctx, r.db)
+	return db.WithContext(ctx).Model(&domain.Subscription{}).
+		Where("business_id = ?", businessID).
+		Update("status", status).Error
+}
+
+func (r *postgresLandlordRepository) GetMetricsOverview(ctx context.Context) (*domain.LandlordMetricsOverview, error) {
+	db := database.GetDB(ctx, r.db)
+	overview := &domain.LandlordMetricsOverview{
+		BusinessesByPlan: make(map[string]int64),
+	}
+
+	_ = db.WithContext(ctx).Model(&domain.Business{}).Where("is_deleted = ?", false).Count(&overview.TotalBusinesses).Error
+	_ = db.WithContext(ctx).Model(&domain.Subscription{}).Where("status = ?", "ACTIVE").Count(&overview.ActiveBusinesses).Error
+	_ = db.WithContext(ctx).Model(&domain.Subscription{}).Where("status = ?", "SUSPENDED").Count(&overview.SuspendedBusinesses).Error
+
+	type PlanCount struct {
+		Code  string
+		Total int64
+	}
+	var planCounts []PlanCount
+	_ = db.WithContext(ctx).Table("subscriptions s").
+		Select("p.code as code, count(*) as total").
+		Joins("JOIN plans p ON s.plan_id = p.id").
+		Group("p.code").
+		Scan(&planCounts).Error
+
+	for _, pc := range planCounts {
+		overview.BusinessesByPlan[pc.Code] = pc.Total
+	}
+
+	var mrr *int64
+	_ = db.WithContext(ctx).Table("subscriptions s").
+		Select("COALESCE(SUM(p.price_minor), 0)").
+		Joins("JOIN plans p ON s.plan_id = p.id").
+		Where("s.status = ?", "ACTIVE").
+		Scan(&mrr).Error
+	if mrr != nil {
+		overview.EstimatedMRRMinor = *mrr
+	}
+
+	return overview, nil
+}

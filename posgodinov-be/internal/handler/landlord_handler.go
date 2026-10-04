@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/internal/middleware"
@@ -274,4 +275,98 @@ func (h *LandlordHandler) RecordCampaignClick(w http.ResponseWriter, r *http.Req
 	}
 
 	response.Success(w, http.StatusOK, "Klik kampanye berhasil dicatat", nil)
+}
+
+func (h *LandlordHandler) ListBusinesses(w http.ResponseWriter, r *http.Request) {
+	search := r.URL.Query().Get("search")
+	status := r.URL.Query().Get("status")
+	planID := r.URL.Query().Get("plan_id")
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+
+	businesses, total, err := h.svc.ListBusinesses(r.Context(), search, status, planID, page, limit)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "Gagal memuat direktori bisnis", map[string]string{"error": err.Error()})
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Direktori bisnis berhasil dimuat", map[string]any{
+		"businesses": businesses,
+		"total":      total,
+		"page":       page,
+		"limit":      limit,
+	})
+}
+
+func (h *LandlordHandler) GetBusinessDetail(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		response.Error(w, http.StatusBadRequest, "ID bisnis diperlukan", nil)
+		return
+	}
+
+	detail, err := h.svc.GetBusinessDetail(r.Context(), id)
+	if err != nil {
+		response.Error(w, http.StatusNotFound, "Bisnis tidak ditemukan", map[string]string{"error": err.Error()})
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Detail bisnis berhasil dimuat", detail)
+}
+
+func (h *LandlordHandler) SuspendBusiness(w http.ResponseWriter, r *http.Request) {
+	adminPayload, ok := r.Context().Value(middleware.LandlordPayloadKey).(*token.Payload)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "Token landlord tidak valid", nil)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		response.Error(w, http.StatusBadRequest, "ID bisnis diperlukan", nil)
+		return
+	}
+
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	if err := h.svc.SuspendBusiness(r.Context(), adminPayload.ID, id, req.Reason); err != nil {
+		response.Error(w, http.StatusInternalServerError, "Gagal menangguhkan bisnis", map[string]string{"error": err.Error()})
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Bisnis berhasil ditangguhkan (SUSPENDED)", nil)
+}
+
+func (h *LandlordHandler) UnsuspendBusiness(w http.ResponseWriter, r *http.Request) {
+	adminPayload, ok := r.Context().Value(middleware.LandlordPayloadKey).(*token.Payload)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "Token landlord tidak valid", nil)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		response.Error(w, http.StatusBadRequest, "ID bisnis diperlukan", nil)
+		return
+	}
+
+	if err := h.svc.UnsuspendBusiness(r.Context(), adminPayload.ID, id); err != nil {
+		response.Error(w, http.StatusInternalServerError, "Gagal mencabut penangguhan bisnis", map[string]string{"error": err.Error()})
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Penangguhan bisnis berhasil dicabut", nil)
+}
+
+func (h *LandlordHandler) GetMetricsOverview(w http.ResponseWriter, r *http.Request) {
+	metrics, err := h.svc.GetMetricsOverview(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "Gagal memuat ringkasan metrik", map[string]string{"error": err.Error()})
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Ringkasan metrik platform berhasil dimuat", metrics)
 }

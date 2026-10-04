@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
 	"posgodinov-backend/internal/domain"
@@ -42,6 +44,13 @@ type LandlordService interface {
 	GetTenantSubscription(ctx context.Context, businessID string) (map[string]any, error)
 	GetTenantCampaigns(ctx context.Context, businessID, placement string) ([]domain.SaaSCampaign, error)
 	RecordCampaignClick(ctx context.Context, campaignID string) error
+
+	// Manajemen Direktori Tenant & Suspensi
+	ListBusinesses(ctx context.Context, search, status, planID string, page, limit int) ([]*domain.BusinessWithSubscription, int64, error)
+	GetBusinessDetail(ctx context.Context, businessID string) (*domain.BusinessDetailResponse, error)
+	SuspendBusiness(ctx context.Context, adminID, businessID, reason string) error
+	UnsuspendBusiness(ctx context.Context, adminID, businessID string) error
+	GetMetricsOverview(ctx context.Context) (*domain.LandlordMetricsOverview, error)
 }
 
 type landlordService struct {
@@ -308,4 +317,79 @@ func (s *landlordService) GetTenantCampaigns(ctx context.Context, businessID, pl
 
 func (s *landlordService) RecordCampaignClick(ctx context.Context, campaignID string) error {
 	return s.saasRepo.IncrementCampaignClick(ctx, campaignID)
+}
+
+func (s *landlordService) ListBusinesses(ctx context.Context, search, status, planID string, page, limit int) ([]*domain.BusinessWithSubscription, int64, error) {
+	return s.landlordRepo.ListBusinesses(ctx, search, status, planID, page, limit)
+}
+
+func (s *landlordService) GetBusinessDetail(ctx context.Context, businessID string) (*domain.BusinessDetailResponse, error) {
+	biz, sub, wallet, overrides, err := s.landlordRepo.GetBusinessDetail(ctx, businessID)
+	if err != nil {
+		return nil, err
+	}
+
+	policy, _ := s.policyEngine.GetEffectivePolicy(ctx, businessID)
+
+	return &domain.BusinessDetailResponse{
+		Business:     biz,
+		Subscription: sub,
+		Wallet:       wallet,
+		Overrides:    overrides,
+		Policy:       policy,
+	}, nil
+}
+
+func (s *landlordService) SuspendBusiness(ctx context.Context, adminID, businessID, reason string) error {
+	if _, err := s.businessRepo.GetByID(ctx, businessID); err != nil {
+		return errors.New("bisnis tidak ditemukan")
+	}
+
+	if err := s.landlordRepo.SetBusinessSubscriptionStatus(ctx, businessID, "SUSPENDED"); err != nil {
+		return err
+	}
+
+	s.policyEngine.InvalidateCache(businessID)
+
+	meta, _ := json.Marshal(map[string]string{"reason": reason})
+	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
+		ID:         uuid.New().String(),
+		UserID:     adminID,
+		Action:     "SUSPEND_BUSINESS",
+		TargetType: "BUSINESS",
+		TargetID:   businessID,
+		Metadata:   domain.JSONB(meta),
+		CreatedAt:  time.Now(),
+	})
+
+	return nil
+}
+
+func (s *landlordService) UnsuspendBusiness(ctx context.Context, adminID, businessID string) error {
+	if _, err := s.businessRepo.GetByID(ctx, businessID); err != nil {
+		return errors.New("bisnis tidak ditemukan")
+	}
+
+	if err := s.landlordRepo.SetBusinessSubscriptionStatus(ctx, businessID, "ACTIVE"); err != nil {
+		return err
+	}
+
+	s.policyEngine.InvalidateCache(businessID)
+
+	meta, _ := json.Marshal(map[string]string{"action": "unsuspend"})
+	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
+		ID:         uuid.New().String(),
+		UserID:     adminID,
+		Action:     "UNSUSPEND_BUSINESS",
+		TargetType: "BUSINESS",
+		TargetID:   businessID,
+		Metadata:   domain.JSONB(meta),
+		CreatedAt:  time.Now(),
+	})
+
+	return nil
+}
+
+func (s *landlordService) GetMetricsOverview(ctx context.Context) (*domain.LandlordMetricsOverview, error) {
+	return s.landlordRepo.GetMetricsOverview(ctx)
 }

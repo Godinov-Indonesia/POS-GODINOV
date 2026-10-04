@@ -127,6 +127,10 @@ func (pe *policyEngine) AssertQuota(ctx context.Context, businessID, featureKey 
 		return err
 	}
 
+	if policy.Status == "SUSPENDED" {
+		return errors.New("akun bisnis Anda ditangguhkan (SUSPENDED), silakan hubungi customer support")
+	}
+
 	limit, exists := policy.NumericLimit[featureKey]
 	if !exists {
 		return nil
@@ -152,6 +156,10 @@ func (pe *policyEngine) AssertFeature(ctx context.Context, businessID, featureKe
 	policy, err := pe.GetEffectivePolicy(ctx, businessID)
 	if err != nil {
 		return err
+	}
+
+	if policy.Status == "SUSPENDED" {
+		return errors.New("akun bisnis Anda ditangguhkan (SUSPENDED), silakan hubungi customer support")
 	}
 
 	enabled, exists := policy.BooleanFlags[featureKey]

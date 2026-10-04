@@ -2,10 +2,13 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strings"
 
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/internal/middleware"
+	"posgodinov-backend/internal/service"
 	"posgodinov-backend/pkg/logger"
 	"posgodinov-backend/pkg/response"
 	"posgodinov-backend/pkg/token"
@@ -36,6 +39,15 @@ func (h *StaffHandler) RegisterStaff(w http.ResponseWriter, r *http.Request) {
 	staff, err := h.svc.RegisterStaff(r.Context(), payload.ID, &req)
 	if err != nil {
 		logger.Error("gagal mendaftarkan kasir", "error", err)
+		var quotaErr *service.QuotaExceededError
+		if errors.As(err, &quotaErr) {
+			response.QuotaExceeded(w, quotaErr.FeatureKey, quotaErr.CurrentUsage, quotaErr.LimitValue)
+			return
+		}
+		if strings.Contains(err.Error(), "SUSPENDED") {
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
+			return
+		}
 		errs := make(map[string]string)
 		errs["server"] = err.Error()
 		response.Error(w, http.StatusBadRequest, err.Error(), errs)
@@ -198,6 +210,10 @@ func (h *StaffHandler) Transfer(w http.ResponseWriter, r *http.Request) {
 	staff, err := h.svc.TransferStaff(r.Context(), payload.ID, staffID, &req)
 	if err != nil {
 		logger.Error("gagal memindahkan staff", "error", err)
+		if strings.Contains(err.Error(), "fitur ini tidak tersedia") || strings.Contains(err.Error(), "SUSPENDED") {
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
+			return
+		}
 		errs := make(map[string]string)
 		errs["server"] = err.Error()
 		response.Error(w, http.StatusBadRequest, err.Error(), errs)
