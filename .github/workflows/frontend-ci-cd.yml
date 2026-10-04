@@ -7,9 +7,9 @@ on:
       - dev
     paths:
       - 'posgodinov-fe/**'
-    # Memicu build SemVer resmi saat Anda membuat tag rilis di main
+    # Memicu build SemVer resmi saat Anda membuat tag rilis
     tags:
-      - 'posgodinov-fe-v*'
+      - 'posgodinov-fe-v[0-9]+.[0-9]+.[0-9]+' # Menggunakan pola regex ketat agar hanya memicu SemVer resmi
   workflow_dispatch:
 
 jobs:
@@ -84,41 +84,34 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  deploy:
-    name: 4. Deploy via SSH
-    needs: build-and-push
+  deploy-vercel:
+    name: 4. Deploy to Vercel Production
+    needs: test
     runs-on: ubuntu-latest
-    # Hanya lakukan deploy otomatis ke server jika dipicu oleh Rilis Tag Resmi (SemVer)
+    # Hanya berjalan jika dipicu oleh pembuatan Git Tag resmi
     if: startsWith(github.ref, 'refs/tags/')
+    defaults:
+      run:
+        working-directory: posgodinov-fe # Memastikan semua command Vercel dieksekusi di dalam folder aplikasi frontend
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_FE_ID }}
     steps:
-      - name: Deploy to Remote Server via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script: |
-            set -e
-            echo "==> Pulling latest frontend image..."
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-frontend:latest
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-            echo "==> Deploying frontend container..."
-            if [ -f "/opt/posgodinov/docker-compose.yml" ]; then
-              cd /opt/posgodinov
-              docker compose pull frontend
-              docker compose up -d frontend
-            else
-              docker stop posgodinov_frontend 2>/dev/null || true
-              docker rm posgodinov_frontend 2>/dev/null || true
-              docker run -d \
-                --name posgodinov_frontend \
-                --restart always \
-                -p 3000:3000 \
-                ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-frontend:latest
-            fi
+      - name: Install Vercel CLI
+        run: npm install --global vercel
 
-            echo "==> Cleaning up unused images..."
-            docker image prune -f
+      # Tarik informasi lingkungan produksi dari Vercel (akan menghasilkan folder .vercel di dalam posgodinov-fe)
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=production
 
-            echo "==> Frontend deployment finished successfully."
+      # Build artifacts menggunakan CLI Vercel dari dalam sub-folder monorepo
+      - name: Build Project Artifacts
+        run: vercel build --prod
+
+      # Deploy hasil kompilasi lokal langsung ke infrastruktur Vercel Production
+      - name: Deploy Project Artifacts to Vercel
+        run: vercel deploy --prebuilt --prod
