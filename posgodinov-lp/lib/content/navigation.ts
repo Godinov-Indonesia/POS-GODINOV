@@ -4,14 +4,12 @@ import { brandContent } from "./brand";
 export const headerContent = {
   navItems: [
     { label: "Fitur", href: "#fitur" },
-    { label: "Offline-First", href: "#offline" },
-    { label: "Keamanan", href: "#keamanan" },
     { label: "Harga", href: "#harga" },
     { label: "FAQ", href: "#faq" },
   ] satisfies NavItem[],
   loginText: "Masuk",
   loginHref: brandContent.appUrl,
-  ctaText: "Coba Sekarang! Gratis!!",
+  ctaText: "Coba Sekarang, Gratis!",
   ctaHref: brandContent.appUrl,
   offlineBadge: "Mode Offline Aktif",
 } as const;
@@ -23,9 +21,8 @@ export const footerContent = {
       title: "Produk",
       links: [
         { label: "Fitur Utama", href: "#fitur" },
-        { label: "Offline-First PWA", href: "#offline" },
-        { label: "Blind Closing", href: "#keamanan" },
         { label: "Paket Harga", href: "#harga" },
+        { label: "FAQ Kasir", href: "#faq" },
       ],
     },
     {

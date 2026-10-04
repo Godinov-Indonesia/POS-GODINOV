@@ -3,13 +3,6 @@ export interface NavItem {
   href: string;
 }
 
-export interface PillarItem {
-  id: number;
-  title: string;
-  headline: string;
-  body: string;
-}
-
 export interface ProblemCard {
   id: number;
   title: string;
@@ -26,25 +19,19 @@ export interface BentoItem {
   badge?: string;
 }
 
-export interface SyncPhaseItem {
-  phase: 1 | 2 | 3;
-  label: string;
-  title: string;
-  description: string;
-}
-
 export interface PricingPlan {
   id: string;
   name: string;
   description: string;
-  monthlyPrice: number;
-  yearlyPricePerMonth: number;
+  monthlyPrice: number | null;
+  yearlyPricePerMonth: number | null;
   highlighted?: boolean;
   outletLimit: string;
   deviceLimit: string;
   features: { name: string; included: boolean }[];
   ctaText: string;
   ctaHref: string;
+  customPrice?: boolean;
 }
 
 export interface FaqItem {

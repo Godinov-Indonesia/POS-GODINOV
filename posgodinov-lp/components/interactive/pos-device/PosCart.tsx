@@ -1,5 +1,7 @@
 import * as React from "react";
 import { ShoppingCart, Receipt } from "lucide-react";
+import { LottiePlayer } from "@/components/ui/LottiePlayer";
+import creditCardAnimation from "@/public/icons/creditcard.json";
 
 export function PosCart() {
   return (
@@ -33,9 +35,14 @@ export function PosCart() {
 
       <div className="border-t border-ink-800 pt-3">
         <div className="flex justify-between items-baseline mb-3">
-          <span className="text-xs uppercase tracking-wider text-paper-50/60 font-mono">
-            Total Transaksi
-          </span>
+          <div className="flex items-center gap-1.5">
+            <div className="h-5 w-5 shrink-0 overflow-hidden">
+              <LottiePlayer animationData={creditCardAnimation} className="h-full w-full" />
+            </div>
+            <span className="text-xs uppercase tracking-wider text-paper-50/60 font-mono">
+              Total
+            </span>
+          </div>
           <span className="font-mono text-xl font-bold tracking-tight text-brand-500 tabular-nums">
             Rp 96.000
           </span>

@@ -6,7 +6,7 @@ export const heroContent = {
   subheadline:
     "Godinov POS terus melayani penjualan walau internet mati total, lalu menutup celah kebocoran kas lewat hitung laci tertutup dan izin pembatalan ketat. Setiap rupiah ada catatannya.",
   ctaPrimary: {
-    text: "Coba Sekarang",
+    text: "Coba Sekarang, Gratis!",
     href: brandContent.appUrl,
   },
   ctaSecondary: {
@@ -25,7 +25,7 @@ export const finalCtaContent = {
   subheading:
     "Coba di satu cabang dulu. Bandingkan ketepatan laporan shift minggu pertama dengan kasir lama Anda.",
   ctaPrimary: {
-    text: "Mulai Sekarang",
+    text: "Mulai Sekarang, Gratis!",
     href: brandContent.appUrl,
   },
   ctaSecondary: {

@@ -2,7 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { siteContent } from "@/lib/content";
 import { Button } from "@/components/ui/button";
-import { PosDeviceMock } from "@/components/interactive/PosDeviceMock";
+import { HeroCardDeck } from "@/components/interactive/HeroCardDeck";
 import { CheckCircle2, ArrowRight } from "lucide-react";
 
 export function HeroSection() {
@@ -68,7 +68,7 @@ export function HeroSection() {
           </div>
 
           <div className="lg:col-span-5">
-            <PosDeviceMock />
+            <HeroCardDeck />
           </div>
         </div>
       </div>

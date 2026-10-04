@@ -8,7 +8,7 @@ export const brandContent = {
     phone: "+62-8829-4799-116",
     whatsapp: "+62 882-9479-9116",
     whatsappUrl: "https://wa.me/6288294799116?text=Halo%20Godinov,%20saya%20ingin%20tanya%20tentang%20Godinov%20POS",
-    email: "contact@godinov.id",
+    email: "contact@pos.godinov.id",
     address: {
       street: "Jl. KH Mursan",
       locality: "Kelurahan Belendung",

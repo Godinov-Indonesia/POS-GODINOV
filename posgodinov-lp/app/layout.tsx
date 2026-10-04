@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { PagePreloader } from "@/components/common/PagePreloader";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import "./globals.css";
@@ -70,9 +71,14 @@ export default function RootLayout({
   return (
     <html
       lang="id"
+      style={{ backgroundColor: "#0B061A" }}
       className={`${geistSans.variable} ${geistMono.variable} dark antialiased`}
     >
-      <body className="min-h-screen bg-ink-950 text-paper-50 flex flex-col font-display selection:bg-brand-500/30 selection:text-paper-50">
+      <body
+        style={{ backgroundColor: "#0B061A" }}
+        className="min-h-screen bg-ink-950 text-paper-50 flex flex-col font-display selection:bg-brand-500/30 selection:text-paper-50"
+      >
+        <PagePreloader />
         <a href="#main" className="sr-only">
           Lewati ke konten utama
         </a>
