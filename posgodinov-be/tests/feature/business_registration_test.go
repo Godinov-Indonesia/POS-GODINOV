@@ -47,12 +47,31 @@ func (m *MockBusinessRepository) GetBySerialBusiness(ctx context.Context, serial
 	return nil, nil
 }
 
+func (m *MockBusinessRepository) GetByGoogleID(ctx context.Context, googleID string) (*domain.Business, error) {
+	for _, b := range m.businesses {
+		if b.GoogleID != nil && *b.GoogleID == googleID {
+			return b, nil
+		}
+	}
+	return nil, errors.New("not found")
+}
+
+func (m *MockBusinessRepository) UpsertByGoogle(ctx context.Context, b *domain.Business) error {
+	for _, existing := range m.businesses {
+		if existing.Email == b.Email {
+			existing.GoogleID = b.GoogleID
+			return nil
+		}
+	}
+	m.businesses = append(m.businesses, b)
+	return nil
+}
+
 func TestFeatureBusinessRegistration(t *testing.T) {
-	// 1. Dependency Injection Setup
 	repo := &MockBusinessRepository{}
 	tokenMaker, _ := token.NewPasetoMaker("01234567890123456789012345678901")
 	txManager := database.NewMockTransactionManager()
-	svc := service.NewBusinessService(repo, tokenMaker, txManager, nil)
+	svc := service.NewBusinessService(repo, tokenMaker, txManager, nil, "", "", "")
 	h := handler.NewBusinessHandler(svc)
 
 	// 2. Router Setup
@@ -90,8 +109,9 @@ func TestFeatureBusinessRegistration(t *testing.T) {
 		t.Errorf("expected email owner@super.com, got %s", res.Business.Email)
 	}
 
-	if res.Business.Password != "" {
-		t.Errorf("expected password to be hidden, got %s", res.Business.Password)
+	// Password bertag json:"-" — tidak pernah muncul di response JSON.
+	if res.Business.Password != nil {
+		t.Error("expected password tidak terekspos di response")
 	}
 
 	if res.AccessToken == "" {

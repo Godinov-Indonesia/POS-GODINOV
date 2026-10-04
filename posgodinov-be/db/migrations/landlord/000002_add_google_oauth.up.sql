@@ -1,0 +1,3 @@
+ALTER TABLE businesses
+    ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE,
+    ALTER COLUMN password DROP NOT NULL;

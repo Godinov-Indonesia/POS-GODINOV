@@ -33,6 +33,14 @@ func (m *MockBusinessRepositoryForAuth) GetBySerialBusiness(ctx context.Context,
 	return nil, errors.New("business not found")
 }
 
+func (m *MockBusinessRepositoryForAuth) GetByGoogleID(ctx context.Context, googleID string) (*domain.Business, error) {
+	return nil, errors.New("not found")
+}
+
+func (m *MockBusinessRepositoryForAuth) UpsertByGoogle(ctx context.Context, b *domain.Business) error {
+	return nil
+}
+
 type MockOutletRepositoryForAuth struct {
 	outlets []*domain.Outlet
 }
@@ -55,10 +63,11 @@ func TestPOSAuthHandler_BindDevice(t *testing.T) {
 	tokenMaker, _ := token.NewPasetoMaker("01234567890123456789012345678901")
 
 	hashedPass, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	hashedStr := string(hashedPass)
 	mockBusinessRepo.businesses = append(mockBusinessRepo.businesses, &domain.Business{
 		ID:             "biz-1",
 		SerialBusiness: "BIZ-001",
-		Password:       string(hashedPass),
+		Password:       &hashedStr,
 	})
 
 	mockOutletRepo.outlets = append(mockOutletRepo.outlets, &domain.Outlet{

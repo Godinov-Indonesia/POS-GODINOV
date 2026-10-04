@@ -63,7 +63,7 @@ func (r *postgresBusinessRepository) GetByID(ctx context.Context, id string) (*d
 func (r *postgresBusinessRepository) LockByID(ctx context.Context, id string) (*domain.Business, error) {
 	db := database.GetDB(ctx, r.db)
 	var b domain.Business
-	// Menggunakan FOR UPDATE untuk menghindari Race Condition
+	// FOR UPDATE untuk menghindari race condition
 	if err := db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).First(&b).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("business not found")
@@ -71,4 +71,25 @@ func (r *postgresBusinessRepository) LockByID(ctx context.Context, id string) (*
 		return nil, err
 	}
 	return &b, nil
+}
+
+func (r *postgresBusinessRepository) GetByGoogleID(ctx context.Context, googleID string) (*domain.Business, error) {
+	db := database.GetDB(ctx, r.db)
+	var b domain.Business
+	if err := db.WithContext(ctx).Where("google_id = ? AND is_deleted = ?", googleID, false).First(&b).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("business not found")
+		}
+		return nil, err
+	}
+	return &b, nil
+}
+
+func (r *postgresBusinessRepository) UpsertByGoogle(ctx context.Context, b *domain.Business) error {
+	db := database.GetDB(ctx, r.db)
+	// ON CONFLICT (email): link google_id ke akun yang sudah ada, atau insert baru.
+	return db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "email"}},
+		DoUpdates: clause.Assignments(map[string]interface{}{"google_id": b.GoogleID}),
+	}).Create(b).Error
 }
