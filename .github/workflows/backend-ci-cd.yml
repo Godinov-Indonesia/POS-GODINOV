@@ -95,26 +95,11 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            set -e
-            echo "==> Pulling latest backend image..."
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-backend:latest
-
             echo "==> Deploying backend container..."
-            if [ -f "/opt/posgodinov/docker-compose.yml" ]; then
-              cd /opt/posgodinov
-              docker compose pull backend
-              docker compose up -d backend
-            else
-              docker stop posgodinov_backend 2>/dev/null || true
-              docker rm posgodinov_backend 2>/dev/null || true
-              docker run -d \
-                --name posgodinov_backend \
-                --restart always \
-                -p 8080:8080 \
-                --env-file /opt/posgodinov/backend.env \
-                ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-backend:latest
-            fi
-
+              cd ~/www/pos-godinov
+              docker compose pull app
+              docker compose up -d app
+              
             echo "==> Cleaning up unused images..."
             docker image prune -f
 
