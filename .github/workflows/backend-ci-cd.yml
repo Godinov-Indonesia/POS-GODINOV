@@ -100,7 +100,11 @@ jobs:
               docker compose pull app
               docker compose up -d app
               
-            echo "==> Cleaning up unused images..."
-            docker image prune -f
+              echo "==> Cleaning up unused images..."
+              docker image prune -f
 
-            echo "==> Backend deployment finished successfully."
+              echo "==> Restarting Nginx..."
+              cd ../.
+              docker compose restart nginx
+
+              echo "==> Backend deployment finished successfully."
