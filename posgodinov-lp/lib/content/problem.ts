@@ -24,7 +24,7 @@ export const problemContent = {
     {
       id: 1,
       title: "Selisih laci yang selalu \"salah hitung\"",
-      body: "Saat kasir tahu angka yang seharusnya, selisih akan selalu pas — termasuk ketika seharusnya tidak pas.",
+      body: "Saat kasir tahu angka yang seharusnya, selisih akan selalu pas, termasuk ketika seharusnya tidak pas.",
       impact: "Rata-rata rugi Rp 1,5 - 4jt / bulan / outlet",
     },
     {

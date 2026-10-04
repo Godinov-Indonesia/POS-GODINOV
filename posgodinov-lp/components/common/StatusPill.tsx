@@ -51,7 +51,7 @@ export function StatusPill({
         {state === "online" && "Online · Terhubung"}
         {state === "offline" && (
           <>
-            Offline —{" "}
+            Offline ·{" "}
             <span className="tabular-nums font-semibold">{queueCount}</span>{" "}
             transaksi tersimpan
           </>

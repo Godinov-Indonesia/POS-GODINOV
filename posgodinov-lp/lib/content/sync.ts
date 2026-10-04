@@ -28,7 +28,7 @@ export const syncEducationContent = {
   ] satisfies SyncPhaseItem[],
   technicalNote:
     "Otomatis tersimpan di memori kasir · Jam transaksi akurat sesuai waktu bayar · Nol risiko data dobel",
-  summaryBadge: "12 transaksi · 1 shift · 3 sisa bahan — tersinkron rapi",
+  summaryBadge: "12 transaksi · 1 shift · 3 sisa bahan · tersinkron rapi",
 } as const;
 
 export const cashIntegrityContent = {

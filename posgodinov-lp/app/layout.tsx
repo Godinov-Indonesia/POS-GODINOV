@@ -17,18 +17,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://posgodinov.com"),
   title: {
-    default: "Godinov POS V2 — Sistem Kasir Offline-First & Integritas Kas",
-    template: "%s · Godinov POS V2",
+    default: "Godinov POS | Sistem Kasir Handal dan Aman",
+    template: "%s | Godinov POS",
   },
   description:
-    "Godinov POS V2 terus melayani transaksi walau internet mati total, lalu mengunci celah kebocoran kas lewat Blind Closing, Void Guard, dan Kiosk Mode.",
+    "Godinov POS terus melayani transaksi walau internet mati total, menjaga uang kas tetap aman dari kebocoran dan manipulasi.",
   keywords: [
     "POS",
     "Aplikasi Kasir",
-    "Offline-First",
-    "Blind Closing",
-    "Void Guard",
-    "Multi-Outlet",
+    "Kasir Toko",
+    "Kasir Restoran",
+    "Kasir Multi Outlet",
+    "Anti Kebocoran Kas",
     "F&B",
     "Retail",
   ],
@@ -37,16 +37,16 @@ export const metadata: Metadata = {
     type: "website",
     locale: "id_ID",
     url: "https://posgodinov.com",
-    siteName: "Godinov POS V2",
-    title: "Godinov POS V2 — Kasir tetap jalan. Uang tidak ikut jalan-jalan.",
+    siteName: "Godinov POS",
+    title: "Godinov POS | Kasir Tetap Jalan, Uang Tetap Aman",
     description:
-      "Sistem kasir offline-first dengan perlindungan anti-kebocoran kas untuk bisnis multi-outlet retail dan F&B.",
+      "Sistem kasir handal dengan perlindungan anti-kebocoran kas untuk bisnis multi-outlet retail dan F&B.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Godinov POS V2 — Kasir tetap jalan. Uang tidak ikut jalan-jalan.",
+    title: "Godinov POS | Kasir Tetap Jalan, Uang Tetap Aman",
     description:
-      "Sistem kasir offline-first dengan perlindungan anti-kebocoran kas untuk bisnis multi-outlet retail dan F&B.",
+      "Sistem kasir handal dengan perlindungan anti-kebocoran kas untuk bisnis multi-outlet retail dan F&B.",
   },
   icons: {
     icon: "/images/logo.png",
