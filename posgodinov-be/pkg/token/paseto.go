@@ -7,10 +7,13 @@ import (
 )
 
 type Payload struct {
-	ID       string `json:"id"`
-	Email    string `json:"email"`
-	Type     string `json:"type"`
-	BusinessID string `json:"business_id,omitempty"`
+	ID             string `json:"id"`
+	Email          string `json:"email"`
+	Type           string `json:"type"`
+	BusinessID     string `json:"business_id,omitempty"`
+	Role           string `json:"role,omitempty"`
+	IsImpersonated bool   `json:"is_impersonated,omitempty"`
+	ImpersonatedBy string `json:"impersonated_by,omitempty"`
 
 	// Scope memisahkan perangkat KASIR dari perangkat OPNAME — butir 4
 	// ([11 §M16.1]).

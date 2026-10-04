@@ -14,14 +14,27 @@ type outletService struct {
 	repo         domain.OutletRepository
 	businessRepo domain.BusinessRepository
 	txManager    database.TransactionManager
+	policyEngine domain.PolicyEngine
 }
 
-func NewOutletService(repo domain.OutletRepository, businessRepo domain.BusinessRepository, txManager database.TransactionManager) domain.OutletService {
-	return &outletService{
+type OutletServiceOption func(*outletService)
+
+func WithOutletPolicyEngine(pe domain.PolicyEngine) OutletServiceOption {
+	return func(s *outletService) {
+		s.policyEngine = pe
+	}
+}
+
+func NewOutletService(repo domain.OutletRepository, businessRepo domain.BusinessRepository, txManager database.TransactionManager, opts ...OutletServiceOption) domain.OutletService {
+	s := &outletService{
 		repo:         repo,
 		businessRepo: businessRepo,
 		txManager:    txManager,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 func (s *outletService) Register(ctx context.Context, businessID string, req *domain.CreateOutletRequest) (*domain.Outlet, error) {
@@ -41,6 +54,12 @@ func (s *outletService) Register(ctx context.Context, businessID string, req *do
 		count, err := s.repo.CountByBusinessID(txCtx, businessID)
 		if err != nil {
 			return errors.New("gagal menghitung jumlah outlet")
+		}
+
+		if s.policyEngine != nil {
+			if err := s.policyEngine.AssertQuota(ctx, businessID, "max_outlets", count+1); err != nil {
+				return err
+			}
 		}
 
 		id := utils.GenerateRandomString(6)

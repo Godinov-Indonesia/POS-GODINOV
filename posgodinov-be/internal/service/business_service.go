@@ -26,6 +26,15 @@ type businessService struct {
 	txManager     database.TransactionManager
 	tenantManager *database.BusinessDBManager
 	oauthCfg      *oauth2.Config
+	saasRepo      domain.SaaSRepository
+}
+
+type BusinessServiceOption func(*businessService)
+
+func WithSaaSRepository(saasRepo domain.SaaSRepository) BusinessServiceOption {
+	return func(s *businessService) {
+		s.saasRepo = saasRepo
+	}
 }
 
 func NewBusinessService(
@@ -34,6 +43,7 @@ func NewBusinessService(
 	txManager database.TransactionManager,
 	tenantManager *database.BusinessDBManager,
 	googleClientID, googleClientSecret, googleRedirectURL string,
+	opts ...BusinessServiceOption,
 ) domain.BusinessService {
 	oauthCfg := &oauth2.Config{
 		ClientID:     googleClientID,
@@ -42,13 +52,17 @@ func NewBusinessService(
 		Scopes:       []string{"openid", "email", "profile"},
 		Endpoint:     google.Endpoint,
 	}
-	return &businessService{
+	svc := &businessService{
 		repo:          repo,
 		tokenMaker:    tokenMaker,
 		txManager:     txManager,
 		tenantManager: tenantManager,
 		oauthCfg:      oauthCfg,
 	}
+	for _, opt := range opts {
+		opt(svc)
+	}
+	return svc
 }
 
 func (s *businessService) Register(ctx context.Context, req *domain.RegisterBusinessRequest) (*domain.RegisterBusinessResponse, error) {
@@ -81,6 +95,23 @@ func (s *businessService) Register(ctx context.Context, req *domain.RegisterBusi
 	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		if err := s.repo.Create(txCtx, business); err != nil {
 			return err
+		}
+		if s.saasRepo != nil {
+			sub := &domain.Subscription{
+				BusinessID: business.ID,
+				PlanID:     "plan_free",
+				Status:     "ACTIVE",
+				StartedAt:  time.Now(),
+			}
+			if err := s.saasRepo.CreateSubscription(txCtx, sub); err != nil {
+				return fmt.Errorf("gagal membuat langganan default: %w", err)
+			}
+			wallet := &domain.MerchantWallet{
+				BusinessID: business.ID,
+			}
+			if err := s.saasRepo.CreateWallet(txCtx, wallet); err != nil {
+				return fmt.Errorf("gagal membuat dompet merchant: %w", err)
+			}
 		}
 		if s.tenantManager != nil {
 			if err := s.tenantManager.CreateNewTenantDatabase(business.ID); err != nil {
@@ -194,6 +225,24 @@ func (s *businessService) GoogleOAuthCallback(ctx context.Context, code, _ strin
 				return err
 			}
 			*business = *fetched
+
+			if s.saasRepo != nil {
+				if _, err := s.saasRepo.GetSubscriptionByBusinessID(txCtx, business.ID); err != nil {
+					sub := &domain.Subscription{
+						BusinessID: business.ID,
+						PlanID:     "plan_free",
+						Status:     "ACTIVE",
+						StartedAt:  time.Now(),
+					}
+					_ = s.saasRepo.CreateSubscription(txCtx, sub)
+				}
+				if _, err := s.saasRepo.GetWalletByBusinessID(txCtx, business.ID); err != nil {
+					wallet := &domain.MerchantWallet{
+						BusinessID: business.ID,
+					}
+					_ = s.saasRepo.CreateWallet(txCtx, wallet)
+				}
+			}
 
 			if s.tenantManager != nil {
 				// CreateNewTenantDatabase idempotent — aman dipanggil untuk akun lama.

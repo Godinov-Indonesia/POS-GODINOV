@@ -25,6 +25,7 @@ func SetupRouter(
 	shiftReconcileHandler *ShiftReconcileHandler,
 	opnameSessionHandler *OpnameSessionHandler,
 	uploadHandler *UploadHandler,
+	landlordHandler *LandlordHandler,
 	tokenMaker token.TokenMaker,
 	auditRepo domain.AuditRepository,
 	tenantManager *database.BusinessDBManager,
@@ -32,6 +33,7 @@ func SetupRouter(
 	mux := http.NewServeMux()
 
 	authMiddleware := middleware.AuthMiddleware(tokenMaker)
+	landlordMiddleware := middleware.LandlordAuthMiddleware(tokenMaker)
 	deviceMiddleware := middleware.POSDeviceMiddleware(tokenMaker)
 	auditMiddleware := middleware.AuditMiddleware(auditRepo)
 	tenantMiddleware := middleware.BusinessMiddleware(tenantManager)
@@ -39,6 +41,9 @@ func SetupRouter(
 	// Helper to chain middlewares: Auth first, then Tenant, then Audit
 	chain := func(handler http.HandlerFunc) http.HandlerFunc {
 		return authMiddleware(tenantMiddleware(auditMiddleware(handler)))
+	}
+	landlordChain := func(handler http.HandlerFunc) http.HandlerFunc {
+		return landlordMiddleware(auditMiddleware(handler))
 	}
 	deviceChain := func(handler http.HandlerFunc) http.HandlerFunc {
 		return deviceMiddleware(tenantMiddleware(handler))
@@ -68,6 +73,29 @@ func SetupRouter(
 	mux.HandleFunc("POST /v1/auth/business/refresh", businessHandler.RefreshToken)
 	mux.HandleFunc("GET /v1/auth/business/oauth/google", businessHandler.GoogleOAuthRedirect)
 	mux.HandleFunc("GET /v1/auth/business/oauth/google/callback", businessHandler.GoogleOAuthCallback)
+
+	// Landlord Public & Auth Routes
+	mux.HandleFunc("GET /v1/public/landing-page", landlordHandler.GetPublicLandingPage)
+	mux.HandleFunc("POST /v1/landlord/auth/login", landlordHandler.Login)
+
+	// Landlord Admin Protected Routes
+	mux.HandleFunc("GET /v1/landlord/auth/me", landlordChain(landlordHandler.GetMe))
+	mux.HandleFunc("POST /v1/landlord/businesses/{id}/impersonate", landlordChain(landlordHandler.Impersonate))
+	mux.HandleFunc("GET /v1/landlord/features", landlordChain(landlordHandler.ListFeatures))
+	mux.HandleFunc("GET /v1/landlord/plans", landlordChain(landlordHandler.ListPlans))
+	mux.HandleFunc("PUT /v1/landlord/plans/{id}/features/{feature_key}", landlordChain(landlordHandler.UpdatePlanFeature))
+	mux.HandleFunc("GET /v1/landlord/businesses/{id}/overrides", landlordChain(landlordHandler.ListOverrides))
+	mux.HandleFunc("POST /v1/landlord/businesses/{id}/overrides", landlordChain(landlordHandler.CreateOverride))
+	mux.HandleFunc("DELETE /v1/landlord/businesses/{id}/overrides/{override_id}", landlordChain(landlordHandler.DeleteOverride))
+	mux.HandleFunc("GET /v1/landlord/campaigns", landlordChain(landlordHandler.ListCampaigns))
+	mux.HandleFunc("POST /v1/landlord/campaigns", landlordChain(landlordHandler.CreateCampaign))
+	mux.HandleFunc("GET /v1/landlord/landing/settings", landlordChain(landlordHandler.GetLandingSettings))
+	mux.HandleFunc("PUT /v1/landlord/landing/settings/{key}", landlordChain(landlordHandler.UpdateLandingSetting))
+
+	// Merchant SaaS & In-App Ads Routes
+	mux.HandleFunc("GET /v1/business/subscription", authMiddleware(landlordHandler.GetTenantSubscription))
+	mux.HandleFunc("GET /v1/business/campaigns", authMiddleware(landlordHandler.GetTenantCampaigns))
+	mux.HandleFunc("POST /v1/business/campaigns/{id}/click", authMiddleware(landlordHandler.RecordCampaignClick))
 	
 	// POS Device Routes
 	mux.HandleFunc("POST /v1/auth/device/bind", posAuthHandler.BindDevice)
