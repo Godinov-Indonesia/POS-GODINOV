@@ -8,24 +8,19 @@ import { PosCart } from "./pos-device/PosCart";
 import { PosTelemetry } from "./pos-device/PosTelemetry";
 import { cn } from "@/lib/utils";
 
-export interface PosDeviceMockProps {
-  autoPlay?: boolean;
-  className?: string;
-}
-
 export function PosDeviceMock({
   autoPlay = true,
   className,
-}: PosDeviceMockProps) {
+}: {
+  autoPlay?: boolean;
+  className?: string;
+}) {
   const shouldReduceMotion = useReducedMotion();
-  const [connectionState, setConnectionState] =
-    React.useState<ConnectionState>("online");
+  const [connectionState, setConnectionState] = React.useState<ConnectionState>("online");
   const [queueCount, setQueueCount] = React.useState<number>(0);
 
-  // Siklus status otomatis: Online -> Offline (12 queue) -> Syncing -> Online
   React.useEffect(() => {
     if (!autoPlay || shouldReduceMotion) return;
-
     const timer = setInterval(() => {
       setConnectionState((prev) => {
         if (prev === "online") {
@@ -37,14 +32,8 @@ export function PosDeviceMock({
         return "online";
       });
     }, 4000);
-
     return () => clearInterval(timer);
   }, [autoPlay, shouldReduceMotion]);
-
-  const handleManualState = (state: ConnectionState, queue: number) => {
-    setConnectionState(state);
-    setQueueCount(queue);
-  };
 
   return (
     <div
@@ -55,7 +44,6 @@ export function PosDeviceMock({
         className
       )}
     >
-      {/* Device Bezel Header */}
       <div className="mb-4 flex items-center justify-between border-b border-ink-800/80 pb-3">
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-alert-500/80" />
@@ -77,13 +65,9 @@ export function PosDeviceMock({
         <StatusPill state={connectionState} queueCount={queueCount} />
       </div>
 
-      {/* Main Terminal Screen */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 rounded-xl border border-ink-800 bg-ink-900/90 p-4">
         <PosCart />
-        <PosTelemetry
-          connectionState={connectionState}
-          onSetState={handleManualState}
-        />
+        <PosTelemetry connectionState={connectionState} />
       </div>
     </div>
   );

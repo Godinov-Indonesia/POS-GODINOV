@@ -48,19 +48,19 @@ export function StatusPill({
       </span>
 
       <span className="font-medium tracking-tight">
-        {state === "online" && "Online · Cloud Aktif"}
+        {state === "online" && "Online · Terhubung"}
         {state === "offline" && (
           <>
             Offline —{" "}
             <span className="tabular-nums font-semibold">{queueCount}</span>{" "}
-            antrian tersimpan lokal
+            transaksi tersimpan
           </>
         )}
         {state === "syncing" && (
           <>
-            Menyinkronkan{" "}
+            Mengirim{" "}
             <span className="tabular-nums font-semibold">{queueCount}</span>{" "}
-            antrian...
+            transaksi...
           </>
         )}
       </span>

@@ -8,7 +8,7 @@ export function PosCart() {
         <div className="flex items-center justify-between border-b border-ink-800 pb-2">
           <span className="flex items-center gap-1.5 text-xs font-medium text-paper-50/80">
             <ShoppingCart className="h-3.5 w-3.5 text-brand-500" />
-            Pesanan #TX-8821
+            Pesanan #8821
           </span>
           <span className="font-mono text-[11px] text-paper-50/50">
             19:42:08

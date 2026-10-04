@@ -1,35 +1,35 @@
 import { brandContent } from "./brand";
 
 export const heroContent = {
-  eyebrow: "Offline-First PWA · Dirancang untuk outlet dengan sinyal 1 bar",
+  eyebrow: "Sistem Kasir Handal · Tetap jalan saat sinyal hilang",
   headline: "Kasir tetap jalan. Uang tidak ikut jalan-jalan.",
   subheadline:
-    "Godinov POS V2 terus melayani transaksi walau internet mati total, lalu mengunci celah kebocoran kas lewat Blind Closing, Void Guard, dan Kiosk Mode. Setiap rupiah punya jejak.",
+    "Godinov POS terus melayani penjualan walau internet mati total, lalu menutup celah kebocoran kas lewat hitung laci tertutup dan izin pembatalan ketat. Setiap rupiah ada catatannya.",
   ctaPrimary: {
-    text: "Coba Sekarang! Gratis!!",
+    text: "Coba Sekarang",
     href: brandContent.appUrl,
   },
   ctaSecondary: {
-    text: "Lihat Demo Interaktif",
-    href: "#offline",
+    text: "Pelajari Fitur",
+    href: "#fitur",
   },
   microProof: [
-    "Tanpa kartu kredit",
-    "Setup 15 menit",
-    "Data tetap milik Anda",
+    "Tanpa biaya tersembunyi",
+    "Siap pakai 15 menit",
+    "Data toko milik Anda 100%",
   ],
 } as const;
 
 export const finalCtaContent = {
   heading: "Hari ini juga, selisih laci berhenti jadi tebakan.",
   subheading:
-    "Pasang di satu outlet dulu. Bandingkan laporan minggu pertama dengan sistem lama Anda.",
+    "Coba di satu cabang dulu. Bandingkan ketepatan laporan shift minggu pertama dengan kasir lama Anda.",
   ctaPrimary: {
-    text: "Coba Sekarang! Gratis!!",
+    text: "Mulai Sekarang",
     href: brandContent.appUrl,
   },
   ctaSecondary: {
-    text: "Hubungi WhatsApp CS",
+    text: "Konsultasi via WhatsApp",
     href: brandContent.contacts.whatsappUrl,
   },
 } as const;

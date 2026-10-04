@@ -11,7 +11,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
 import { siteContent, type NavItem } from "@/lib/content";
 
 export function MobileNav({ navItems }: { navItems: readonly NavItem[] }) {
@@ -22,20 +21,19 @@ export function MobileNav({ navItems }: { navItems: readonly NavItem[] }) {
     <div className="md:hidden">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
+            type="button"
             data-testid="mobile-menu-trigger"
             aria-label="Buka menu navigasi"
-            className="text-paper-50"
+            className="p-2 text-paper-50 hover:bg-ink-900 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             <Menu className="h-6 w-6" />
-          </Button>
+          </button>
         </SheetTrigger>
         <SheetContent side="right" className="flex flex-col justify-between">
           <div>
             <SheetHeader className="mb-6 pb-4 border-b border-ink-800">
-              <SheetTitle className="flex items-center gap-2">
+              <SheetTitle>
                 <Image
                   src="/images/logo-transparent.webp"
                   alt="Godinov POS"
@@ -43,14 +41,7 @@ export function MobileNav({ navItems }: { navItems: readonly NavItem[] }) {
                   height={37}
                   className="h-7 w-auto object-contain"
                 />
-                <span className="rounded bg-brand-500/20 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-brand-300">
-                  {siteContent.brand.version}
-                </span>
               </SheetTitle>
-              <div className="flex items-center gap-2 text-xs font-mono text-brand-300/90 pt-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
-                {siteContent.header.offlineBadge}
-              </div>
             </SheetHeader>
 
             <nav className="flex flex-col space-y-3" aria-label="Navigasi Mobile">
@@ -67,13 +58,14 @@ export function MobileNav({ navItems }: { navItems: readonly NavItem[] }) {
             </nav>
           </div>
 
-          <div className="border-t border-ink-800 pt-6 space-y-3">
-            <Button asChild variant="outline" className="w-full justify-center" onClick={close}>
-              <Link href={siteContent.header.loginHref}>{siteContent.header.loginText}</Link>
-            </Button>
-            <Button asChild className="w-full justify-center bg-brand-500 text-ink-950 hover:bg-brand-400 font-bold" onClick={close}>
-              <Link href={siteContent.header.ctaHref}>{siteContent.header.ctaText}</Link>
-            </Button>
+          <div className="border-t border-ink-800 pt-6">
+            <Link
+              href={siteContent.header.loginHref}
+              onClick={close}
+              className="flex w-full items-center justify-center rounded-lg border border-brand-500/40 bg-brand-500/10 py-3 text-center text-sm font-semibold text-brand-500 hover:bg-brand-500/20 transition-colors"
+            >
+              {siteContent.header.loginText}
+            </Link>
           </div>
         </SheetContent>
       </Sheet>
