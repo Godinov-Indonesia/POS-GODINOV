@@ -440,11 +440,12 @@ func (s *seeder) seedBusiness() error {
 	if err != nil {
 		return err
 	}
+	hashed := string(hash)
 	s.business = &domain.Business{
 		ID:             businessID,
 		SerialBusiness: serialBusiness,
 		Email:          ownerEmail,
-		Password:       string(hash),
+		Password:       &hashed,
 		Name:           "Godinov Group",
 		OwnerName:      "Bapak Godinov",
 		CreatedAt:      s.dayStart(s.days).Add(-48 * time.Hour),

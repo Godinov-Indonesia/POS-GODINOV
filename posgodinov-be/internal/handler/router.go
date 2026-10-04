@@ -66,6 +66,8 @@ func SetupRouter(
 	mux.HandleFunc("POST /v1/auth/business/register", middleware.RateLimitRegistration(businessHandler.Register))
 	mux.HandleFunc("POST /v1/auth/business/login", businessHandler.Login)
 	mux.HandleFunc("POST /v1/auth/business/refresh", businessHandler.RefreshToken)
+	mux.HandleFunc("GET /v1/auth/business/oauth/google", businessHandler.GoogleOAuthRedirect)
+	mux.HandleFunc("GET /v1/auth/business/oauth/google/callback", businessHandler.GoogleOAuthCallback)
 	
 	// POS Device Routes
 	mux.HandleFunc("POST /v1/auth/device/bind", posAuthHandler.BindDevice)

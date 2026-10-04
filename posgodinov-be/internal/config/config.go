@@ -20,6 +20,11 @@ type Config struct {
 	LogLevel           string
 	PasetoSymmetricKey string
 
+	// Google OAuth
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string
+
 	// Cloudinary
 	CloudinaryCloudName string
 	CloudinaryAPIKey    string
@@ -43,6 +48,10 @@ func LoadConfig() (*Config, error) {
 		DBSSLMode:          cmp.Or(os.Getenv("DB_SSLMODE"), "disable"),
 		LogLevel:           cmp.Or(os.Getenv("LOG_LEVEL"), "info"),
 		PasetoSymmetricKey: cmp.Or(os.Getenv("PASETO_SYMMETRIC_KEY"), "12345678901234567890123456789012"),
+
+		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		GoogleRedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
 
 		CloudinaryCloudName: os.Getenv("CLOUDINARY_CLOUD_NAME"),
 		CloudinaryAPIKey:    os.Getenv("CLOUDINARY_API_KEY"),

@@ -41,7 +41,10 @@ func (s *posAuthService) BindDevice(ctx context.Context, req *domain.DeviceBindR
 	}
 
 	// 2. Validate Password
-	err = bcrypt.CompareHashAndPassword([]byte(business.Password), []byte(req.Password))
+	if business.Password == nil {
+		return nil, errors.New("kredensial bisnis tidak valid")
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(*business.Password), []byte(req.Password))
 	if err != nil {
 		return nil, errors.New("kredensial bisnis tidak valid")
 	}

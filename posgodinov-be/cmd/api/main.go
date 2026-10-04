@@ -99,7 +99,8 @@ func main() {
 	opnameSessionRepo := repository.NewOpnameSessionRepository(db)
 
 	// Setup Services
-	businessSvc := service.NewBusinessService(businessRepo, tokenMaker, txManager, businessManager)
+	businessSvc := service.NewBusinessService(businessRepo, tokenMaker, txManager, businessManager,
+		cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL)
 	outletSvc := service.NewOutletService(outletRepo, businessRepo, txManager)
 	staffSvc := service.NewStaffService(staffRepo, outletRepo,
 		service.WithStaffMasterVersion(txManager, masterVersionRepo))
