@@ -1,4 +1,4 @@
-name: Frontend CI/CD (posgodinov-fe)
+name: Frontend Page CI/CD (posgodinov-fe)
 
 on:
   push:
@@ -23,20 +23,25 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
-          cache-dependency-path: posgodinov-fe/package-lock.json
+          cache: 'pnpm' 
+          cache-dependency-path: posgodinov-lp/pnpm-lock.yaml 
 
       - name: Install Dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run Next.js Build Verification
-        run: npm run build
+        run: pnpm run build
         env:
-          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080' }}
+          NEXT_PUBLIC_API_BASE_URL: \${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080' }}
 
   build-and-push:
     name: 2 & 3. Build & Push Docker Image
@@ -55,22 +60,18 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: \${{ secrets.DOCKERHUB_USERNAME }}
+          password: \${{ secrets.DOCKERHUB_TOKEN }}
 
-      # LANGKAH PENTING: Ekstrak tipe event dan nama versi SemVer untuk tag Docker Frontend
       - name: Docker Meta (Extract Version)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-frontend
+          images: \${{ secrets.DOCKERHUB_USERNAME }}/posgodinov-frontend
           tags: |
-            # Jika dipicu oleh Git Tag posgodinov-fe-v1.0.0 -> menghasilkan tag Docker :1.0.0
             type=match,pattern=posgodinov-fe-v(.*),group=1
-            # Jika dipicu oleh Git Tag -> buat juga tag :latest untuk produksi
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
-            # Jika dipicu oleh branch dev -> menghasilkan tag :dev-sha
-            type=raw,value=dev-${{ github.sha }},enable=${{ github.ref == 'refs/heads/dev' }}
+            type=raw,value=latest,enable=\${{ startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=dev- github.sha ,enable={{ github.ref == 'refs/heads/dev' }}
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
@@ -79,11 +80,10 @@ jobs:
           file: ./posgodinov-fe/Dockerfile
           push: true
           build-args: |
-            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080' }}
-          # Menggunakan tag dinamis yang sudah diproses oleh docker/metadata-action
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
+            NEXT_PUBLIC_API_BASE_URL=\${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080' }}
+          tags: \${{ steps.meta.outputs.tags }}
+          labels: \${{ steps.meta.outputs.labels }}
+      
   deploy-vercel:
     name: 4. Deploy to Vercel Production
     needs: test
