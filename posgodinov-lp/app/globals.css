@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-950: #0B061A;
+  --color-ink-900: #130B2E;
+  --color-ink-800: #22154A;
+  --color-ink-700: #33206D;
+
+  --color-brand-purple: #2A0573;
+  --color-brand-500: #00FFD1;
+  --color-brand-400: #26FFD7;
+  --color-brand-300: #66FFE2;
+  --color-brand-600: #00D4AE;
+
+  --color-signal-500: #F59E0B;
+  --color-alert-500: #EF4444;
+
+  --color-paper-50: #F9FAFB;
+  --color-paper-100: #E5E7EB;
+  --color-paper-400: #9E95B3;
+
+  --radius-card: 1rem;
+  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--color-ink-950);
+  color: var(--color-paper-50);
+  font-family: var(--font-display);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+.tabular-nums, table, input[inputmode="numeric"], input[inputmode="decimal"] {
+  font-variant-numeric: tabular-nums;
+}
+
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only:focus-visible {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 100;
+  width: auto;
+  height: auto;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-brand-500);
+  color: #0B061A;
+  font-weight: 700;
+  border-radius: 0.5rem;
+  clip: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
