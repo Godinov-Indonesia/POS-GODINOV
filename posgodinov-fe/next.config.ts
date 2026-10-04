@@ -18,7 +18,7 @@ const isDev = process.env.NODE_ENV !== "production";
 const nextConfig: NextConfig = {
   output: "standalone",
   pageExtensions: isDev ? ["tsx", "ts", "jsx", "js", "dev.tsx"] : ["tsx", "ts", "jsx", "js"],
-  allowedDevOrigins: ['192.168.100.95', 'localhost']
+  allowedDevOrigins: ['*']
 };
 
 export default nextConfig;
