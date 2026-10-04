@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Menu } from "lucide-react";
 import {
   Sheet,
@@ -13,12 +14,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { siteContent, type NavItem } from "@/lib/content";
 
-export interface MobileNavProps {
-  navItems: readonly NavItem[];
-}
-
-export function MobileNav({ navItems }: MobileNavProps) {
+export function MobileNav({ navItems }: { navItems: readonly NavItem[] }) {
   const [open, setOpen] = React.useState(false);
+  const close = () => setOpen(false);
 
   return (
     <div className="md:hidden">
@@ -38,15 +36,19 @@ export function MobileNav({ navItems }: MobileNavProps) {
           <div>
             <SheetHeader className="mb-6 pb-4 border-b border-ink-800">
               <SheetTitle className="flex items-center gap-2">
-                <span className="font-bold tracking-tight text-paper-50">
-                  {siteContent.brand.name}
-                </span>
+                <Image
+                  src="/images/logo-transparent.webp"
+                  alt="Godinov POS"
+                  width={130}
+                  height={37}
+                  className="h-7 w-auto object-contain"
+                />
                 <span className="rounded bg-brand-500/20 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-brand-300">
                   {siteContent.brand.version}
                 </span>
               </SheetTitle>
               <div className="flex items-center gap-2 text-xs font-mono text-brand-300/90 pt-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-brand-500 animate-pulse" />
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
                 {siteContent.header.offlineBadge}
               </div>
             </SheetHeader>
@@ -56,7 +58,7 @@ export function MobileNav({ navItems }: MobileNavProps) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() => setOpen(false)}
+                  onClick={close}
                   className="rounded-lg px-3 py-2 text-base font-medium text-paper-50/80 hover:bg-ink-900 hover:text-paper-50 transition-colors"
                 >
                   {item.label}
@@ -66,25 +68,11 @@ export function MobileNav({ navItems }: MobileNavProps) {
           </div>
 
           <div className="border-t border-ink-800 pt-6 space-y-3">
-            <Button
-              asChild
-              variant="outline"
-              className="w-full justify-center"
-              onClick={() => setOpen(false)}
-            >
-              <Link href={siteContent.header.loginHref}>
-                {siteContent.header.loginText}
-              </Link>
+            <Button asChild variant="outline" className="w-full justify-center" onClick={close}>
+              <Link href={siteContent.header.loginHref}>{siteContent.header.loginText}</Link>
             </Button>
-
-            <Button
-              asChild
-              className="w-full justify-center bg-brand-500 text-ink-950 hover:bg-brand-300 font-semibold"
-              onClick={() => setOpen(false)}
-            >
-              <Link href={siteContent.header.ctaHref}>
-                {siteContent.header.ctaText}
-              </Link>
+            <Button asChild className="w-full justify-center bg-brand-500 text-ink-950 hover:bg-brand-400 font-bold" onClick={close}>
+              <Link href={siteContent.header.ctaHref}>{siteContent.header.ctaText}</Link>
             </Button>
           </div>
         </SheetContent>

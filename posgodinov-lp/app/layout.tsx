@@ -47,10 +47,15 @@ export const metadata: Metadata = {
     description:
       "Sistem kasir offline-first dengan perlindungan anti-kebocoran kas untuk bisnis multi-outlet retail dan F&B.",
   },
+  icons: {
+    icon: "/images/logo.png",
+    shortcut: "/images/logo.png",
+    apple: "/images/logo.png",
+  },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#070B0A",
+  themeColor: "#0B061A",
   colorScheme: "dark",
   width: "device-width",
   initialScale: 1,

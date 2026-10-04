@@ -1,0 +1,68 @@
+import type { PricingPlan } from "./types";
+import { brandContent } from "./brand";
+
+export const pricingContent = {
+  heading: "Investasi Terukur untuk Mengamankan Omzet",
+  subheading: "Pilih paket yang sesuai dengan skala dan jumlah cabang bisnis Anda.",
+  yearlyDiscountNote: "Hemat 2 bulan dengan tagihan tahunan",
+  plans: [
+    {
+      id: "warung",
+      name: "Warung",
+      description: "Cocok untuk 1 outlet rintisan yang membutuhkan keandalan kasir offline dan blind closing.",
+      monthlyPrice: 99000,
+      yearlyPricePerMonth: 79000,
+      outletLimit: "1 Outlet",
+      deviceLimit: "Maks. 2 Perangkat",
+      ctaText: "Mulai Sekarang",
+      ctaHref: brandContent.appUrl,
+      features: [
+        { name: "Full Offline-First PWA", included: true },
+        { name: "Blind Closing Shift", included: true },
+        { name: "Struk & Laporan Kasir", included: true },
+        { name: "Void Guard Dasar", included: true },
+        { name: "Multi-Outlet Dasbor", included: false },
+        { name: "Kiosk Device Binding", included: false },
+      ],
+    },
+    {
+      id: "bisnis",
+      name: "Bisnis",
+      description: "Paket paling populer untuk owner dengan 2-10 cabang yang ingin pengawasan sentral.",
+      monthlyPrice: 249000,
+      yearlyPricePerMonth: 199000,
+      highlighted: true,
+      outletLimit: "Hingga 5 Outlet",
+      deviceLimit: "Perangkat Tak Terbatas",
+      ctaText: "Pilih Paket Bisnis",
+      ctaHref: brandContent.appUrl,
+      features: [
+        { name: "Full Offline-First PWA", included: true },
+        { name: "Blind Closing Shift", included: true },
+        { name: "Void Guard + PIN Supervisor", included: true },
+        { name: "Kiosk Mode Terkunci", included: true },
+        { name: "Stock Opname & Waste Log", included: true },
+        { name: "Dasbor Konsolidasi Multi-Outlet", included: true },
+      ],
+    },
+    {
+      id: "enterprise",
+      name: "Enterprise",
+      description: "Untuk jaringan retail & resto besar (>10 cabang) dengan kebutuhan SLA dan integrasi khusus.",
+      monthlyPrice: 599000,
+      yearlyPricePerMonth: 499000,
+      outletLimit: "Cabang Tak Terbatas",
+      deviceLimit: "Perangkat Tak Terbatas",
+      ctaText: "Hubungi Sales",
+      ctaHref: brandContent.contacts.whatsappUrl,
+      features: [
+        { name: "Semua fitur Paket Bisnis", included: true },
+        { name: "Audit Trail Append-Only Lengkap", included: true },
+        { name: "Dedicated Sync Server & Priority SLA", included: true },
+        { name: "Integrasi ERP / Accounting API", included: true },
+        { name: "Account Manager & Onboarding Khusus", included: true },
+        { name: "Custom Role & Permission Matrix", included: true },
+      ],
+    },
+  ] satisfies PricingPlan[],
+} as const;

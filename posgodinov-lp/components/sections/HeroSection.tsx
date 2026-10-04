@@ -15,22 +15,12 @@ export function HeroSection() {
       aria-labelledby="hero-title"
       className="relative overflow-hidden pt-12 pb-20 md:pt-16 md:pb-28 lg:pt-20 lg:pb-36"
     >
-      {/* Subtle ambient background glow without overdone slop */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-40 right-1/4 h-96 w-96 rounded-full bg-brand-500/5 blur-3xl"
-      />
-
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-8">
           {/* Left Column: 55% visual balance */}
           <div className="lg:col-span-7 space-y-6 sm:space-y-8">
-            {/* Eyebrow Badge */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-3.5 py-1 text-xs font-mono font-medium text-brand-300">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-500 opacity-60" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-500" />
-              </span>
+            {/* Category Context (anti-slop clean pill, no fake pulse) */}
+            <div className="inline-flex items-center rounded-md border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-xs font-mono font-medium text-brand-300">
               <span>{hero.eyebrow}</span>
             </div>
 
