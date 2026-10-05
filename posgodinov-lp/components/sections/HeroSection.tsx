@@ -39,7 +39,7 @@ export function HeroSection() {
                 asChild
                 size="lg"
                 data-testid="hero-cta-primary"
-                className="bg-brand-500 text-ink-950 hover:bg-brand-400 font-bold text-base shadow-sm"
+                className="bg-brand-500 text-onbright hover:bg-brand-400 font-bold text-base shadow-sm"
               >
                 <Link href={hero.ctaPrimary.href} className="flex items-center justify-center gap-2">
                   <span>{hero.ctaPrimary.text}</span>

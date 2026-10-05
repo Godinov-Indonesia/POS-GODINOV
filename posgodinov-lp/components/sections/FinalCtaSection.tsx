@@ -10,7 +10,7 @@ export function FinalCtaSection() {
   return (
     <section className="relative overflow-hidden py-20 lg:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="relative overflow-hidden rounded-3xl border border-brand-500/30 bg-gradient-to-b from-brand-purple/40 to-ink-950 p-8 sm:p-12 md:p-16 text-center shadow-2xl backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-3xl border border-brand-500/30 bg-gradient-to-b from-brand-500/[0.06] to-ink-950 p-8 sm:p-12 md:p-16 text-center shadow-2xl backdrop-blur-xl dark:from-brand-purple/40">
           <div className="mx-auto max-w-2xl space-y-4">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-paper-50 leading-tight">
               {finalCta.heading}
@@ -23,7 +23,7 @@ export function FinalCtaSection() {
               <Button
                 asChild
                 size="lg"
-                className="w-full sm:w-auto bg-brand-500 text-ink-950 hover:bg-brand-400 font-bold px-8 shadow-lg shadow-brand-500/20"
+                className="w-full sm:w-auto bg-brand-500 text-onbright hover:bg-brand-400 font-bold px-8 shadow-lg shadow-brand-500/20"
               >
                 <Link href={finalCta.ctaPrimary.href} className="flex items-center justify-center gap-2">
                   <span>{finalCta.ctaPrimary.text}</span>

@@ -26,7 +26,7 @@ export function PricingCard({
       )}
     >
       {plan.highlighted && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-brand-500/50 bg-brand-500 px-3.5 py-0.5 text-xs font-bold text-ink-950 uppercase tracking-wider">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-brand-500/50 bg-brand-500 px-3.5 py-0.5 text-xs font-bold text-onbright uppercase tracking-wider">
           Paling Populer
         </span>
       )}
@@ -45,7 +45,7 @@ export function PricingCard({
               <Button
                 asChild
                 size="lg"
-                className="w-full font-bold bg-brand-500 text-ink-950 hover:bg-brand-400 shadow-md shadow-brand-500/15"
+                className="w-full font-bold bg-brand-500 text-onbright hover:bg-brand-400 shadow-md shadow-brand-500/15"
               >
                 <Link href={plan.ctaHref}>{plan.ctaText}</Link>
               </Button>
@@ -78,7 +78,7 @@ export function PricingCard({
       </div>
 
       {!plan.customPrice && (
-        <Button asChild size="lg" variant={plan.highlighted ? "default" : "outline"} className={cn("w-full font-bold", plan.highlighted ? "bg-brand-500 text-ink-950 hover:bg-brand-400" : "border-ink-800 bg-ink-900/60 text-paper-50 hover:bg-ink-800")}>
+        <Button asChild size="lg" variant={plan.highlighted ? "default" : "outline"} className={cn("w-full font-bold", plan.highlighted ? "bg-brand-500 text-onbright hover:bg-brand-400" : "border-ink-800 bg-ink-900/60 text-paper-50 hover:bg-ink-800")}>
           <Link href={plan.ctaHref}>{plan.ctaText}</Link>
         </Button>
       )}

@@ -9,7 +9,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-brand-500 text-ink-950 font-semibold hover:bg-brand-300 shadow-sm",
+          "bg-brand-500 text-onbright font-semibold hover:bg-brand-300 shadow-sm",
         secondary:
           "bg-ink-900 border border-ink-800 text-paper-50 hover:bg-ink-800/80 hover:border-ink-800",
         ghost:

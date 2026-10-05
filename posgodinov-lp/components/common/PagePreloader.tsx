@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { BrandLogo } from "@/components/common/BrandLogo";
 
 export function PagePreloader({ minDisplayMs = 750 }: { minDisplayMs?: number }) {
   const [loading, setLoading] = React.useState(true);
@@ -23,15 +23,12 @@ export function PagePreloader({ minDisplayMs = 750 }: { minDisplayMs?: number })
           initial={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.45, ease: "easeInOut" } }}
           className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-ink-950 select-none"
-          style={{ backgroundColor: "#0B061A" }}
           aria-live="polite"
           aria-busy="true"
         >
           <div className="flex flex-col items-center justify-center">
             <div className="animate-pulse">
-              <Image
-                src="/images/logo-transparent.webp"
-                alt="Godinov POS"
+              <BrandLogo
                 width={180}
                 height={52}
                 priority

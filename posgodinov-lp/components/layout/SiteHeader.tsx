@@ -2,10 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { ArrowRight } from "lucide-react";
 import { siteContent } from "@/lib/content";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import { DesktopNav } from "@/components/layout/DesktopNav";
 import { MobileNav } from "@/components/layout/MobileNav";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function SiteHeader() {
@@ -28,31 +31,40 @@ export function SiteHeader() {
           : "border-b border-transparent bg-transparent"
       )}
     >
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="relative mx-auto flex h-16 sm:h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
           className="flex items-center group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded-md"
           aria-label="Godinov POS Beranda"
         >
-          <Image
-            src="/images/logo-transparent.webp"
-            alt="Godinov POS"
+          <BrandLogo
             width={165}
             height={48}
             priority
-            className="h-9 sm:h-10 md:h-11 w-auto object-contain"
+            className="h-8 sm:h-9 md:h-10 w-auto object-contain"
           />
         </Link>
 
-        <DesktopNav navItems={siteContent.header.navItems} />
+        <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 md:block">
+          <DesktopNav navItems={siteContent.header.navItems} />
+        </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <ThemeToggle />
+
           <Link
             href={siteContent.header.loginHref}
-            className="text-sm sm:text-base font-semibold text-brand-500 hover:text-brand-400 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl border border-brand-500/30 bg-brand-500/10 hover:bg-brand-500/20 transition-colors focus-visible:ring-2 focus-visible:ring-brand-500"
+            className="hidden lg:inline-flex text-sm font-medium text-paper-50/80 hover:text-paper-50 px-3 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             {siteContent.header.loginText}
           </Link>
+
+          <Button asChild size="sm" className="hidden md:inline-flex font-semibold">
+            <Link href={siteContent.header.ctaHref} className="flex items-center gap-1.5">
+              <span>{siteContent.header.ctaText}</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
 
           <MobileNav navItems={siteContent.header.navItems} />
         </div>

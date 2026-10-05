@@ -1,7 +1,7 @@
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { siteContent } from "@/lib/content";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import { Mail, MessageCircle, MapPin } from "lucide-react";
 
 function InstagramIcon({ className }: { className?: string }) {
@@ -29,7 +29,7 @@ export function SiteFooter() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10 pb-12 border-b border-ink-800/60">
           <div className="md:col-span-4 lg:col-span-5 space-y-4">
             <Link href="/" className="inline-block" aria-label="Godinov POS Beranda">
-              <Image src="/images/logo-transparent.webp" alt="Godinov POS" width={140} height={40} className="h-8 w-auto object-contain" />
+              <BrandLogo width={140} height={40} className="h-8 w-auto object-contain" />
             </Link>
             <p className="text-xs sm:text-sm text-paper-50/60 max-w-sm leading-relaxed">
               Sistem kasir handal yang tetap melayani penjualan tanpa sinyal, menutup celah kebocoran kas, dan mengamankan omzet cabang Anda.

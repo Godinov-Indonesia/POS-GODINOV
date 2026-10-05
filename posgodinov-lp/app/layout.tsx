@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { ThemeColorSync } from "@/components/providers/ThemeColorSync";
 import { PagePreloader } from "@/components/common/PagePreloader";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -58,7 +60,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#0B061A",
-  colorScheme: "dark",
+  colorScheme: "dark light",
   width: "device-width",
   initialScale: 1,
 };
@@ -71,22 +73,22 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      style={{ backgroundColor: "#0B061A" }}
-      className={`${geistSans.variable} ${geistMono.variable} dark antialiased`}
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
-      <body
-        style={{ backgroundColor: "#0B061A" }}
-        className="min-h-screen bg-ink-950 text-paper-50 flex flex-col font-display selection:bg-brand-500/30 selection:text-paper-50"
-      >
-        <PagePreloader />
-        <a href="#main" className="sr-only">
-          Lewati ke konten utama
-        </a>
-        <SiteHeader />
-        <main id="main" className="flex-1">
-          {children}
-        </main>
-        <SiteFooter />
+      <body className="min-h-screen bg-ink-950 text-paper-50 flex flex-col font-display selection:bg-brand-500/30 selection:text-paper-50">
+        <ThemeProvider>
+          <ThemeColorSync />
+          <PagePreloader />
+          <a href="#main" className="sr-only">
+            Lewati ke konten utama
+          </a>
+          <SiteHeader />
+          <main id="main" className="flex-1">
+            {children}
+          </main>
+          <SiteFooter />
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -1,31 +1,67 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --color-ink-950: #0B061A;
-  --color-ink-900: #130B2E;
-  --color-ink-800: #22154A;
-  --color-ink-700: #33206D;
+  --color-ink-950: var(--surface-0);
+  --color-ink-900: var(--surface-1);
+  --color-ink-800: var(--surface-2);
+  --color-ink-700: var(--surface-3);
 
   --color-brand-purple: #2A0573;
-  --color-brand-500: #00FFD1;
-  --color-brand-400: #26FFD7;
-  --color-brand-300: #66FFE2;
-  --color-brand-600: #00D4AE;
+  --color-brand-500: var(--accent-500);
+  --color-brand-400: var(--accent-400);
+  --color-brand-300: var(--accent-300);
+  --color-brand-600: var(--accent-600);
 
   --color-signal-500: #F59E0B;
   --color-alert-500: #EF4444;
 
-  --color-paper-50: #F9FAFB;
-  --color-paper-100: #E5E7EB;
-  --color-paper-400: #9E95B3;
+  --color-paper-50: var(--fg-0);
+  --color-paper-100: var(--fg-1);
+  --color-paper-400: var(--fg-2);
+
+  /* Fixed dark ink for text sitting on bright/brand surfaces (buttons, badges) — stays dark in both themes. */
+  --color-onbright: #0B061A;
 
   --radius-card: 1rem;
   --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-:root {
+:root,
+.dark {
   color-scheme: dark;
+  --surface-0: #0B061A;
+  --surface-1: #130B2E;
+  --surface-2: #22154A;
+  --surface-3: #33206D;
+  --fg-0: #F9FAFB;
+  --fg-1: #E5E7EB;
+  --fg-2: #9E95B3;
+
+  /* Neon teal reads correctly against a near-black page. */
+  --accent-500: #00FFD1;
+  --accent-400: #26FFD7;
+  --accent-300: #66FFE2;
+  --accent-600: #00D4AE;
+}
+
+.light {
+  color-scheme: light;
+  --surface-0: #F6F5FA;
+  --surface-1: #FFFFFF;
+  --surface-2: #E7E2F2;
+  --surface-3: #D4CBE9;
+  --fg-0: #150B30;
+  --fg-1: #352A52;
+  --fg-2: #6E6682;
+
+  /* Same hue, deepened — neon teal washes out on white, this keeps it legible and on-brand. */
+  --accent-500: #00B894;
+  --accent-400: #00A383;
+  --accent-300: #00806A;
+  --accent-600: #006B59;
 }
 
 html {
@@ -40,6 +76,7 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   overflow-x: hidden;
   min-height: 100vh;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 .tabular-nums, table, input[inputmode="numeric"], input[inputmode="decimal"] {
@@ -73,7 +110,7 @@ body {
   height: auto;
   padding: 0.75rem 1.5rem;
   background-color: var(--color-brand-500);
-  color: #0B061A;
+  color: var(--color-onbright);
   font-weight: 700;
   border-radius: 0.5rem;
   clip: auto;

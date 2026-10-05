@@ -51,7 +51,7 @@ export function PosCart() {
         <div className="grid grid-cols-2 gap-2 text-xs">
           <button
             type="button"
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-brand-500 py-2 font-bold text-ink-950 hover:bg-brand-400 transition-colors"
+            className="flex items-center justify-center gap-1.5 rounded-lg bg-brand-500 py-2 font-bold text-onbright hover:bg-brand-400 transition-colors"
           >
             <Receipt className="h-3.5 w-3.5" />
             Bayar Tunai

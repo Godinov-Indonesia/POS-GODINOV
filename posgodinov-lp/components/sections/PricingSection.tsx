@@ -34,11 +34,11 @@ export function PricingSection() {
             onClick={() => setIsYearly(true)}
             className={cn(
               "flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-full transition-all",
-              isYearly ? "bg-brand-500 text-ink-950 shadow" : "text-paper-50/60 hover:text-paper-50"
+              isYearly ? "bg-brand-500 text-onbright shadow" : "text-paper-50/60 hover:text-paper-50"
             )}
           >
             <span>Tahunan</span>
-            <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold uppercase", isYearly ? "bg-ink-950/20 text-ink-950" : "bg-brand-500/20 text-brand-300")}>
+            <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-bold uppercase", isYearly ? "bg-onbright/20 text-onbright" : "bg-brand-500/20 text-brand-300")}>
               Hemat 20%
             </span>
           </button>

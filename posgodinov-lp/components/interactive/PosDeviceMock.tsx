@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import { useReducedMotion } from "framer-motion";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import { StatusPill, type ConnectionState } from "@/components/common/StatusPill";
 import { PosCart } from "./pos-device/PosCart";
 import { PosTelemetry } from "./pos-device/PosTelemetry";
@@ -50,13 +50,7 @@ export function PosDeviceMock({
           <span className="h-2.5 w-2.5 rounded-full bg-signal-500/80" />
           <span className="h-2.5 w-2.5 rounded-full bg-brand-500/80" />
           <div className="ml-1.5 flex items-center gap-1.5">
-            <Image
-              src="/images/logo-transparent.webp"
-              alt="Godinov POS"
-              width={65}
-              height={18}
-              className="h-3.5 w-auto object-contain opacity-80"
-            />
+            <BrandLogo width={65} height={18} className="h-3.5 w-auto object-contain opacity-80" />
             <span className="font-mono text-[10px] text-paper-50/50">
               · Terminal #01 (Sinyal 1 Bar)
             </span>
