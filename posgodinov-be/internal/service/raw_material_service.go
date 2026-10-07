@@ -8,18 +8,32 @@ import (
 )
 
 type rawMaterialService struct {
-	repo       domain.RawMaterialRepository
-	outletRepo domain.OutletRepository
+	repo         domain.RawMaterialRepository
+	outletRepo   domain.OutletRepository
+	policyEngine domain.PolicyEngine
+}
+
+type RawMaterialServiceOption func(*rawMaterialService)
+
+func WithRawMaterialPolicyEngine(pe domain.PolicyEngine) RawMaterialServiceOption {
+	return func(s *rawMaterialService) {
+		s.policyEngine = pe
+	}
 }
 
 func NewRawMaterialService(
 	repo domain.RawMaterialRepository,
 	outletRepo domain.OutletRepository,
+	opts ...RawMaterialServiceOption,
 ) domain.RawMaterialService {
-	return &rawMaterialService{
+	s := &rawMaterialService{
 		repo:       repo,
 		outletRepo: outletRepo,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 func (s *rawMaterialService) Create(ctx context.Context, businessID, outletID string, req *domain.CreateRawMaterialRequest) (*domain.RawMaterial, error) {
@@ -32,6 +46,13 @@ func (s *rawMaterialService) Create(ctx context.Context, businessID, outletID st
 
 	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
 		return nil, err
+	}
+
+	if s.policyEngine != nil {
+		existing, _ := s.repo.GetAllByOutletID(ctx, outletID)
+		if err := s.policyEngine.AssertQuota(ctx, businessID, "max_raw_materials", int64(len(existing)+1)); err != nil {
+			return nil, err
+		}
 	}
 
 	rm := &domain.RawMaterial{
@@ -56,6 +77,13 @@ func (s *rawMaterialService) Create(ctx context.Context, businessID, outletID st
 func (s *rawMaterialService) CreateBulk(ctx context.Context, businessID, outletID string, reqs []*domain.CreateRawMaterialRequest) ([]*domain.RawMaterial, error) {
 	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
 		return nil, err
+	}
+
+	if s.policyEngine != nil {
+		existing, _ := s.repo.GetAllByOutletID(ctx, outletID)
+		if err := s.policyEngine.AssertQuota(ctx, businessID, "max_raw_materials", int64(len(existing)+len(reqs))); err != nil {
+			return nil, err
+		}
 	}
 
 	var rawMaterials []*domain.RawMaterial

@@ -38,4 +38,5 @@ type ReportRepository interface {
 type ReportService interface {
 	GetDashboard(ctx context.Context, filter ReportFilter) (*DashboardResponse, error)
 	GetTransactions(ctx context.Context, filter ReportFilter) ([]*Transaction, error)
+	Export(ctx context.Context, reportType string, filter ReportFilter) (interface{}, error)
 }

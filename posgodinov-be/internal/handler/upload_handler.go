@@ -52,6 +52,11 @@ func (h *UploadHandler) GetUploadSignature(w http.ResponseWriter, r *http.Reques
 			response.Error(w, http.StatusServiceUnavailable, err.Error(), nil)
 			return
 		}
+		var quotaErr *service.QuotaExceededError
+		if errors.As(err, &quotaErr) {
+			response.QuotaExceeded(w, quotaErr.FeatureKey, quotaErr.CurrentUsage, quotaErr.LimitValue)
+			return
+		}
 		logger.Error("Gagal generate signature upload", "error", err)
 		response.Error(w, http.StatusInternalServerError, "Gagal membuat signature upload", nil)
 		return

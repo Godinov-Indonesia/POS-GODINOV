@@ -2,6 +2,7 @@ package response
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -29,6 +30,17 @@ func Error(w http.ResponseWriter, statusCode int, message string, errors map[str
 	}
 
 	json.NewEncoder(w).Encode(res)
+}
+
+// QuotaExceeded writes a 403 PLAN_LIMIT_EXCEEDED response
+func QuotaExceeded(w http.ResponseWriter, featureKey string, currentUsage, limitValue int64) {
+	Error(w, http.StatusForbidden, "Batas kuota paket Anda telah tercapai", map[string]string{
+		"code":          "PLAN_LIMIT_EXCEEDED",
+		"feature_key":   featureKey,
+		"current_usage": fmt.Sprintf("%d", currentUsage),
+		"limit_value":   fmt.Sprintf("%d", limitValue),
+		"upgrade_url":   "/upgrade?feature=" + featureKey,
+	})
 }
 
 type SuccessResponse struct {

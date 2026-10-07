@@ -64,6 +64,8 @@ func writeServiceError(w http.ResponseWriter, err error, fallback string) {
 		response.Error(w, http.StatusForbidden, "Staff bukan anggota outlet ini", map[string]string{"code": "STAFF_FORBIDDEN"})
 	case errors.Is(err, service.ErrSOStaffInactive):
 		response.Error(w, http.StatusForbidden, "Staff tidak aktif", map[string]string{"code": "STAFF_INACTIVE"})
+	case errors.Is(err, service.ErrSOCollaborativeForbidden) || strings.Contains(err.Error(), "fitur SO multi-staf tidak tersedia"):
+		response.Error(w, http.StatusForbidden, err.Error(), map[string]string{"code": "PLAN_LIMIT_EXCEEDED"})
 	default:
 		response.Error(w, http.StatusInternalServerError, fallback, map[string]string{"error": err.Error()})
 	}

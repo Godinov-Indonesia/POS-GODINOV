@@ -19,18 +19,20 @@ var (
 	ErrSOFormForbidden   = errors.New("form SO bukan milik outlet ini")
 	ErrSOFormNoItems     = errors.New("form SO tidak memiliki material")
 	ErrSOFormNoCounts    = errors.New("belum ada hitungan yang disubmit")
-	ErrSOStaffNotFound  = errors.New("staff tidak ditemukan")
-	ErrSOStaffForbidden = errors.New("staff bukan anggota outlet ini")
-	ErrSOStaffInactive  = errors.New("staff tidak aktif")
+	ErrSOStaffNotFound           = errors.New("staff tidak ditemukan")
+	ErrSOStaffForbidden          = errors.New("staff bukan anggota outlet ini")
+	ErrSOStaffInactive           = errors.New("staff tidak aktif")
+	ErrSOCollaborativeForbidden  = errors.New("fitur SO multi-staf tidak tersedia pada paket Anda")
 )
 
 type opnameSessionService struct {
-	repo       domain.OpnameSessionRepository
-	rmRepo     domain.RawMaterialRepository
-	outletRepo domain.OutletRepository
-	staffRepo  domain.StaffRepository
-	txManager  database.TransactionManager
-	now        func() time.Time
+	repo         domain.OpnameSessionRepository
+	rmRepo       domain.RawMaterialRepository
+	outletRepo   domain.OutletRepository
+	staffRepo    domain.StaffRepository
+	policyEngine domain.PolicyEngine
+	txManager    database.TransactionManager
+	now          func() time.Time
 }
 
 type OpnameSessionOption func(*opnameSessionService)
@@ -38,6 +40,12 @@ type OpnameSessionOption func(*opnameSessionService)
 func WithSOStaffRepository(repo domain.StaffRepository) OpnameSessionOption {
 	return func(s *opnameSessionService) {
 		s.staffRepo = repo
+	}
+}
+
+func WithOpnamePolicyEngine(pe domain.PolicyEngine) OpnameSessionOption {
+	return func(s *opnameSessionService) {
+		s.policyEngine = pe
 	}
 }
 
@@ -711,6 +719,24 @@ func (s *opnameSessionService) SubmitCounts(ctx context.Context, businessID, out
 
 	if session.Status != domain.SOStatusPublished && session.Status != domain.SOStatusCounting {
 		return errors.New("form SO tidak dalam status yang dapat disubmit")
+	}
+
+	if s.policyEngine != nil {
+		existingEntries, err := s.repo.ListCountEntries(ctx, session.ID)
+		if err == nil && len(existingEntries) > 0 {
+			isDifferentSubmitter := false
+			for _, entry := range existingEntries {
+				if entry.CountedBy != staffID {
+					isDifferentSubmitter = true
+					break
+				}
+			}
+			if isDifferentSubmitter {
+				if err := s.policyEngine.AssertFeature(ctx, businessID, "stock_opname_collaborative"); err != nil {
+					return ErrSOCollaborativeForbidden
+				}
+			}
+		}
 	}
 
 	formItems, err := s.repo.ListFormItems(ctx, session.ID)

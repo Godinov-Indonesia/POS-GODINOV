@@ -19,7 +19,8 @@ type staffService struct {
 	// peran, dan izinnya. Kasir yang dinonaktifkan pemilik harus lenyap dari
 	// perangkat pada penarikan berikutnya, dan itu hanya terjadi bila
 	// perubahannya menaikkan versi.
-	versions masterVersionBumper
+	versions     masterVersionBumper
+	policyEngine domain.PolicyEngine
 }
 
 func NewStaffService(
@@ -46,6 +47,12 @@ func WithStaffMasterVersion(
 	}
 }
 
+func WithStaffPolicyEngine(pe domain.PolicyEngine) StaffServiceOption {
+	return func(s *staffService) {
+		s.policyEngine = pe
+	}
+}
+
 func (s *staffService) RegisterStaff(ctx context.Context, businessID string, req *domain.CreateStaffRequest) (*domain.Staff, error) {
 	if req.OutletID == "" || req.StaffIdentifier == "" || req.Name == "" || req.PIN == "" {
 		return nil, errors.New("data pendaftaran tidak lengkap")
@@ -62,6 +69,13 @@ func (s *staffService) RegisterStaff(ctx context.Context, businessID string, req
 	}
 	if outlet.BusinessID != businessID {
 		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	}
+
+	if s.policyEngine != nil {
+		allStaff, _ := s.staffRepo.GetAllByOutletID(ctx, req.OutletID)
+		if err := s.policyEngine.AssertQuota(ctx, businessID, "max_staff_per_outlet", int64(len(allStaff)+1)); err != nil {
+			return nil, err
+		}
 	}
 
 	// 2. Cek apakah staff_identifier sudah dipakai di outlet ini
@@ -226,6 +240,12 @@ func (s *staffService) DeleteStaff(ctx context.Context, businessID, staffID stri
 func (s *staffService) TransferStaff(ctx context.Context, businessID, staffID string, req *domain.TransferStaffRequest) (*domain.Staff, error) {
 	if req == nil || req.TargetOutletID == "" {
 		return nil, errors.New("outlet tujuan harus diisi")
+	}
+
+	if s.policyEngine != nil {
+		if err := s.policyEngine.AssertFeature(ctx, businessID, "staff_transfer"); err != nil {
+			return nil, err
+		}
 	}
 
 	staff, err := s.staffRepo.GetByID(ctx, staffID)
