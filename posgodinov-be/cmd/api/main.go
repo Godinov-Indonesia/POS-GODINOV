@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"time"
 
+	"posgodinov-backend/internal/adapter"
 	"posgodinov-backend/internal/config"
 	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/handler"
@@ -98,19 +99,36 @@ func main() {
 	// Repositori v2 — Fase M16.3 ([11 §4.7])
 	opnameSessionRepo := repository.NewOpnameSessionRepository(db)
 
+	// Repositori SaaS & Landlord Platform
+	landlordRepo := repository.NewLandlordRepository(db)
+	saasRepo := repository.NewSaaSRepository(db)
+	policyEngine := service.NewPolicyEngine(saasRepo)
+
 	// Setup Services
 	businessSvc := service.NewBusinessService(businessRepo, tokenMaker, txManager, businessManager,
-		cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL)
-	outletSvc := service.NewOutletService(outletRepo, businessRepo, txManager)
+		cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL,
+		service.WithSaaSRepository(saasRepo))
+	outletSvc := service.NewOutletService(outletRepo, businessRepo, txManager,
+		service.WithOutletPolicyEngine(policyEngine))
 	staffSvc := service.NewStaffService(staffRepo, outletRepo,
-		service.WithStaffMasterVersion(txManager, masterVersionRepo))
-	rawMaterialSvc := service.NewRawMaterialService(rawMaterialRepo, outletRepo)
+		service.WithStaffMasterVersion(txManager, masterVersionRepo),
+		service.WithStaffPolicyEngine(policyEngine))
+	rawMaterialSvc := service.NewRawMaterialService(rawMaterialRepo, outletRepo,
+		service.WithRawMaterialPolicyEngine(policyEngine))
 	productSvc := service.NewProductService(productRepo, rawMaterialRepo, outletRepo, txManager,
-		service.WithProductMasterVersion(masterVersionRepo))
+		service.WithProductMasterVersion(masterVersionRepo),
+		service.WithProductPolicyEngine(policyEngine))
 	wasteLogSvc := service.NewWasteLogService(wasteLogRepo, rawMaterialRepo, outletRepo, txManager)
 	restockLogSvc := service.NewRestockLogService(restockLogRepo, rawMaterialRepo, outletRepo, txManager)
 	categorySvc := service.NewProductCategoryService(categoryRepo, outletRepo,
 		service.WithCategoryMasterVersion(txManager, masterVersionRepo))
+	paymentHubClient := adapter.NewMockPaymentHubAdapter()
+	landlordSvc := service.NewLandlordService(
+		landlordRepo, saasRepo, businessRepo, tokenMaker, policyEngine,
+		service.WithLandlordPaymentHub(paymentHubClient),
+		service.WithLandlordTxManager(txManager),
+		service.WithLandlordRevalidateConfig(cfg.LandingPageRevalidateURL, cfg.LandingPageRevalidateSecret),
+	)
 	posAuthSvc := service.NewPOSAuthService(businessRepo, outletRepo, tokenMaker, businessManager)
 	// Aturan retur hidup di layanannya sendiri ([11 §M13.6]) dan dipakai DUA
 	// pemanggil: jalur sinkronisasi dan endpoint `returnable`. Satu instance
@@ -129,6 +147,7 @@ func main() {
 	opnameSessionSvc := service.NewOpnameSessionService(
 		opnameSessionRepo, rawMaterialRepo, outletRepo, txManager,
 		service.WithSOStaffRepository(staffRepo),
+		service.WithOpnamePolicyEngine(policyEngine),
 	)
 
 	posSyncSvc := service.NewPOSSyncService(
@@ -140,7 +159,12 @@ func main() {
 		service.WithMasterVersionRepository(masterVersionRepo),
 		service.WithShiftReconcileService(shiftReconcileSvc),
 	)
-	reportSvc := service.NewReportService(reportRepo)
+	reportSvc := service.NewReportService(
+		reportRepo,
+		service.WithReportPolicyEngine(policyEngine),
+		service.WithReportWasteLogRepo(wasteLogRepo),
+		service.WithReportRestockLogRepo(restockLogRepo),
+	)
 
 	// Setup Handlers
 	businessHandler := handler.NewBusinessHandler(businessSvc)
@@ -157,18 +181,27 @@ func main() {
 	reportHandler := handler.NewReportHandler(reportSvc)
 	shiftReconcileHandler := handler.NewShiftReconcileHandler(shiftReconcileSvc)
 	opnameSessionHandler := handler.NewOpnameSessionHandler(opnameSessionSvc)
-	uploadSvc := service.NewUploadService(cfg)
+	uploadSvc := service.NewUploadService(
+		cfg,
+		service.WithUploadPolicyEngine(policyEngine),
+	)
 	uploadHandler := handler.NewUploadHandler(uploadSvc)
+	landlordHandler := handler.NewLandlordHandler(landlordSvc)
+	dunningSvc := service.NewDunningService(
+		saasRepo,
+		policyEngine,
+		service.WithDunningTxManager(txManager),
+	)
 
 	// Setup Router
 	mux := handler.SetupRouter(
-		businessHandler, 
-		outletHandler, 
-		staffHandler, 
-		rawMaterialHandler, 
-		productHandler, 
-		wasteLogHandler, 
-		restockLogHandler, 
+		businessHandler,
+		outletHandler,
+		staffHandler,
+		rawMaterialHandler,
+		productHandler,
+		wasteLogHandler,
+		restockLogHandler,
 		categoryHandler,
 		posAuthHandler,
 		posSyncHandler,
@@ -177,7 +210,8 @@ func main() {
 		shiftReconcileHandler,
 		opnameSessionHandler,
 		uploadHandler,
-		tokenMaker, 
+		landlordHandler,
+		tokenMaker,
 		auditRepo,
 		businessManager,
 	)
@@ -196,12 +230,31 @@ func main() {
 
 	// Graceful shutdown setup
 	idleConnsClosed := make(chan struct{})
+	cronCtx, cronCancel := context.WithCancel(context.Background())
+
+	// Background Cron: Dunning & Grace Period Runner (1 hour interval)
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-cronCtx.Done():
+				return
+			case <-ticker.C:
+				if err := dunningSvc.RunDunningCheck(cronCtx); err != nil {
+					logger.Error("Dunning check error", "error", err)
+				}
+			}
+		}
+	}()
+
 	go func() {
 		sigint := make(chan os.Signal, 1)
 		signal.Notify(sigint, os.Interrupt)
 		<-sigint
 
 		logger.Info("Shutting down server...")
+		cronCancel()
 
 		ctx, cancel := context.WithTimeoutCause(context.Background(), 10*time.Second, nil)
 		defer cancel()

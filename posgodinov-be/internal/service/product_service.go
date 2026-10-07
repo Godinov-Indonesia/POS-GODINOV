@@ -9,10 +9,11 @@ import (
 )
 
 type productService struct {
-	repo       domain.ProductRepository
-	rmRepo     domain.RawMaterialRepository
-	outletRepo domain.OutletRepository
-	txManager  database.TransactionManager
+	repo         domain.ProductRepository
+	rmRepo       domain.RawMaterialRepository
+	outletRepo   domain.OutletRepository
+	txManager    database.TransactionManager
+	policyEngine domain.PolicyEngine
 
 	// v2 · butir 10 — dinaikkan bersama setiap mutasi produk & resep.
 	versions masterVersionBumper
@@ -45,6 +46,10 @@ func WithProductMasterVersion(r domain.MasterVersionRepository) ProductServiceOp
 	return func(s *productService) { s.versions.repo = r }
 }
 
+func WithProductPolicyEngine(pe domain.PolicyEngine) ProductServiceOption {
+	return func(s *productService) { s.policyEngine = pe }
+}
+
 func (s *productService) Create(ctx context.Context, businessID, outletID string, req *domain.CreateProductRequest) (*domain.Product, error) {
 	if req.Name == "" || req.Price < 0 {
 		return nil, errors.New("nama dan harga produk tidak valid")
@@ -57,6 +62,13 @@ func (s *productService) Create(ctx context.Context, businessID, outletID string
 	}
 	if outlet.BusinessID != businessID {
 		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	}
+
+	if s.policyEngine != nil {
+		existing, _ := s.repo.GetAllByOutletID(ctx, outletID)
+		if err := s.policyEngine.AssertQuota(ctx, businessID, "max_products", int64(len(existing)+1)); err != nil {
+			return nil, err
+		}
 	}
 
 	var createdProduct *domain.Product
@@ -127,6 +139,13 @@ func (s *productService) CreateBulk(ctx context.Context, businessID, outletID st
 	}
 	if outlet.BusinessID != businessID {
 		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	}
+
+	if s.policyEngine != nil {
+		existing, _ := s.repo.GetAllByOutletID(ctx, outletID)
+		if err := s.policyEngine.AssertQuota(ctx, businessID, "max_products", int64(len(existing)+len(reqs))); err != nil {
+			return nil, err
+		}
 	}
 
 	var createdProducts []*domain.Product

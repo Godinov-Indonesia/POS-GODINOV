@@ -30,6 +30,10 @@ type Config struct {
 	CloudinaryAPIKey    string
 	CloudinaryAPISecret string
 	CloudinaryFolder    string
+
+	// Landing Page Revalidation
+	LandingPageRevalidateURL    string
+	LandingPageRevalidateSecret string
 }
 
 func LoadConfig() (*Config, error) {
@@ -57,6 +61,9 @@ func LoadConfig() (*Config, error) {
 		CloudinaryAPIKey:    os.Getenv("CLOUDINARY_API_KEY"),
 		CloudinaryAPISecret: os.Getenv("CLOUDINARY_API_SECRET"),
 		CloudinaryFolder:    cmp.Or(os.Getenv("CLOUDINARY_FOLDER"), "posgodinov"),
+
+		LandingPageRevalidateURL:    os.Getenv("LANDING_PAGE_REVALIDATE_URL"),
+		LandingPageRevalidateSecret: os.Getenv("LANDING_PAGE_REVALIDATE_SECRET"),
 	}
 
 	return cfg, nil
