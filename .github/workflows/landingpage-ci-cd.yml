@@ -41,7 +41,7 @@ jobs:
       - name: Run Next.js Build Verification
         run: pnpm run build
       
-  deploy-vercel:
+  # deploy-vercel:
     name: 2. Deploy to Vercel Production
     needs: test
     runs-on: ubuntu-latest

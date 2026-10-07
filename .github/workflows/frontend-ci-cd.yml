@@ -84,7 +84,7 @@ jobs:
           tags: \${{ steps.meta.outputs.tags }}
           labels: \${{ steps.meta.outputs.labels }}
       
-  deploy-vercel:
+  # deploy-vercel:
     name: 4. Deploy to Vercel Production
     needs: test
     runs-on: ubuntu-latest
