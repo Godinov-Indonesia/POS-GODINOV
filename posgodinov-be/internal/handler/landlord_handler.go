@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -218,6 +219,14 @@ func (h *LandlordHandler) UpdateLandingSetting(w http.ResponseWriter, r *http.Re
 	response.Success(w, http.StatusOK, "Pengaturan berhasil diperbarui", nil)
 }
 
+func (h *LandlordHandler) RevalidateLandingPage(w http.ResponseWriter, r *http.Request) {
+	if err := h.svc.TriggerLandingRevalidate(r.Context()); err != nil {
+		response.Error(w, http.StatusBadGateway, fmt.Sprintf("Gagal memicu revalidasi landing page: %v", err), nil)
+		return
+	}
+	response.Success(w, http.StatusOK, "Revalidasi landing page berhasil dipicu", nil)
+}
+
 // Public API
 func (h *LandlordHandler) GetPublicLandingPage(w http.ResponseWriter, r *http.Request) {
 	data, err := h.svc.GetPublicLandingPage(r.Context())
@@ -243,6 +252,37 @@ func (h *LandlordHandler) GetTenantSubscription(w http.ResponseWriter, r *http.R
 	}
 
 	response.Success(w, http.StatusOK, "Detail langganan berhasil diambil", res)
+}
+
+func (h *LandlordHandler) CheckoutSubscription(w http.ResponseWriter, r *http.Request) {
+	payload, ok := r.Context().Value(middleware.AuthPayloadKey).(*token.Payload)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "Token tidak valid", nil)
+		return
+	}
+
+	var req domain.CheckoutSubscriptionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Format payload tidak valid", nil)
+		return
+	}
+
+	res, err := h.svc.CheckoutSubscription(r.Context(), payload.ID, &req)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Checkout langganan berhasil diproses", res)
+}
+
+func (h *LandlordHandler) HandlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
+	if err := h.svc.HandlePaymentWebhook(r.Context(), r); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Webhook payment berhasil diproses", nil)
 }
 
 func (h *LandlordHandler) GetTenantCampaigns(w http.ResponseWriter, r *http.Request) {

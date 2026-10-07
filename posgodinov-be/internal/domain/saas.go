@@ -113,6 +113,43 @@ type MerchantWallet struct {
 	UpdatedAt        time.Time `json:"updated_at,omitzero" gorm:"column:updated_at"`
 }
 
+type SubscriptionInvoice struct {
+	ID               string     `json:"id" gorm:"primaryKey;column:id"`
+	BusinessID       string     `json:"business_id" gorm:"column:business_id"`
+	SubscriptionID   string     `json:"subscription_id" gorm:"column:subscription_id"`
+	InvoiceNumber    string     `json:"invoice_number" gorm:"uniqueIndex;column:invoice_number"`
+	PlanID           string     `json:"plan_id" gorm:"column:plan_id"`
+	BillingCycle     string     `json:"billing_cycle" gorm:"column:billing_cycle"`
+	AmountMinor      int64      `json:"amount_minor" gorm:"column:amount_minor"`
+	TaxMinor         int64      `json:"tax_minor" gorm:"column:tax_minor"`
+	TotalMinor       int64      `json:"total_minor" gorm:"column:total_minor"`
+	Status           string     `json:"status" gorm:"column:status"` // PENDING, PAID, EXPIRED, FAILED
+	PaymentGateway   string     `json:"payment_gateway" gorm:"column:payment_gateway"`
+	GatewayReference string     `json:"gateway_reference" gorm:"column:gateway_reference"`
+	PaymentMethod    string     `json:"payment_method" gorm:"column:payment_method"`
+	PaymentURL       string     `json:"payment_url" gorm:"column:payment_url"`
+	VANumber         string     `json:"va_number" gorm:"column:va_number"`
+	QRPayload        string     `json:"qr_payload" gorm:"column:qr_payload"`
+	PaidAt           *time.Time `json:"paid_at,omitempty" gorm:"column:paid_at"`
+	ExpiredAt        time.Time  `json:"expired_at" gorm:"column:expired_at"`
+	CreatedAt        time.Time  `json:"created_at,omitzero" gorm:"column:created_at"`
+}
+
+type CheckoutSubscriptionRequest struct {
+	PlanID        string `json:"plan_id"`
+	PaymentMethod string `json:"payment_method"` // WALLET, QRIS, VA
+}
+
+type CheckoutSubscriptionResponse struct {
+	PaymentMethod    string `json:"payment_method"`
+	Status           string `json:"status"` // PAID, PENDING
+	InvoiceNumber    string `json:"invoice_number,omitempty"`
+	GatewayReference string `json:"gateway_reference,omitempty"`
+	PaymentURL       string `json:"payment_url,omitempty"`
+	QRPayload        string `json:"qr_payload,omitempty"`
+	VANumber         string `json:"va_number,omitempty"`
+}
+
 // EffectivePolicy memetakan hasil evaluasi gabungan base plan + tenant overrides
 type EffectivePolicy struct {
 	PlanCode     string           `json:"plan_code"`
@@ -129,13 +166,17 @@ type SaaSRepository interface {
 	ListFeatures(ctx context.Context) ([]SaaSFeature, error)
 	ListPlans(ctx context.Context, publicOnly bool) ([]Plan, error)
 	GetPlanByID(ctx context.Context, id string) (*Plan, error)
+	GetPlanByCode(ctx context.Context, code string) (*Plan, error)
 	UpdatePlanFeature(ctx context.Context, pf *PlanFeature) error
+	GetBusinessIDsByPlanID(ctx context.Context, planID string) ([]string, error)
 
 	// Langganan Tenant
 	GetSubscriptionByBusinessID(ctx context.Context, businessID string) (*Subscription, error)
 	CreateSubscription(ctx context.Context, sub *Subscription) error
 	UpdateSubscription(ctx context.Context, sub *Subscription) error
 	CreateSubscriptionLog(ctx context.Context, log *SubscriptionLog) error
+	ListSubscriptionsExpiredBefore(ctx context.Context, t time.Time, status string) ([]*Subscription, error)
+	BulkUpdateSubscriptionStatus(ctx context.Context, ids []string, status string) error
 
 	// Overrides
 	ListActiveOverrides(ctx context.Context, businessID string) ([]TenantFeatureOverride, error)
@@ -145,6 +186,12 @@ type SaaSRepository interface {
 	// Dompet Merchant
 	CreateWallet(ctx context.Context, wallet *MerchantWallet) error
 	GetWalletByBusinessID(ctx context.Context, businessID string) (*MerchantWallet, error)
+	UpdateWallet(ctx context.Context, wallet *MerchantWallet) error
+
+	// Invoices
+	CreateInvoice(ctx context.Context, inv *SubscriptionInvoice) error
+	GetInvoiceByReference(ctx context.Context, gatewayRef string) (*SubscriptionInvoice, error)
+	UpdateInvoiceStatus(ctx context.Context, id string, status string, paidAt *time.Time) error
 
 	// Kampanye Iklan
 	ListActiveCampaigns(ctx context.Context, targetTier, placement string) ([]SaaSCampaign, error)
@@ -160,4 +207,10 @@ type PolicyEngine interface {
 	AssertFeature(ctx context.Context, businessID, featureKey string) error
 	GetNumericLimit(ctx context.Context, businessID, featureKey string) (int64, error)
 	InvalidateCache(businessID string)
+	InvalidatePlan(ctx context.Context, planID string) error
+}
+
+// DunningService mendefinisikan background job untuk penanganan masa tenggang (grace period) dan downgrade
+type DunningService interface {
+	RunDunningCheck(ctx context.Context) error
 }

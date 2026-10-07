@@ -50,6 +50,18 @@ func (r *postgresSaaSRepository) GetPlanByID(ctx context.Context, id string) (*d
 	return &plan, nil
 }
 
+func (r *postgresSaaSRepository) GetPlanByCode(ctx context.Context, code string) (*domain.Plan, error) {
+	db := database.GetDB(ctx, r.db)
+	var plan domain.Plan
+	if err := db.WithContext(ctx).Preload("Features.Feature").Where("code = ?", code).First(&plan).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("paket tidak ditemukan")
+		}
+		return nil, err
+	}
+	return &plan, nil
+}
+
 func (r *postgresSaaSRepository) UpdatePlanFeature(ctx context.Context, pf *domain.PlanFeature) error {
 	db := database.GetDB(ctx, r.db)
 	pf.UpdatedAt = time.Now()
@@ -57,6 +69,15 @@ func (r *postgresSaaSRepository) UpdatePlanFeature(ctx context.Context, pf *doma
 		Columns:   []clause.Column{{Name: "plan_id"}, {Name: "feature_key"}},
 		DoUpdates: clause.AssignmentColumns([]string{"is_enabled", "limit_value", "extra_config", "updated_at"}),
 	}).Create(pf).Error
+}
+
+func (r *postgresSaaSRepository) GetBusinessIDsByPlanID(ctx context.Context, planID string) ([]string, error) {
+	db := database.GetDB(ctx, r.db)
+	var ids []string
+	err := db.WithContext(ctx).Model(&domain.Subscription{}).
+		Where("plan_id = ? AND status IN ('ACTIVE','TRIAL','PAST_DUE')", planID).
+		Pluck("business_id", &ids).Error
+	return ids, err
 }
 
 func (r *postgresSaaSRepository) GetSubscriptionByBusinessID(ctx context.Context, businessID string) (*domain.Subscription, error) {
@@ -85,6 +106,29 @@ func (r *postgresSaaSRepository) UpdateSubscription(ctx context.Context, sub *do
 func (r *postgresSaaSRepository) CreateSubscriptionLog(ctx context.Context, log *domain.SubscriptionLog) error {
 	db := database.GetDB(ctx, r.db)
 	return db.WithContext(ctx).Create(log).Error
+}
+
+func (r *postgresSaaSRepository) ListSubscriptionsExpiredBefore(ctx context.Context, t time.Time, status string) ([]*domain.Subscription, error) {
+	db := database.GetDB(ctx, r.db)
+	var subs []*domain.Subscription
+	err := db.WithContext(ctx).
+		Preload("Plan.Features.Feature").
+		Where("status = ? AND expires_at IS NOT NULL AND expires_at <= ?", status, t).
+		Find(&subs).Error
+	return subs, err
+}
+
+func (r *postgresSaaSRepository) BulkUpdateSubscriptionStatus(ctx context.Context, ids []string, status string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	db := database.GetDB(ctx, r.db)
+	return db.WithContext(ctx).Model(&domain.Subscription{}).
+		Where("id IN ?", ids).
+		Updates(map[string]any{
+			"status":     status,
+			"updated_at": time.Now(),
+		}).Error
 }
 
 func (r *postgresSaaSRepository) ListActiveOverrides(ctx context.Context, businessID string) ([]domain.TenantFeatureOverride, error) {
@@ -122,6 +166,39 @@ func (r *postgresSaaSRepository) GetWalletByBusinessID(ctx context.Context, busi
 		return nil, err
 	}
 	return &wallet, nil
+}
+
+func (r *postgresSaaSRepository) UpdateWallet(ctx context.Context, wallet *domain.MerchantWallet) error {
+	db := database.GetDB(ctx, r.db)
+	return db.WithContext(ctx).Save(wallet).Error
+}
+
+func (r *postgresSaaSRepository) CreateInvoice(ctx context.Context, inv *domain.SubscriptionInvoice) error {
+	db := database.GetDB(ctx, r.db)
+	return db.WithContext(ctx).Create(inv).Error
+}
+
+func (r *postgresSaaSRepository) GetInvoiceByReference(ctx context.Context, gatewayRef string) (*domain.SubscriptionInvoice, error) {
+	db := database.GetDB(ctx, r.db)
+	var inv domain.SubscriptionInvoice
+	if err := db.WithContext(ctx).Where("gateway_reference = ? OR invoice_number = ?", gatewayRef, gatewayRef).First(&inv).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("invoice tidak ditemukan")
+		}
+		return nil, err
+	}
+	return &inv, nil
+}
+
+func (r *postgresSaaSRepository) UpdateInvoiceStatus(ctx context.Context, id string, status string, paidAt *time.Time) error {
+	db := database.GetDB(ctx, r.db)
+	updates := map[string]interface{}{
+		"status": status,
+	}
+	if paidAt != nil {
+		updates["paid_at"] = paidAt
+	}
+	return db.WithContext(ctx).Model(&domain.SubscriptionInvoice{}).Where("id = ?", id).Updates(updates).Error
 }
 
 func (r *postgresSaaSRepository) ListActiveCampaigns(ctx context.Context, targetTier, placement string) ([]domain.SaaSCampaign, error) {

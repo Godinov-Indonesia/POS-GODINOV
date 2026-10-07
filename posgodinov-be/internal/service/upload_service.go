@@ -18,16 +18,36 @@ var (
 	ErrCloudinaryNotConfigured = errors.New("layanan upload Cloudinary belum dikonfigurasi di server")
 )
 
-type uploadService struct {
-	cfg *config.Config
-	now func() time.Time
+type UploadServiceOption func(*uploadService)
+
+func WithUploadPolicyEngine(pe domain.PolicyEngine) UploadServiceOption {
+	return func(s *uploadService) {
+		s.policyEngine = pe
+	}
 }
 
-func NewUploadService(cfg *config.Config) domain.UploadService {
-	return &uploadService{
+func WithUploadStorageUsage(fn func(ctx context.Context, businessID string) (int64, error)) UploadServiceOption {
+	return func(s *uploadService) {
+		s.getStorageUsage = fn
+	}
+}
+
+type uploadService struct {
+	cfg             *config.Config
+	now             func() time.Time
+	policyEngine    domain.PolicyEngine
+	getStorageUsage func(ctx context.Context, businessID string) (int64, error)
+}
+
+func NewUploadService(cfg *config.Config, opts ...UploadServiceOption) domain.UploadService {
+	s := &uploadService{
 		cfg: cfg,
 		now: time.Now,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // GenerateUploadSignature menghasilkan signature dengan folder dinamis multi-tenant:
@@ -39,6 +59,28 @@ func (s *uploadService) GenerateUploadSignature(
 	businessID string,
 	req *domain.CreateUploadSignatureRequest,
 ) (*domain.UploadSignatureResponse, error) {
+	if s.policyEngine != nil && businessID != "" && businessID != "general" {
+		limit, err := s.policyEngine.GetNumericLimit(ctx, businessID, "cloud_storage_mb")
+		if err != nil {
+			return nil, err
+		}
+		var usage int64 = 0
+		if s.getStorageUsage != nil {
+			u, err := s.getStorageUsage(ctx, businessID)
+			if err != nil {
+				return nil, err
+			}
+			usage = u
+		}
+		if limit != -1 && usage >= limit {
+			return nil, &QuotaExceededError{
+				FeatureKey:   "cloud_storage_mb",
+				CurrentUsage: usage,
+				LimitValue:   limit,
+			}
+		}
+	}
+
 	if s.cfg.CloudinaryCloudName == "" || s.cfg.CloudinaryAPIKey == "" || s.cfg.CloudinaryAPISecret == "" {
 		return nil, ErrCloudinaryNotConfigured
 	}

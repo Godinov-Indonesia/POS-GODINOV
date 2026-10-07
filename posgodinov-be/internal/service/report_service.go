@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"posgodinov-backend/internal/domain"
@@ -15,8 +17,22 @@ func WithReportPolicyEngine(pe domain.PolicyEngine) ReportServiceOption {
 	}
 }
 
+func WithReportWasteLogRepo(r domain.WasteLogRepository) ReportServiceOption {
+	return func(s *reportService) {
+		s.wasteRepo = r
+	}
+}
+
+func WithReportRestockLogRepo(r domain.RestockLogRepository) ReportServiceOption {
+	return func(s *reportService) {
+		s.restockRepo = r
+	}
+}
+
 type reportService struct {
 	reportRepo   domain.ReportRepository
+	wasteRepo    domain.WasteLogRepository
+	restockRepo  domain.RestockLogRepository
 	policyEngine domain.PolicyEngine
 }
 
@@ -67,4 +83,30 @@ func (s *reportService) GetDashboard(ctx context.Context, filter domain.ReportFi
 func (s *reportService) GetTransactions(ctx context.Context, filter domain.ReportFilter) ([]*domain.Transaction, error) {
 	s.clampFilterDate(ctx, &filter)
 	return s.reportRepo.GetTransactions(ctx, filter)
+}
+
+func (s *reportService) Export(ctx context.Context, reportType string, filter domain.ReportFilter) (interface{}, error) {
+	if s.policyEngine != nil && filter.BusinessID != "" {
+		if err := s.policyEngine.AssertFeature(ctx, filter.BusinessID, "export_reports"); err != nil {
+			return nil, err
+		}
+	}
+	s.clampFilterDate(ctx, &filter)
+
+	switch reportType {
+	case "transactions":
+		return s.reportRepo.GetTransactions(ctx, filter)
+	case "waste":
+		if s.wasteRepo == nil {
+			return nil, errors.New("waste repository tidak terkonfigurasi")
+		}
+		return s.wasteRepo.GetAllByOutletID(ctx, filter.OutletID)
+	case "restock":
+		if s.restockRepo == nil {
+			return nil, errors.New("restock repository tidak terkonfigurasi")
+		}
+		return s.restockRepo.GetAllByOutletID(ctx, filter.OutletID)
+	default:
+		return nil, fmt.Errorf("tipe laporan '%s' tidak valid untuk diekspor", reportType)
+	}
 }

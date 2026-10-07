@@ -193,3 +193,14 @@ func (pe *policyEngine) InvalidateCache(businessID string) {
 	}
 	pe.cache.Delete(businessID)
 }
+
+func (pe *policyEngine) InvalidatePlan(ctx context.Context, planID string) error {
+	ids, err := pe.saasRepo.GetBusinessIDsByPlanID(ctx, planID)
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		pe.cache.Delete(id)
+	}
+	return nil
+}

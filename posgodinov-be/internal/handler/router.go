@@ -91,6 +91,7 @@ func SetupRouter(
 	mux.HandleFunc("POST /v1/landlord/campaigns", landlordChain(landlordHandler.CreateCampaign))
 	mux.HandleFunc("GET /v1/landlord/landing/settings", landlordChain(landlordHandler.GetLandingSettings))
 	mux.HandleFunc("PUT /v1/landlord/landing/settings/{key}", landlordChain(landlordHandler.UpdateLandingSetting))
+	mux.HandleFunc("POST /v1/landlord/landing/revalidate", landlordChain(landlordHandler.RevalidateLandingPage))
 	mux.HandleFunc("GET /v1/landlord/businesses", landlordChain(landlordHandler.ListBusinesses))
 	mux.HandleFunc("GET /v1/landlord/businesses/{id}", landlordChain(landlordHandler.GetBusinessDetail))
 	mux.HandleFunc("POST /v1/landlord/businesses/{id}/suspend", landlordChain(landlordHandler.SuspendBusiness))
@@ -99,8 +100,12 @@ func SetupRouter(
 
 	// Merchant SaaS & In-App Ads Routes
 	mux.HandleFunc("GET /v1/business/subscription", authMiddleware(landlordHandler.GetTenantSubscription))
+	mux.HandleFunc("POST /v1/business/subscription/checkout", authMiddleware(landlordHandler.CheckoutSubscription))
 	mux.HandleFunc("GET /v1/business/campaigns", authMiddleware(landlordHandler.GetTenantCampaigns))
 	mux.HandleFunc("POST /v1/business/campaigns/{id}/click", authMiddleware(landlordHandler.RecordCampaignClick))
+
+	// Webhooks
+	mux.HandleFunc("POST /v1/webhooks/payment-hub", landlordHandler.HandlePaymentWebhook)
 	
 	// POS Device Routes
 	mux.HandleFunc("POST /v1/auth/device/bind", posAuthHandler.BindDevice)
@@ -146,6 +151,9 @@ func SetupRouter(
 	// Reports Routes
 	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/reports/dashboard", chain(reportHandler.GetDashboard))
 	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/reports/transactions", chain(reportHandler.GetTransactions))
+	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/reports/transactions/export", chain(reportHandler.ExportTransactions))
+	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/reports/waste/export", chain(reportHandler.ExportWaste))
+	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/reports/restock/export", chain(reportHandler.ExportRestock))
 
 	// Rekonsiliasi shift — butir 9 ([11 §M15.3]).
 	//
