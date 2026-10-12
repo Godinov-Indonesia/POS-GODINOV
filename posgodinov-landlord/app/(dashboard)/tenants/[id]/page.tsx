@@ -156,7 +156,7 @@ export default function TenantDetailPage() {
     const payload: Record<string, unknown> = {
       feature_key: overrideKey.trim(),
       override_type: overrideType,
-      notes: overrideNotes.trim() || undefined,
+      reason: overrideNotes.trim() || undefined,
     };
 
     if (overrideType === "ENABLE_FLAG" || overrideType === "DISABLE_FLAG") {
@@ -309,7 +309,7 @@ export default function TenantDetailPage() {
                 Batas Kuota Numerik
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {Object.entries(effective_policy?.numeric_limit || {}).map(
+                {Object.entries(effective_policy?.numeric_limits || {}).map(
                   ([key, val]) => (
                     <div
                       key={key}
@@ -333,7 +333,7 @@ export default function TenantDetailPage() {
                 Status Fitur Boolean
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {Object.entries(effective_policy?.boolean_feature || {}).map(
+                {Object.entries(effective_policy?.boolean_flags || {}).map(
                   ([key, enabled]) => (
                     <div
                       key={key}
@@ -397,9 +397,9 @@ export default function TenantDetailPage() {
                           : "FALSE"}
                       </span>
                     </div>
-                    {ov.notes && (
+                    {ov.reason && (
                       <div className="text-[10px] text-zinc-500 italic mt-0.5">
-                        Catatan: {ov.notes}
+                        Catatan: {ov.reason}
                       </div>
                     )}
                   </div>

@@ -101,7 +101,7 @@ export interface TenantFeatureOverride {
   override_type: "ADD_LIMIT" | "SET_LIMIT" | "ENABLE_FLAG" | "DISABLE_FLAG" | string;
   value_bool?: boolean;
   value_numeric?: number;
-  notes?: string;
+  reason?: string;
   expires_at?: string;
   created_at: string;
 }
@@ -144,8 +144,8 @@ export interface BusinessDetailResponse {
   overrides?: TenantFeatureOverride[];
   effective_policy?: {
     plan_code: string;
-    boolean_feature: Record<string, boolean>;
-    numeric_limit: Record<string, number>;
+    boolean_flags: Record<string, boolean>;
+    numeric_limits: Record<string, number>;
   };
 }
 
