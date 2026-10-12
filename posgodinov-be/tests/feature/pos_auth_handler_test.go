@@ -41,6 +41,22 @@ func (m *MockBusinessRepositoryForAuth) UpsertByGoogle(ctx context.Context, b *d
 	return nil
 }
 
+func (m *MockBusinessRepositoryForAuth) SaveResetToken(_ context.Context, _ *domain.PasswordResetToken) error {
+	return nil
+}
+
+func (m *MockBusinessRepositoryForAuth) GetResetToken(_ context.Context, _ string) (*domain.PasswordResetToken, error) {
+	return nil, errors.New("not found")
+}
+
+func (m *MockBusinessRepositoryForAuth) MarkResetTokenUsed(_ context.Context, _ int) error {
+	return nil
+}
+
+func (m *MockBusinessRepositoryForAuth) UpdatePassword(_ context.Context, _, _ string) error {
+	return nil
+}
+
 type MockOutletRepositoryForAuth struct {
 	outlets []*domain.Outlet
 }

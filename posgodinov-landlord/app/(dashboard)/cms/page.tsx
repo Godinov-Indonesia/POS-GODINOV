@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  Download,
   Globe,
-  Save,
-  RefreshCw,
-  Sparkles,
   Phone,
+  RefreshCw,
+  Save,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
@@ -32,14 +33,21 @@ export default function LandingCMSPage() {
   const [contactEmail, setContactEmail] = useState(() => (data?.data?.contacts?.email as string) ?? "support@godinov.com");
   const [announcementText, setAnnouncementText] = useState(() => (data?.data?.announcement?.text as string) ?? "🚀 Promo Spesial Diskon 30% Paket Pro Tahunan! Berlaku hingga akhir bulan.");
   const [announcementActive, setAnnouncementActive] = useState(() => (data?.data?.announcement?.is_active as boolean) ?? true);
+  const [apkPosUrl, setApkPosUrl] = useState(() => (data?.data?.apk_pos_url as string) ?? "");
+  const [apkSoUrl, setApkSoUrl] = useState(() => (data?.data?.apk_so_url as string) ?? "");
 
-  // Save Settings Mutation
+  // Save Settings Mutation — each key is saved individually via PUT /settings/{key}
   const saveMutation = useMutation({
-    mutationFn: (settings: Record<string, unknown>) =>
-      apiClient("/api/landlord/landing/settings", {
-        method: "PUT",
-        body: JSON.stringify({ settings }),
-      }),
+    mutationFn: async (settings: Record<string, unknown>) => {
+      await Promise.all(
+        Object.entries(settings).map(([key, value]) =>
+          apiClient(`/api/landlord/landing/settings/${key}`, {
+            method: "PUT",
+            body: JSON.stringify({ value }),
+          })
+        )
+      );
+    },
     onSuccess: () => {
       toast.success("Pengaturan landing page berhasil disimpan!");
       queryClient.invalidateQueries({ queryKey: ["landlord-landing-settings"] });
@@ -79,6 +87,8 @@ export default function LandingCMSPage() {
         text: announcementText,
         is_active: announcementActive,
       },
+      apk_pos_url: apkPosUrl,
+      apk_so_url: apkSoUrl,
     };
     saveMutation.mutate(payload);
   };
@@ -225,6 +235,47 @@ export default function LandingCMSPage() {
                 onChange={(e) => setContactEmail(e.target.value)}
                 className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* APK Download Links Section */}
+        <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
+            <Download className="w-4 h-4 text-sky-400" />
+            <span>Link Download Aplikasi Android</span>
+          </div>
+          <p className="text-xs text-zinc-400">
+            URL file APK yang dapat diunduh langsung. Akan ditampilkan sebagai tombol download di dashboard merchant.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label className="block text-zinc-300 font-medium mb-1">
+                URL APK Kasir (POS)
+              </label>
+              <input
+                type="url"
+                value={apkPosUrl}
+                onChange={(e) => setApkPosUrl(e.target.value)}
+                placeholder="https://cdn.example.com/pos-godinov-kasir.apk"
+                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <p className="text-[10px] text-zinc-500 mt-1">App kasir untuk petugas counter / frontline</p>
+            </div>
+
+            <div>
+              <label className="block text-zinc-300 font-medium mb-1">
+                URL APK Sales Order (SO)
+              </label>
+              <input
+                type="url"
+                value={apkSoUrl}
+                onChange={(e) => setApkSoUrl(e.target.value)}
+                placeholder="https://cdn.example.com/pos-godinov-so.apk"
+                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <p className="text-[10px] text-zinc-500 mt-1">App SO untuk tim sales di lapangan</p>
             </div>
           </div>
         </div>

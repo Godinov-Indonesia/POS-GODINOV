@@ -132,11 +132,9 @@ export default function TenantDetailPage() {
 
   // Delete Override Mutation
   const deleteOverrideMutation = useMutation({
-    mutationFn: (featureKey: string) =>
+    mutationFn: (overrideId: string) =>
       apiClient(
-        `/api/landlord/businesses/${businessId}/overrides?feature_key=${encodeURIComponent(
-          featureKey
-        )}`,
+        `/api/landlord/businesses/${businessId}/overrides/${encodeURIComponent(overrideId)}`,
         { method: "DELETE" }
       ),
     onSuccess: () => {
@@ -407,7 +405,7 @@ export default function TenantDetailPage() {
                   </div>
 
                   <button
-                    onClick={() => deleteOverrideMutation.mutate(ov.feature_key)}
+                    onClick={() => deleteOverrideMutation.mutate(ov.id)}
                     disabled={deleteOverrideMutation.isPending}
                     className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors cursor-pointer"
                   >

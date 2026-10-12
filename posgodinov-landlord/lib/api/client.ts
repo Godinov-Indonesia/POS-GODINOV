@@ -44,6 +44,10 @@ export async function apiClient<T>(
       // Fallback text
     }
 
+    if (response.status === 401 && typeof window !== "undefined") {
+      window.location.assign("/login?reason=expired");
+    }
+
     throw new ApiError(errorMsg, response.status, code, details);
   }
 

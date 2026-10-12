@@ -3,6 +3,7 @@
 import {
   Boxes,
   ClipboardCheck,
+  Download,
   FileBarChart,
   LayoutDashboard,
   Minus,
@@ -66,6 +67,12 @@ const NAV: NavGroup[] = [
       { href: '/admin/reports/shift-reconciliation', label: 'Rekonsiliasi Shift', icon: Wallet },
       { href: '/admin/reports/restock', label: 'Restock', icon: FileBarChart },
       { href: '/admin/reports/waste', label: 'Waste', icon: Trash2 },
+    ],
+  },
+  {
+    title: 'Aplikasi',
+    items: [
+      { href: '/admin/unduh-app', label: 'Unduh Aplikasi', icon: Download },
     ],
   },
 ]

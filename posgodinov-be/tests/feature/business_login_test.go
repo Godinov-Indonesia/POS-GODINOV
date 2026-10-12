@@ -74,6 +74,22 @@ func (m *MockBusinessLoginRepository) UpsertByGoogle(ctx context.Context, b *dom
 	return nil
 }
 
+func (m *MockBusinessLoginRepository) SaveResetToken(_ context.Context, _ *domain.PasswordResetToken) error {
+	return nil
+}
+
+func (m *MockBusinessLoginRepository) GetResetToken(_ context.Context, _ string) (*domain.PasswordResetToken, error) {
+	return nil, errors.New("not found")
+}
+
+func (m *MockBusinessLoginRepository) MarkResetTokenUsed(_ context.Context, _ int) error {
+	return nil
+}
+
+func (m *MockBusinessLoginRepository) UpdatePassword(_ context.Context, _, _ string) error {
+	return nil
+}
+
 func newLoginTestSvc(repo domain.BusinessRepository) (domain.BusinessService, *handler.BusinessHandler, *http.ServeMux) {
 	tokenMaker, _ := token.NewPasetoMaker("01234567890123456789012345678901")
 	txManager := database.NewMockTransactionManager()

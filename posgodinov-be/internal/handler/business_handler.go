@@ -4,7 +4,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 
 	"posgodinov-backend/internal/domain"
@@ -159,8 +162,54 @@ func (h *BusinessHandler) GoogleOAuthCallback(w http.ResponseWriter, r *http.Req
 	}
 
 	logger.Info("bisnis berhasil login via Google", "id", res.Business.ID)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(res)
+
+	// Encode business sebagai JSON lalu URL-encode untuk query param.
+	bizJSON, _ := json.Marshal(res.Business)
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+	redirectTarget := fmt.Sprintf(
+		"%s/oauth/callback?access_token=%s&refresh_token=%s&business=%s",
+		frontendURL,
+		res.AccessToken,
+		res.RefreshToken,
+		url.QueryEscape(string(bizJSON)),
+	)
+	http.Redirect(w, r, redirectTarget, http.StatusFound)
 }
 
+func (h *BusinessHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req domain.ForgotPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Format permintaan tidak valid", nil)
+		return
+	}
+
+	// Selalu jawab 200 agar tidak bisa enumerate email.
+	_ = h.svc.ForgotPassword(r.Context(), &req)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Jika email terdaftar, instruksi reset password telah dikirim.",
+	})
+}
+
+func (h *BusinessHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req domain.ResetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Format permintaan tidak valid", nil)
+		return
+	}
+
+	if err := h.svc.ResetPassword(r.Context(), &req); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error(), map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Password berhasil diperbarui. Silakan login kembali.",
+	})
+}

@@ -45,3 +45,25 @@ export const bindDevice = (body: DeviceBindRequest): Promise<DeviceBindResponse>
     body: JSON.stringify(body),
     auth: 'none',
   })
+
+/** `POST /v1/auth/business/forgot-password` — selalu 200, tidak bocorkan info email. */
+export const forgotPassword = (body: { email: string }): Promise<{ message: string }> =>
+  request<{ message: string }>('/v1/auth/business/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    raw: true,
+    auth: 'none',
+  })
+
+/** `POST /v1/auth/business/reset-password` — ubah password dengan token reset. */
+export const resetPassword = (body: {
+  token: string
+  new_password: string
+  confirmation_password: string
+}): Promise<{ message: string }> =>
+  request<{ message: string }>('/v1/auth/business/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    raw: true,
+    auth: 'none',
+  })

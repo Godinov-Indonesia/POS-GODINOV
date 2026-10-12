@@ -682,3 +682,61 @@ export type UpdateRawMaterialRequest = {
   quantity_per_package?: number
   cost_per_unit?: number
 }
+
+/* ═══════════════════════ SaaS Subscription & Campaigns ═══════════════════════ */
+
+export type SaaSCampaignFormat = 'POPUP_MODAL' | 'CAROUSEL_SLIDE' | 'HEADER_BANNER'
+export type SaaSCampaignActionType = 'INTERNAL_UPGRADE' | 'EXTERNAL_URL' | 'INFO_ONLY'
+export type SaaSCampaignTargetTier = 'FREE_ONLY' | 'ALL'
+
+export type SaaSCampaign = {
+  id: string
+  title: string
+  subtitle: string
+  format: SaaSCampaignFormat
+  placement: string
+  image_url: string | null
+  action_type: SaaSCampaignActionType
+  action_url: string
+  action_label: string
+  target_tier: SaaSCampaignTargetTier
+  priority: number
+  skip_delay_seconds: number
+  starts_at: IsoDateTime | null
+  ends_at: IsoDateTime | null
+  is_active: boolean
+  impression_count: number
+  click_count: number
+  created_at: IsoDateTime
+}
+
+export type SubscriptionInfo = {
+  subscription: {
+    plan_id: string
+    plan_code: string
+    plan_name: string
+    status: string
+    expires_at: IsoDateTime | null
+    auto_renew: boolean
+  }
+  effective_policy: {
+    plan_code: string
+    boolean_flags: Record<string, boolean>
+    numeric_limits: Record<string, number>
+  }
+}
+
+export type CheckoutSubscriptionRequest = {
+  plan_id: string
+  payment_method: 'WALLET' | 'QRIS' | 'VA'
+}
+
+export type CheckoutSubscriptionResponse = {
+  payment_method: string
+  status: string
+  invoice_number?: string
+  gateway_reference?: string
+  payment_url?: string
+  qr_payload?: string
+  va_number?: string
+}

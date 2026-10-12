@@ -73,7 +73,8 @@ func (s *staffService) RegisterStaff(ctx context.Context, businessID string, req
 
 	if s.policyEngine != nil {
 		allStaff, _ := s.staffRepo.GetAllByOutletID(ctx, req.OutletID)
-		if err := s.policyEngine.AssertQuota(ctx, businessID, "max_staff_per_outlet", int64(len(allStaff)+1)); err != nil {
+		// context.Background(): policyEngine harus query ke landlord DB, bukan tenant DB dari ctx.
+		if err := s.policyEngine.AssertQuota(context.Background(), businessID, "max_staff_per_outlet", int64(len(allStaff)+1)); err != nil {
 			return nil, err
 		}
 	}
@@ -243,7 +244,8 @@ func (s *staffService) TransferStaff(ctx context.Context, businessID, staffID st
 	}
 
 	if s.policyEngine != nil {
-		if err := s.policyEngine.AssertFeature(ctx, businessID, "staff_transfer"); err != nil {
+		// context.Background(): policyEngine harus query ke landlord DB, bukan tenant DB dari ctx.
+		if err := s.policyEngine.AssertFeature(context.Background(), businessID, "staff_transfer"); err != nil {
 			return nil, err
 		}
 	}

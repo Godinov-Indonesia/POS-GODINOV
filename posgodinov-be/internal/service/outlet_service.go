@@ -57,7 +57,20 @@ func (s *outletService) Register(ctx context.Context, businessID string, req *do
 		}
 
 		if s.policyEngine != nil {
-			if err := s.policyEngine.AssertQuota(ctx, businessID, "max_outlets", count+1); err != nil {
+			// PENTING: gunakan context.Background() bukan ctx di sini.
+			//
+			// ctx pada titik ini sudah membawa BusinessDBKey (tenant DB) dari
+			// BusinessMiddleware, dan mungkin juga txKey (transaksi tenant aktif).
+			// policyEngine.AssertQuota → saasRepo.GetSubscriptionByBusinessID →
+			// database.GetDB(ctx, r.db) akan mendahulukan tenant DB dari context,
+			// sehingga query "SELECT * FROM subscriptions" dikirim ke tenant DB yang
+			// tidak memiliki tabel SaaS — menyebabkan "relation 'plans' does not
+			// exist (SQLSTATE 42P01)".
+			//
+			// saasRepo dibuat dengan landlord DB sebagai defaultDB, dan policy engine
+			// harus selalu membaca dari landlord DB. context.Background() memastikan
+			// tidak ada tenant DB dari context yang bocor ke dalam saasRepo.
+			if err := s.policyEngine.AssertQuota(context.Background(), businessID, "max_outlets", count+1); err != nil {
 				return err
 			}
 		}

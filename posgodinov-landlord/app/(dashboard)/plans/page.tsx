@@ -30,17 +30,26 @@ export default function PlanMatrixPage() {
   >({});
 
   const updateMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       planId,
       features,
     }: {
       planId: string;
       features: { feature_key: string; is_enabled: boolean; limit_value: number }[];
-    }) =>
-      apiClient(`/api/landlord/plans/${planId}/features`, {
-        method: "PUT",
-        body: JSON.stringify({ features }),
-      }),
+    }) => {
+      await Promise.all(
+        features.map((f) =>
+          apiClient(`/api/landlord/plans/${planId}/features/${f.feature_key}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              is_enabled: f.is_enabled,
+              limit_value: f.limit_value,
+              extra_config: {},
+            }),
+          })
+        )
+      );
+    },
     onSuccess: () => {
       toast.success("Matriks fitur paket berhasil diperbarui!");
       queryClient.invalidateQueries({ queryKey: ["landlord-plans"] });

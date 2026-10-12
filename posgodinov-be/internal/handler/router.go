@@ -73,6 +73,8 @@ func SetupRouter(
 	mux.HandleFunc("POST /v1/auth/business/refresh", businessHandler.RefreshToken)
 	mux.HandleFunc("GET /v1/auth/business/oauth/google", businessHandler.GoogleOAuthRedirect)
 	mux.HandleFunc("GET /v1/auth/business/oauth/google/callback", businessHandler.GoogleOAuthCallback)
+	mux.HandleFunc("POST /v1/auth/business/forgot-password", businessHandler.ForgotPassword)
+	mux.HandleFunc("POST /v1/auth/business/reset-password", businessHandler.ResetPassword)
 
 	// Landlord Public & Auth Routes
 	mux.HandleFunc("GET /v1/public/landing-page", landlordHandler.GetPublicLandingPage)

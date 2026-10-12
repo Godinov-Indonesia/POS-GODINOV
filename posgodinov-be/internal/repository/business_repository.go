@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -92,4 +93,32 @@ func (r *postgresBusinessRepository) UpsertByGoogle(ctx context.Context, b *doma
 		Columns:   []clause.Column{{Name: "email"}},
 		DoUpdates: clause.Assignments(map[string]interface{}{"google_id": b.GoogleID}),
 	}).Create(b).Error
+}
+
+func (r *postgresBusinessRepository) SaveResetToken(ctx context.Context, rt *domain.PasswordResetToken) error {
+	db := database.GetDB(ctx, r.db)
+	return db.WithContext(ctx).Table("password_reset_tokens").Create(rt).Error
+}
+
+func (r *postgresBusinessRepository) GetResetToken(ctx context.Context, token string) (*domain.PasswordResetToken, error) {
+	db := database.GetDB(ctx, r.db)
+	var rt domain.PasswordResetToken
+	if err := db.WithContext(ctx).Table("password_reset_tokens").Where("token = ?", token).First(&rt).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("token tidak ditemukan")
+		}
+		return nil, err
+	}
+	return &rt, nil
+}
+
+func (r *postgresBusinessRepository) MarkResetTokenUsed(ctx context.Context, id int) error {
+	db := database.GetDB(ctx, r.db)
+	now := time.Now()
+	return db.WithContext(ctx).Table("password_reset_tokens").Where("id = ?", id).Update("used_at", now).Error
+}
+
+func (r *postgresBusinessRepository) UpdatePassword(ctx context.Context, businessID, hashedPassword string) error {
+	db := database.GetDB(ctx, r.db)
+	return db.WithContext(ctx).Model(&domain.Business{}).Where("id = ?", businessID).Update("password", hashedPassword).Error
 }

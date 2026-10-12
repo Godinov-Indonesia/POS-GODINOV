@@ -732,7 +732,8 @@ func (s *opnameSessionService) SubmitCounts(ctx context.Context, businessID, out
 				}
 			}
 			if isDifferentSubmitter {
-				if err := s.policyEngine.AssertFeature(ctx, businessID, "stock_opname_collaborative"); err != nil {
+				// context.Background(): policyEngine harus query ke landlord DB, bukan tenant DB dari ctx.
+				if err := s.policyEngine.AssertFeature(context.Background(), businessID, "stock_opname_collaborative"); err != nil {
 					return ErrSOCollaborativeForbidden
 				}
 			}

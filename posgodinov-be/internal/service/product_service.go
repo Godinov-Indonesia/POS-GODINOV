@@ -66,7 +66,8 @@ func (s *productService) Create(ctx context.Context, businessID, outletID string
 
 	if s.policyEngine != nil {
 		existing, _ := s.repo.GetAllByOutletID(ctx, outletID)
-		if err := s.policyEngine.AssertQuota(ctx, businessID, "max_products", int64(len(existing)+1)); err != nil {
+		// context.Background(): policyEngine harus query ke landlord DB, bukan tenant DB dari ctx.
+		if err := s.policyEngine.AssertQuota(context.Background(), businessID, "max_products", int64(len(existing)+1)); err != nil {
 			return nil, err
 		}
 	}
@@ -143,7 +144,8 @@ func (s *productService) CreateBulk(ctx context.Context, businessID, outletID st
 
 	if s.policyEngine != nil {
 		existing, _ := s.repo.GetAllByOutletID(ctx, outletID)
-		if err := s.policyEngine.AssertQuota(ctx, businessID, "max_products", int64(len(existing)+len(reqs))); err != nil {
+		// context.Background(): policyEngine harus query ke landlord DB, bukan tenant DB dari ctx.
+		if err := s.policyEngine.AssertQuota(context.Background(), businessID, "max_products", int64(len(existing)+len(reqs))); err != nil {
 			return nil, err
 		}
 	}

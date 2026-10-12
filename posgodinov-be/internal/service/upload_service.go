@@ -60,7 +60,8 @@ func (s *uploadService) GenerateUploadSignature(
 	req *domain.CreateUploadSignatureRequest,
 ) (*domain.UploadSignatureResponse, error) {
 	if s.policyEngine != nil && businessID != "" && businessID != "general" {
-		limit, err := s.policyEngine.GetNumericLimit(ctx, businessID, "cloud_storage_mb")
+		// context.Background(): policyEngine harus query ke landlord DB, bukan tenant DB dari ctx.
+		limit, err := s.policyEngine.GetNumericLimit(context.Background(), businessID, "cloud_storage_mb")
 		if err != nil {
 			return nil, err
 		}

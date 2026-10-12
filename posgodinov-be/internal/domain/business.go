@@ -60,6 +60,10 @@ type BusinessRepository interface {
 	GetBySerialBusiness(ctx context.Context, serial string) (*Business, error)
 	GetByID(ctx context.Context, id string) (*Business, error)
 	LockByID(ctx context.Context, id string) (*Business, error)
+	SaveResetToken(ctx context.Context, rt *PasswordResetToken) error
+	GetResetToken(ctx context.Context, token string) (*PasswordResetToken, error)
+	MarkResetTokenUsed(ctx context.Context, id int) error
+	UpdatePassword(ctx context.Context, businessID, hashedPassword string) error
 }
 
 type BusinessService interface {
@@ -68,4 +72,26 @@ type BusinessService interface {
 	RefreshToken(ctx context.Context, req *RefreshTokenRequest) (*RefreshTokenResponse, error)
 	GoogleOAuthURL(ctx context.Context, state string) string
 	GoogleOAuthCallback(ctx context.Context, code, state string) (*LoginBusinessResponse, error)
+	ForgotPassword(ctx context.Context, req *ForgotPasswordRequest) error
+	ResetPassword(ctx context.Context, req *ResetPasswordRequest) error
+}
+
+// PasswordResetToken is a single-use token for password reset.
+type PasswordResetToken struct {
+	ID         int        `gorm:"primaryKey;column:id"`
+	BusinessID string     `gorm:"column:business_id"`
+	Token      string     `gorm:"column:token"`
+	ExpiresAt  time.Time  `gorm:"column:expires_at"`
+	UsedAt     *time.Time `gorm:"column:used_at"`
+	CreatedAt  time.Time  `gorm:"column:created_at"`
+}
+
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+type ResetPasswordRequest struct {
+	Token                string `json:"token"`
+	NewPassword          string `json:"new_password"`
+	ConfirmationPassword string `json:"confirmation_password"`
 }

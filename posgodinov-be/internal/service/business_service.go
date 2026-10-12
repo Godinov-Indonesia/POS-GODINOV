@@ -2,11 +2,14 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -16,6 +19,7 @@ import (
 
 	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/domain"
+	"posgodinov-backend/pkg/logger"
 	"posgodinov-backend/pkg/token"
 	"posgodinov-backend/pkg/utils"
 )
@@ -351,4 +355,73 @@ func fetchGoogleUserInfo(ctx context.Context, accessToken string) (*googleUserIn
 	}
 
 	return &info, nil
+}
+
+func (s *businessService) ForgotPassword(ctx context.Context, req *domain.ForgotPasswordRequest) error {
+	// Selalu kembalikan nil agar tidak bisa enumerate email (timing-safe).
+	business, err := s.repo.GetByEmail(ctx, req.Email)
+	if err != nil {
+		// Email tidak ditemukan — diam saja.
+		return nil
+	}
+
+	// Buat token acak 32 byte = 64 hex char.
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return errors.New("gagal membuat token reset")
+	}
+	resetToken := hex.EncodeToString(b)
+
+	rt := &domain.PasswordResetToken{
+		BusinessID: business.ID,
+		Token:      resetToken,
+		ExpiresAt:  time.Now().Add(15 * time.Minute),
+	}
+	if err := s.repo.SaveResetToken(ctx, rt); err != nil {
+		return errors.New("gagal menyimpan token reset")
+	}
+
+	// Di production: kirim email berisi link reset. Di sini log ke console.
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+	logger.Info("[DEV] Password reset link",
+		"url", fmt.Sprintf("%s/reset-password?token=%s", frontendURL, resetToken),
+		"email", req.Email,
+	)
+	return nil
+}
+
+func (s *businessService) ResetPassword(ctx context.Context, req *domain.ResetPasswordRequest) error {
+	if req.NewPassword != req.ConfirmationPassword {
+		return errors.New("password tidak cocok")
+	}
+	if len(req.NewPassword) < 8 {
+		return errors.New("password minimal 8 karakter")
+	}
+
+	rt, err := s.repo.GetResetToken(ctx, req.Token)
+	if err != nil {
+		return errors.New("token tidak valid")
+	}
+	if rt.UsedAt != nil {
+		return errors.New("token sudah digunakan")
+	}
+	if time.Now().After(rt.ExpiresAt) {
+		return errors.New("token sudah kadaluwarsa")
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("gagal mengenkripsi password")
+	}
+
+	if err := s.repo.UpdatePassword(ctx, rt.BusinessID, string(hashed)); err != nil {
+		return errors.New("gagal memperbarui password")
+	}
+	if err := s.repo.MarkResetTokenUsed(ctx, rt.ID); err != nil {
+		logger.Error("gagal mark token used", "error", err)
+	}
+	return nil
 }

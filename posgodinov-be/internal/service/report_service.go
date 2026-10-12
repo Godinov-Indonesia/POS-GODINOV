@@ -50,7 +50,8 @@ func (s *reportService) clampFilterDate(ctx context.Context, filter *domain.Repo
 	if s.policyEngine == nil || filter.BusinessID == "" {
 		return
 	}
-	limit, err := s.policyEngine.GetNumericLimit(ctx, filter.BusinessID, "history_days_limit")
+	// context.Background(): policyEngine harus query ke landlord DB, bukan tenant DB dari ctx.
+	limit, err := s.policyEngine.GetNumericLimit(context.Background(), filter.BusinessID, "history_days_limit")
 	if err != nil || limit <= 0 {
 		return
 	}
@@ -87,7 +88,8 @@ func (s *reportService) GetTransactions(ctx context.Context, filter domain.Repor
 
 func (s *reportService) Export(ctx context.Context, reportType string, filter domain.ReportFilter) (interface{}, error) {
 	if s.policyEngine != nil && filter.BusinessID != "" {
-		if err := s.policyEngine.AssertFeature(ctx, filter.BusinessID, "export_reports"); err != nil {
+		// context.Background(): policyEngine harus query ke landlord DB, bukan tenant DB dari ctx.
+		if err := s.policyEngine.AssertFeature(context.Background(), filter.BusinessID, "export_reports"); err != nil {
 			return nil, err
 		}
 	}

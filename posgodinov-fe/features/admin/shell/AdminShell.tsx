@@ -5,6 +5,8 @@ import * as React from 'react'
 
 import { useHasHydrated } from '@/components/hydration-guard'
 import { Skeleton } from '@/components/ui/feedback'
+import { CampaignBanner } from '@/features/admin/campaigns/CampaignBanner'
+import { CampaignPopup } from '@/features/admin/campaigns/CampaignPopup'
 import { AdminHeader } from '@/features/admin/shell/AdminHeader'
 import { AdminSidebar } from '@/features/admin/shell/AdminSidebar'
 import { useSessionStore } from '@/lib/auth/session-store'
@@ -61,7 +63,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       />
       <div className="flex min-w-0 flex-1 flex-col h-dvh overflow-hidden">
         <AdminHeader onToggleSidebar={toggleSidebar} />
-        <main className="min-w-0 flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-y-auto">
+          <CampaignBanner />
+          <div className="p-4 lg:p-6">{children}</div>
+        </main>
+        <CampaignPopup />
       </div>
     </div>
   )
