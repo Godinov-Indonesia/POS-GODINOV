@@ -88,7 +88,11 @@ var dataTables = []string{
 	"opname_session_items", "opname_sessions",
 	"stock_opnames", "waste_logs", "restock_logs",
 	"product_recipes", "products", "product_categories", "raw_materials",
-	"outlet_master_versions", "users", "outlets", "businesses",
+	"outlet_master_versions", "users", "outlets",
+	// SaaS — urutan penting: anak sebelum induk
+	"tenant_feature_overrides", "subscription_logs", "subscriptions",
+	"saas_campaigns", "plan_features", "plans", "saas_features",
+	"businesses",
 	"audit_logs",
 }
 
@@ -426,6 +430,9 @@ func (s *seeder) run() error {
 		}
 	}
 	if err := s.applyStock(); err != nil {
+		return err
+	}
+	if err := s.seedSaaS(); err != nil {
 		return err
 	}
 	return s.seedAuditLogs()
@@ -1493,3 +1500,220 @@ func ptrF(v float64) *float64     { return &v }
 func ptrInt(v int) *int           { return &v }
 func ptrI64(v int64) *int64       { return &v }
 func ptrT(v time.Time) *time.Time { return &v }
+
+// ════════════════════════════════════════════════════════════════════════════
+// SaaS — Features, Plans, Plan-Feature Matrix, Subscription, Campaigns
+// ════════════════════════════════════════════════════════════════════════════
+
+func (s *seeder) seedSaaS() error {
+	// ── 1. saas_features ─────────────────────────────────────────────────────
+	type feat struct {
+		key       string
+		name      string
+		desc      string
+		cat       string
+		valType   string
+		unit      *string
+		sortOrder int
+	}
+	str := func(v string) *string { return &v }
+	features := []feat{
+		{"max_outlets", "Jumlah Outlet", "Maksimum outlet yang dapat dibuat", "CORE", "NUMERIC_LIMIT", str("Outlet"), 1},
+		{"max_products", "Jumlah Produk", "Maksimum produk per outlet", "CORE", "NUMERIC_LIMIT", str("Produk"), 2},
+		{"max_raw_materials", "Jumlah Bahan Baku", "Maksimum bahan baku per outlet", "INVENTORY", "NUMERIC_LIMIT", str("Bahan"), 3},
+		{"max_staff_per_outlet", "Staf per Outlet", "Maksimum staf per outlet", "STAFF", "NUMERIC_LIMIT", str("Staf"), 4},
+		{"history_days_limit", "Riwayat Data", "Hari ke belakang riwayat yang dapat diakses", "REPORTS", "NUMERIC_LIMIT", str("Hari"), 5},
+		{"cloud_storage_mb", "Penyimpanan Cloud", "Kuota upload aset (foto produk, dll)", "CORE", "NUMERIC_LIMIT", str("MB"), 6},
+		{"staff_transfer", "Transfer Staf Antar-Outlet", "Memindahkan staf antar outlet dalam bisnis", "STAFF", "BOOLEAN_FLAG", nil, 7},
+		{"export_reports", "Export Laporan", "Ekspor laporan ke CSV/Excel", "REPORTS", "BOOLEAN_FLAG", nil, 8},
+		{"stock_opname_collaborative", "Opname Kolaboratif", "Opname stok dengan beberapa petugas sekaligus", "INVENTORY", "BOOLEAN_FLAG", nil, 9},
+		{"dual_stock_auto_unpack", "Dual-Unit Stok Otomatis", "Konversi otomatis stok kemasan ke satuan", "INVENTORY", "BOOLEAN_FLAG", nil, 10},
+		{"custom_branding", "Custom Branding", "Logo dan warna merek pada struk dan tampilan", "CORE", "BOOLEAN_FLAG", nil, 11},
+		{"api_webhook_access", "API & Webhook", "Akses REST API dan webhook integrasi pihak ketiga", "INTEGRATION", "BOOLEAN_FLAG", nil, 12},
+		{"no_ads", "Bebas Iklan", "Tidak menampilkan iklan promosi di dashboard", "CORE", "BOOLEAN_FLAG", nil, 13},
+	}
+	for _, f := range features {
+		row := domain.SaaSFeature{
+			Key: f.key, Name: f.name, Description: f.desc,
+			Category: f.cat, ValueType: f.valType, Unit: f.unit,
+			SortOrder: f.sortOrder, IsActive: true,
+		}
+		if err := s.db.FirstOrCreate(&row, "key = ?", f.key).Error; err != nil {
+			return fmt.Errorf("seedSaaS feature %s: %w", f.key, err)
+		}
+	}
+	s.add("saas_features", len(features))
+
+	// ── 2. plans ─────────────────────────────────────────────────────────────
+	now := time.Now()
+	plans := []domain.Plan{
+		{
+			ID: "plan_free", Code: "FREE", Name: "Gratis",
+			Description:  "Cocok untuk bisnis baru yang ingin mencoba sistem POS.",
+			PriceMinor:   0, BillingCycle: "LIFETIME",
+			IsPublic: true, IsActive: true, SortOrder: 1,
+			CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: "plan_pro_monthly", Code: "PRO", Name: "Pro Bulanan",
+			Description:  "Ideal untuk bisnis yang sudah berkembang dengan kebutuhan multi-outlet.",
+			PriceMinor:   29900000, BillingCycle: "MONTHLY", // Rp 299.000/bln
+			IsPublic: true, IsActive: true, SortOrder: 2,
+			CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: "plan_enterprise", Code: "ENTERPRISE", Name: "Enterprise",
+			Description:  "Solusi lengkap tanpa batas untuk jaringan bisnis besar.",
+			PriceMinor:   99900000, BillingCycle: "MONTHLY", // Rp 999.000/bln
+			IsPublic: true, IsActive: true, SortOrder: 3,
+			CreatedAt: now, UpdatedAt: now,
+		},
+	}
+	for i := range plans {
+		if err := s.db.FirstOrCreate(&plans[i], "id = ?", plans[i].ID).Error; err != nil {
+			return fmt.Errorf("seedSaaS plan %s: %w", plans[i].ID, err)
+		}
+	}
+	s.add("plans", len(plans))
+
+	// ── 3. plan_features matrix ───────────────────────────────────────────────
+	// [planID][featureKey] = {isEnabled, limitValue}
+	type pf struct {
+		enabled bool
+		limit   int64
+	}
+	matrix := map[string]map[string]pf{
+		"plan_free": {
+			"max_outlets":                 {true, 1},
+			"max_products":                {true, 50},
+			"max_raw_materials":           {true, 30},
+			"max_staff_per_outlet":        {true, 3},
+			"history_days_limit":          {true, 30},
+			"cloud_storage_mb":            {true, 100},
+			"staff_transfer":              {false, 0},
+			"export_reports":              {false, 0},
+			"stock_opname_collaborative":  {false, 0},
+			"dual_stock_auto_unpack":      {false, 0},
+			"custom_branding":             {false, 0},
+			"api_webhook_access":          {false, 0},
+			"no_ads":                      {false, 0},
+		},
+		"plan_pro_monthly": {
+			"max_outlets":                 {true, 5},
+			"max_products":                {true, 500},
+			"max_raw_materials":           {true, 200},
+			"max_staff_per_outlet":        {true, 20},
+			"history_days_limit":          {true, 365},
+			"cloud_storage_mb":            {true, 2048},
+			"staff_transfer":              {true, 0},
+			"export_reports":              {true, 0},
+			"stock_opname_collaborative":  {true, 0},
+			"dual_stock_auto_unpack":      {true, 0},
+			"custom_branding":             {false, 0},
+			"api_webhook_access":          {false, 0},
+			"no_ads":                      {true, 0},
+		},
+		"plan_enterprise": {
+			"max_outlets":                 {true, -1},
+			"max_products":                {true, -1},
+			"max_raw_materials":           {true, -1},
+			"max_staff_per_outlet":        {true, -1},
+			"history_days_limit":          {true, -1},
+			"cloud_storage_mb":            {true, 20480},
+			"staff_transfer":              {true, 0},
+			"export_reports":              {true, 0},
+			"stock_opname_collaborative":  {true, 0},
+			"dual_stock_auto_unpack":      {true, 0},
+			"custom_branding":             {true, 0},
+			"api_webhook_access":          {true, 0},
+			"no_ads":                      {true, 0},
+		},
+	}
+	pfCount := 0
+	for planID, feats := range matrix {
+		for fkey, v := range feats {
+			row := domain.PlanFeature{
+				PlanID: planID, FeatureKey: fkey,
+				IsEnabled: v.enabled, LimitValue: v.limit,
+				ExtraConfig: domain.JSONB{}, UpdatedAt: now,
+			}
+			if err := s.db.
+				Where("plan_id = ? AND feature_key = ?", planID, fkey).
+				FirstOrCreate(&row).Error; err != nil {
+				return fmt.Errorf("seedSaaS plan_feature %s/%s: %w", planID, fkey, err)
+			}
+			pfCount++
+		}
+	}
+	s.add("plan_features", pfCount)
+
+	// ── 4. subscription untuk bisnis seed (plan FREE) ─────────────────────────
+	sub := domain.Subscription{
+		BusinessID: businessID,
+		PlanID:     "plan_free",
+		Status:     "ACTIVE",
+		StartedAt:  now,
+		AutoRenew:  false,
+	}
+	if err := s.db.Where("business_id = ?", businessID).FirstOrCreate(&sub).Error; err != nil {
+		return fmt.Errorf("seedSaaS subscription: %w", err)
+	}
+	s.add("subscriptions", 1)
+
+	// ── 5. saas_campaigns contoh ─────────────────────────────────────────────
+	campaigns := []domain.SaaSCampaign{
+		{
+			Title:            "🚀 Upgrade ke Pro — Buka 5 Outlet Sekarang",
+			Subtitle:         "Mulai dari Rp 299.000/bulan. Tanpa kontrak.",
+			Format:           "CAROUSEL_SLIDE",
+			Placement:        "dashboard",
+			ImageURL:         "",
+			ActionType:       "INTERNAL_UPGRADE",
+			ActionURL:        "/admin/subscription",
+			ActionLabel:      "Lihat Paket",
+			TargetTier:       "FREE_ONLY",
+			Priority:         10,
+			SkipDelaySeconds: 0,
+			StartsAt:         now,
+			IsActive:         true,
+		},
+		{
+			Title:            "📊 Export Laporan ke Excel — Fitur Pro",
+			Subtitle:         "Analisis penjualan lebih dalam dengan data mentah.",
+			Format:           "CAROUSEL_SLIDE",
+			Placement:        "reports",
+			ImageURL:         "",
+			ActionType:       "INTERNAL_UPGRADE",
+			ActionURL:        "/admin/subscription",
+			ActionLabel:      "Upgrade Sekarang",
+			TargetTier:       "FREE_ONLY",
+			Priority:         5,
+			SkipDelaySeconds: 0,
+			StartsAt:         now,
+			IsActive:         true,
+		},
+		{
+			Title:            "🎉 Selamat datang di POS Godinov!",
+			Subtitle:         "Mulai setup outlet pertama Anda dan tambahkan produk.",
+			Format:           "POPUP_MODAL",
+			Placement:        "dashboard",
+			ImageURL:         "",
+			ActionType:       "INFO_ONLY",
+			ActionURL:        "",
+			ActionLabel:      "Oke, Mengerti",
+			TargetTier:       "ALL",
+			Priority:         100,
+			SkipDelaySeconds: 3,
+			StartsAt:         now,
+			IsActive:         true,
+		},
+	}
+	for i := range campaigns {
+		if err := s.db.Create(&campaigns[i]).Error; err != nil {
+			return fmt.Errorf("seedSaaS campaign %q: %w", campaigns[i].Title, err)
+		}
+	}
+	s.add("saas_campaigns", len(campaigns))
+
+	return nil
+}

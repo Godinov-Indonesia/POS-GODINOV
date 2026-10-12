@@ -17,6 +17,8 @@ type SaaSFeature struct {
 	CreatedAt   time.Time `json:"created_at,omitzero" gorm:"column:created_at"`
 }
 
+func (SaaSFeature) TableName() string { return "saas_features" }
+
 type Plan struct {
 	ID           string        `json:"id" gorm:"primaryKey;column:id"`
 	Code         string        `json:"code" gorm:"column:code"`
@@ -100,6 +102,8 @@ type SaaSCampaign struct {
 	ClickCount       int64      `json:"click_count" gorm:"column:click_count"`
 	CreatedAt        time.Time  `json:"created_at,omitzero" gorm:"column:created_at"`
 }
+
+func (SaaSCampaign) TableName() string { return "saas_campaigns" }
 
 type MerchantWallet struct {
 	ID               string    `json:"id" gorm:"primaryKey;column:id"`
