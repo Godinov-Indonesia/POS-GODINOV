@@ -105,10 +105,6 @@ function StaffListInner({
         }
       />
 
-      <Banner tone="info">
-        Filter outlet staff mengikuti <strong>outlet aktif yang dipilih pada navbar</strong>. Staf yang dinonaktifkan tersimpan aman di menu Arsip.
-      </Banner>
-
       {isPending ? (
         <SkeletonTable />
       ) : activeStaff.length === 0 ? (

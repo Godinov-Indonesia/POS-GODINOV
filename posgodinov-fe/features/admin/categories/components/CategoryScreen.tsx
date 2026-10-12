@@ -5,7 +5,7 @@ import * as React from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Banner, EmptyState, SkeletonTable } from '@/components/ui/feedback'
+import { EmptyState, SkeletonTable } from '@/components/ui/feedback'
 import { Field } from '@/components/ui/field'
 import { Input, Textarea } from '@/components/ui/input'
 import { TBody, TD, TH, THead, TR, Table } from '@/components/ui/table'
@@ -26,10 +26,6 @@ export function CategoryScreen() {
         title="Kategori Produk"
         description="Pengelompokan produk pada tab kasir. Bersifat per-outlet."
       />
-
-      <Banner tone="warning" title="Kategori bersifat permanen">
-        Kategori yang telah dibuat tidak dapat diubah atau dihapus. <strong>Pastikan penulisan nama kategori sudah benar sebelum menyimpan.</strong>
-      </Banner>
 
       <OutletGuard>{(outletId) => <CategoryContent outletId={outletId} />}</OutletGuard>
     </div>

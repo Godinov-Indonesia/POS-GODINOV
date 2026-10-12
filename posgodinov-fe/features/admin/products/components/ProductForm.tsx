@@ -221,14 +221,6 @@ function ProductFormShell({
     <form onSubmit={submit} className="flex flex-col gap-4 pb-4">
       <PageHeader title={title} />
 
-      {editing ? (
-        <Banner tone="warning" title="Resep dikirim utuh setiap kali menyimpan">
-          Backend memperlakukan <code>recipes</code> sebagai penggantian total. Form ini selalu
-          mengirim seluruh baris resep, sehingga baris yang Anda hapus di sini benar-benar hilang di
-          server.
-        </Banner>
-      ) : null}
-
       <Card>
         <CardHeader>
           <CardTitle>Informasi Produk</CardTitle>

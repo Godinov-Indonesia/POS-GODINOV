@@ -151,6 +151,13 @@ export function hardLogout(reason: ClearReason): void {
   queryClient.clear() // buang seluruh data tenant dari memori
   authChannel?.postMessage({ type: 'logout', reason } satisfies AuthMessage)
 
+  if (typeof document !== 'undefined') {
+    document.cookie = 'campaign_popup_seen_until=; path=/; max-age=0; SameSite=Lax'
+  }
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.removeItem('campaign_popup_session_seen')
+  }
+
   if (typeof window !== 'undefined') {
     window.location.assign(reason === 'logout' ? '/login' : '/login?reason=expired')
   }

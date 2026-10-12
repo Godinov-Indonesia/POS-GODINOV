@@ -9,10 +9,7 @@ import { Money, Num, shortId } from '@/components/ui/money'
 import { TBody, TD, TH, THead, TR, Table } from '@/components/ui/table'
 import { toastApiError } from '@/components/ui/toaster'
 import { useProducts } from '@/features/admin/products/hooks/useProducts'
-import {
-  DateRangePicker,
-  ServerTimeBanner,
-} from '@/features/admin/reports/components/DateRangePicker'
+import { DateRangePicker } from '@/features/admin/reports/components/DateRangePicker'
 import { useDateRange, useTransactionReport } from '@/features/admin/reports/hooks/useReports'
 import { OutletGuard } from '@/features/admin/shell/OutletGuard'
 import { PageHeader } from '@/features/admin/shell/PageHeader'
@@ -50,8 +47,13 @@ function ReportContent({ outletId }: { outletId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <DateRangePicker value={range} onChange={setRange} />
-      <ServerTimeBanner />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border bg-surface p-3.5 shadow-card">
+        <span className="text-pos-xs text-fg-muted font-medium">
+          {data ? `Total ${data.length} transaksi pada periode terpilih` : 'Memuat data transaksi…'}
+        </span>
+        <DateRangePicker value={range} onChange={setRange} inlinePresets />
+      </div>
+
 
       {!rangeValid ? (
         <Banner tone="warning">Persempit rentang tanggal untuk memuat data.</Banner>

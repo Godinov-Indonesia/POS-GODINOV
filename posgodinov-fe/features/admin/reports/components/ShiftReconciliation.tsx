@@ -8,10 +8,8 @@ import { Banner, EmptyState, SkeletonTable } from '@/components/ui/feedback'
 import { Money } from '@/components/ui/money'
 import { TBody, TD, TH, THead, TR, Table } from '@/components/ui/table'
 import { toastApiError } from '@/components/ui/toaster'
-import {
-  DateRangePicker,
-  ServerTimeBanner,
-} from '@/features/admin/reports/components/DateRangePicker'
+import { FilterButton } from '@/components/ui/filter-button'
+import { DateRangePicker } from '@/features/admin/reports/components/DateRangePicker'
 import { useDateRange, useShiftReconciliation } from '@/features/admin/reports/hooks/useReports'
 import { OutletGuard } from '@/features/admin/shell/OutletGuard'
 import { PageHeader } from '@/features/admin/shell/PageHeader'
@@ -48,19 +46,40 @@ export function ShiftReconciliation() {
 
 function ReconciliationContent({ outletId }: { outletId: string }) {
   const [range, setRange] = useDateRange(7)
+  const [onlyFlagged, setOnlyFlagged] = React.useState(false)
   const { data, isPending, error } = useShiftReconciliation(outletId, range)
 
   React.useEffect(() => {
     if (error) toastApiError(error, 'Gagal memuat rekonsiliasi shift')
   }, [error])
 
-  const rows = data ?? []
-  const flaggedCount = rows.filter((r) => r.flagged).length
+  const allRows = data ?? []
+  const flaggedCount = allRows.filter((r) => r.flagged).length
+  const displayRows = onlyFlagged ? allRows.filter((r) => r.flagged) : allRows
 
   return (
     <div className="flex flex-col gap-4">
-      <DateRangePicker value={range} onChange={setRange} />
-      <ServerTimeBanner />
+      {/* ── Toolbar Filter Reusable ───────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border bg-surface p-3.5 shadow-card">
+        <div className="flex flex-wrap items-center gap-2">
+          {flaggedCount > 0 ? (
+            <FilterButton
+              active={onlyFlagged}
+              icon={ShieldAlert}
+              label={onlyFlagged ? 'Hanya Selisih Ditandai' : 'Tampilkan Semua Shift'}
+              badge={flaggedCount}
+              onClick={() => setOnlyFlagged((prev) => !prev)}
+              size="sm"
+            />
+          ) : (
+            <span className="text-pos-xs text-fg-muted font-medium">
+              Total {allRows.length} shift tercatat
+            </span>
+          )}
+        </div>
+        <DateRangePicker value={range} onChange={setRange} inlinePresets />
+      </div>
+
 
       {!isRangeWithinLimit(range) ? (
         <Banner tone="warning" title="Rentang terlalu panjang">
@@ -81,11 +100,15 @@ function ReconciliationContent({ outletId }: { outletId: string }) {
 
       {isPending ? (
         <SkeletonTable rows={6} />
-      ) : rows.length === 0 ? (
+      ) : displayRows.length === 0 ? (
         <EmptyState
           icon={Wallet}
-          title="Belum ada shift pada rentang ini"
-          description="Shift muncul di sini setelah kasir menutupnya dan perangkatnya tersinkron."
+          title={onlyFlagged ? 'Tidak ada shift yang berselisih' : 'Belum ada shift pada rentang ini'}
+          description={
+            onlyFlagged
+              ? 'Seluruh shift pada periode ini berada dalam ambang toleransi yang aman.'
+              : 'Shift muncul di sini setelah kasir menutupnya dan perangkatnya tersinkron.'
+          }
         />
       ) : (
         <Table>
@@ -99,7 +122,7 @@ function ReconciliationContent({ outletId }: { outletId: string }) {
             </TR>
           </THead>
           <TBody>
-            {rows.map((row) => (
+            {displayRows.map((row) => (
               <ReconciliationRow key={row.shiftId} row={row} />
             ))}
           </TBody>

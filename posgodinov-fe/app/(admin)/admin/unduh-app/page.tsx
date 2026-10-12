@@ -1,8 +1,6 @@
-import type { Metadata } from 'next'
-import { AppDownloadPage } from '@/features/admin/app-download/AppDownloadPage'
-
-export const metadata: Metadata = { title: 'Unduh Aplikasi' }
+import { redirect } from 'next/navigation'
 
 export default function Page() {
-  return <AppDownloadPage />
+  redirect('/admin/outlets')
 }
+

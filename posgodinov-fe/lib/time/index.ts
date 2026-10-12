@@ -109,3 +109,38 @@ export function formatTimeId(iso: string): string {
     new Date(iso),
   )
 }
+
+export function formatDateId(dateStr: string): string {
+  if (!dateStr) return ''
+  const d = new Date(`${dateStr}T00:00:00`)
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(d)
+}
+
+export function formatDateShortId(dateStr: string): string {
+  if (!dateStr) return ''
+  const d = new Date(`${dateStr}T00:00:00`)
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'short',
+  }).format(d)
+}
+
+export function formatDateRangeId(range: DateRange): string {
+  if (!range.start || !range.end) return ''
+  if (range.start === range.end) return formatDateId(range.start)
+
+  const d1 = new Date(`${range.start}T00:00:00`)
+  const d2 = new Date(`${range.end}T00:00:00`)
+
+  if (d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth()) {
+    return `${d1.getDate()} – ${formatDateId(range.end)}`
+  }
+  if (d1.getFullYear() === d2.getFullYear()) {
+    return `${formatDateShortId(range.start)} – ${formatDateId(range.end)}`
+  }
+  return `${formatDateId(range.start)} – ${formatDateId(range.end)}`
+}

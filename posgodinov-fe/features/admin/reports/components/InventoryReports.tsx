@@ -5,6 +5,7 @@ import * as React from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Banner, EmptyState, SkeletonTable } from '@/components/ui/feedback'
+import { FilterButton } from '@/components/ui/filter-button'
 import { Money, Num, formatQuantity } from '@/components/ui/money'
 import { TBody, TD, TH, THead, TR, Table } from '@/components/ui/table'
 import { toastApiError } from '@/components/ui/toaster'
@@ -19,18 +20,6 @@ import { PageHeader } from '@/features/admin/shell/PageHeader'
 import { formatDateTimeId } from '@/lib/time'
 import { cn } from '@/lib/utils/cn'
 
-/**
- * Ketiga laporan inventori mengembalikan **seluruh riwayat** tanpa filter
- * tanggal maupun paginasi ([03 §8.3, §9.3, §10.3]). Banner di bawah menyatakan
- * itu apa adanya, karena pertumbuhan payload akan terasa seiring waktu.
- */
-function NoFilterBanner() {
-  return (
-    <Banner tone="info">
-      Laporan ini menampilkan <strong>seluruh riwayat pencatatan</strong> pada outlet terpilih.
-    </Banner>
-  )
-}
 
 /** Nama bahan baku digabungkan dari katalog; log hanya membawa `raw_material_id`. */
 function useRawMaterialNames(outletId: string) {
@@ -65,8 +54,6 @@ function RestockTable({ outletId }: { outletId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <NoFilterBanner />
-
       {!data?.length ? (
         <EmptyState icon={FileBarChart} title="Belum ada riwayat restock" />
       ) : (
@@ -135,8 +122,6 @@ function WasteTable({ outletId }: { outletId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <NoFilterBanner />
-
       {!data?.length ? (
         <EmptyState icon={Trash2} title="Belum ada riwayat waste bahan baku" />
       ) : (
@@ -201,8 +186,6 @@ function OpnameTable({ outletId }: { outletId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <NoFilterBanner />
-
       {flaggedCount > 0 ? (
         <Banner tone="danger" icon={ShieldAlert} title={`${flaggedCount} opname ditandai memiliki selisih signifikan`}>
           Sistem mendeteksi selisih fisik lebih dari 5% terhadap perkiraan stok. Tanda ini merupakan
@@ -211,15 +194,16 @@ function OpnameTable({ outletId }: { outletId: string }) {
       ) : null}
 
       {data?.length ? (
-        <label className="flex items-center gap-2 text-pos-sm">
-          <input
-            type="checkbox"
-            className="size-5 accent-[var(--accent)]"
-            checked={onlyFlagged}
-            onChange={(e) => setOnlyFlagged(e.target.checked)}
+        <div className="flex items-center gap-2">
+          <FilterButton
+            active={onlyFlagged}
+            icon={ShieldAlert}
+            label={onlyFlagged ? 'Hanya Selisih Ditandai' : 'Tampilkan Semua Opname'}
+            badge={flaggedCount}
+            onClick={() => setOnlyFlagged((prev) => !prev)}
+            size="sm"
           />
-          Tampilkan hanya yang ditandai
-        </label>
+        </div>
       ) : null}
 
       {!rows.length ? (

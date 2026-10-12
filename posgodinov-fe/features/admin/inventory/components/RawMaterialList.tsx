@@ -6,7 +6,7 @@ import * as React from 'react'
 
 import { Button, buttonVariants } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/dialog'
-import { Banner, EmptyState, SkeletonTable } from '@/components/ui/feedback'
+import { EmptyState, SkeletonTable } from '@/components/ui/feedback'
 import { Money, Num, formatQuantity } from '@/components/ui/money'
 import { TBody, TD, TH, THead, TR, Table } from '@/components/ui/table'
 import { toast, toastApiError } from '@/components/ui/toaster'
@@ -46,8 +46,6 @@ function RawMaterialTable({ outletId }: { outletId: string }) {
     if (error) toastApiError(error, 'Gagal memuat bahan baku')
   }, [error])
 
-  const negativeCount = data?.filter((m) => m.stock < 0).length ?? 0
-
   const confirmDelete = async () => {
     if (!pendingDelete) return
     try {
@@ -78,13 +76,6 @@ function RawMaterialTable({ outletId }: { outletId: string }) {
 
   return (
     <>
-      {negativeCount > 0 ? (
-        <Banner tone="warning" icon={AlertTriangle} title={`${negativeCount} bahan baku bersaldo minus`}>
-          Stok tercatat negatif karena transaksi penjualan melebihi estimasi stok yang ada.
-          Gunakan <strong>Stock Opname</strong> untuk menyesuaikan stok dengan jumlah fisik yang sebenarnya.
-        </Banner>
-      ) : null}
-
       <Table>
         <THead>
           <TR>

@@ -268,13 +268,6 @@ function FormShell({
     <div className="flex max-w-2xl flex-col gap-4">
       <PageHeader title={title} />
 
-      {showStock ? null : (
-        <Banner tone="info" title="Stok tidak dapat diubah langsung di sini">
-          Stok tercatat secara otomatis melalui aktivitas restock, waste/pembuangan, penjualan, atau
-          stock opname. Untuk memperbarui saldo stok fisik, gunakan menu <strong>Stock Opname</strong>.
-        </Banner>
-      )}
-
       <Card>
         <CardContent className="pt-4">
           <form onSubmit={onSubmit} className="flex flex-col gap-4">

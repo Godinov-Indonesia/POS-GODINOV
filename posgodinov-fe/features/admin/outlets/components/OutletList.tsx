@@ -5,7 +5,7 @@ import Link from 'next/link'
 import * as React from 'react'
 
 import { buttonVariants } from '@/components/ui/button'
-import { Banner, EmptyState, SkeletonTable } from '@/components/ui/feedback'
+import { EmptyState, SkeletonTable } from '@/components/ui/feedback'
 import { TBody, TD, TH, THead, TR, Table } from '@/components/ui/table'
 import { toastApiError } from '@/components/ui/toaster'
 import { useOutlets } from '@/features/admin/outlets/hooks/useOutlets'
@@ -38,10 +38,6 @@ export function OutletList() {
           </Link>
         }
       />
-
-      <Banner tone="info">
-        Nama dan alamat outlet yang sudah dibuat bersifat permanen. Pastikan data yang dimasukkan sudah benar.
-      </Banner>
 
       {isPending ? (
         <SkeletonTable />

@@ -4,7 +4,6 @@ import { ArrowRight, CheckCircle2, Circle } from 'lucide-react'
 import Link from 'next/link'
 import * as React from 'react'
 
-import { Banner } from '@/components/ui/feedback'
 import { Card, CardContent } from '@/components/ui/card'
 import { PageHeader } from '@/features/admin/shell/PageHeader'
 
@@ -57,12 +56,6 @@ export function OnboardingChecklist() {
         title="Panduan Setup"
         description="Urutan pengisian data yang wajib diikuti agar seluruh modul berfungsi."
       />
-
-      <Banner tone="warning">
-        Urutan ini adalah ketergantungan data, bukan saran. Membuat produk sebelum bahan baku
-        tersedia membuat penyusun resep kosong, dan stok tidak akan terpotong saat transaksi
-        tersinkronisasi.
-      </Banner>
 
       <Card>
         <CardContent className="flex flex-col gap-1 pt-4">

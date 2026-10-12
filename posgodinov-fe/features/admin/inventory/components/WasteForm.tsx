@@ -142,13 +142,6 @@ function WasteInner({ outletId }: { outletId: string }) {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <Banner tone="warning" title="Stok harus mencukupi">
-        Berbeda dengan waste produk jadi dari kasir yang membolehkan stok minus,{' '}
-        <strong>waste bahan baku di sini ditolak bila stok tidak mencukupi</strong>. Perbedaan ini
-        disengaja: pencatatan Admin bersifat administratif, sedangkan transaksi kasir sudah
-        benar-benar terjadi.
-      </Banner>
-
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Daftar waste</CardTitle>

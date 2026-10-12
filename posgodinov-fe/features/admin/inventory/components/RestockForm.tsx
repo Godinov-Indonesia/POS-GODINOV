@@ -124,12 +124,6 @@ function RestockInner({ outletId }: { outletId: string }) {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <Banner tone="info" title="HPP dihitung ulang otomatis">
-        Restock memakai <em>moving average</em>:{' '}
-        <code>(stok_lama × HPP_lama + qty × harga_beli) ÷ (stok_lama + qty)</code>. HPP produk yang
-        memakai bahan ini ikut berubah.
-      </Banner>
-
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Daftar pembelian</CardTitle>

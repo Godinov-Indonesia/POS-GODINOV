@@ -17,10 +17,7 @@ import { useOpnameLogs, useWasteLogs } from '@/features/admin/inventory/hooks/us
 import { useRawMaterials } from '@/features/admin/inventory/hooks/useRawMaterials'
 import { useActiveOutlet, useOutlets } from '@/features/admin/outlets/hooks/useOutlets'
 import { useProducts } from '@/features/admin/products/hooks/useProducts'
-import {
-  DateRangePicker,
-  ServerTimeBanner,
-} from '@/features/admin/reports/components/DateRangePicker'
+import { DateRangePicker } from '@/features/admin/reports/components/DateRangePicker'
 import {
   useDashboard,
   useDateRange,
@@ -146,10 +143,9 @@ function DashboardContent({ outletId }: { outletId: string }) {
               Grafik metode pembayaran, penjualan per kategori, dan kesehatan stok
             </p>
           </div>
-          <DateRangePicker value={range} onChange={setRange} />
+          <DateRangePicker value={range} onChange={setRange} inlinePresets />
         </div>
 
-        <ServerTimeBanner />
 
         {!rangeValid ? (
           <Banner tone="warning">

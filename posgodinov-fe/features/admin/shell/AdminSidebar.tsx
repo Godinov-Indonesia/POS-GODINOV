@@ -3,7 +3,6 @@
 import {
   Boxes,
   ClipboardCheck,
-  Download,
   FileBarChart,
   LayoutDashboard,
   Minus,
@@ -16,7 +15,6 @@ import {
   Upload,
   Users,
   Wallet,
-  X,
   type LucideIcon,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -69,12 +67,6 @@ const NAV: NavGroup[] = [
       { href: '/admin/reports/waste', label: 'Waste', icon: Trash2 },
     ],
   },
-  {
-    title: 'Aplikasi',
-    items: [
-      { href: '/admin/unduh-app', label: 'Unduh Aplikasi', icon: Download },
-    ],
-  },
 ]
 
 function isActive(pathname: string, href: string): boolean {
@@ -118,7 +110,7 @@ export function AdminSidebar({
       {/* Backdrop semi-transparan untuk tampilan mobile / tablet (tab) */}
       {isMobileOpen ? (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs transition-opacity lg:hidden"
+          className="absolute inset-0 z-30 bg-black/60 backdrop-blur-xs transition-opacity lg:hidden"
           onClick={onCloseMobile}
           aria-hidden="true"
         />
@@ -126,33 +118,14 @@ export function AdminSidebar({
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-dvh w-64 shrink-0 flex-col bg-surface-inverse text-fg-inverse transition-transform duration-200 ease-in-out lg:static lg:z-auto lg:transition-none',
+          'absolute inset-y-0 left-0 z-40 flex h-full w-64 shrink-0 flex-col bg-surface-inverse text-fg-inverse transition-transform duration-200 ease-in-out lg:static lg:z-auto lg:transition-none',
           // Tampilan tab & mobile (drawer overlay)
           isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full',
           // Tampilan desktop (fixed in flex flow)
           isDesktopOpen ? 'lg:flex lg:translate-x-0' : 'lg:hidden',
         )}
       >
-        <div className="flex h-16 shrink-0 items-center justify-between px-5">
-          <span className="text-pos-lg font-bold tracking-tight">POS GODINOV</span>
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-                onCloseMobile()
-              } else {
-                onToggleDesktop()
-              }
-            }}
-            className="flex size-8 items-center justify-center rounded-md text-fg-inverse/70 transition-colors hover:bg-fg-inverse/10 hover:text-fg-inverse"
-            aria-label="Tutup menu sidebar"
-            title="Tutup menu sidebar"
-          >
-            <X className="size-5" aria-hidden="true" />
-          </button>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto px-3 pb-6">
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
           {NAV.map((group, groupIndex) => (
             <div key={group.title ?? groupIndex} className="mb-4">
               {group.title ? (

@@ -86,15 +86,15 @@ export function AppDownloadPage() {
               <Smartphone className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <div className="text-sm font-semibold text-zinc-100">App Sales Order (SO)</div>
-              <div className="text-xs text-zinc-400 mt-0.5">Untuk tim sales &amp; sales order lapangan</div>
+              <div className="text-sm font-semibold text-zinc-100">App Stock Opname (SO)</div>
+              <div className="text-xs text-zinc-400 mt-0.5">Untuk staff gudang &amp; kontrol inventaris</div>
             </div>
           </div>
 
           <ul className="text-xs text-zinc-400 space-y-1 pl-1">
-            <li className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-zinc-500 shrink-0" />Buat &amp; kelola order pelanggan</li>
-            <li className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-zinc-500 shrink-0" />Monitoring stok real-time</li>
-            <li className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-zinc-500 shrink-0" />Histori order per salesman</li>
+            <li className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-zinc-500 shrink-0" />Penghitungan stok fisik (blind counting)</li>
+            <li className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-zinc-500 shrink-0" />Kontrol inventaris bahan baku</li>
+            <li className="flex items-center gap-2"><span className="w-1 h-1 rounded-full bg-zinc-500 shrink-0" />Verifikasi selisih stok sistem</li>
           </ul>
 
           {isLoading ? (
@@ -106,7 +106,7 @@ export function AppDownloadPage() {
               className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-colors"
             >
               <Download className="w-4 h-4" />
-              Download APK Sales Order
+              Download APK Stock Opname
             </a>
           ) : (
             <div className="text-xs text-zinc-500 italic">Link download belum tersedia.</div>

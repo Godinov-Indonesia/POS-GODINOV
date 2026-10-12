@@ -6,6 +6,7 @@ import * as React from 'react'
 
 import { Button, buttonVariants } from '@/components/ui/button'
 import { EmptyState, SkeletonTable } from '@/components/ui/feedback'
+import { FilterPillButton } from '@/components/ui/filter-button'
 import { TBody, TD, TH, THead, TR, Table } from '@/components/ui/table'
 import { toast, toastApiError } from '@/components/ui/toaster'
 import { usePublishSOForm, useSOForms } from '@/features/admin/inventory/hooks/useSOForms'
@@ -70,22 +71,42 @@ function SOFormListInner({ outletId }: { outletId: string }) {
   return (
     <div className="flex flex-col gap-4">
       {/* Tab Filter */}
-      <div className="flex flex-wrap items-center gap-1 border-b border-border pb-2">
-        <FilterButton active={tab === 'ALL'} onClick={() => setTab('ALL')}>
-          Semua ({data?.length ?? 0})
-        </FilterButton>
-        <FilterButton active={tab === 'OPEN'} onClick={() => setTab('OPEN')}>
-          Draft ({(data ?? []).filter((f) => f.status === 'OPEN').length})
-        </FilterButton>
-        <FilterButton active={tab === 'ACTIVE'} onClick={() => setTab('ACTIVE')}>
-          Sedang Dihitung ({(data ?? []).filter((f) => f.status === 'PUBLISHED' || f.status === 'COUNTING').length})
-        </FilterButton>
-        <FilterButton active={tab === 'CLOSED'} onClick={() => setTab('CLOSED')}>
-          Menunggu Review ({(data ?? []).filter((f) => f.status === 'CLOSED').length})
-        </FilterButton>
-        <FilterButton active={tab === 'FINISHED'} onClick={() => setTab('FINISHED')}>
-          Selesai ({(data ?? []).filter((f) => f.status === 'APPROVED' || f.status === 'REJECTED').length})
-        </FilterButton>
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-border pb-3">
+        <FilterPillButton
+          active={tab === 'ALL'}
+          onClick={() => setTab('ALL')}
+          badge={data?.length ?? 0}
+        >
+          Semua
+        </FilterPillButton>
+        <FilterPillButton
+          active={tab === 'OPEN'}
+          onClick={() => setTab('OPEN')}
+          badge={(data ?? []).filter((f) => f.status === 'OPEN').length}
+        >
+          Draft
+        </FilterPillButton>
+        <FilterPillButton
+          active={tab === 'ACTIVE'}
+          onClick={() => setTab('ACTIVE')}
+          badge={(data ?? []).filter((f) => f.status === 'PUBLISHED' || f.status === 'COUNTING').length}
+        >
+          Sedang Dihitung
+        </FilterPillButton>
+        <FilterPillButton
+          active={tab === 'CLOSED'}
+          onClick={() => setTab('CLOSED')}
+          badge={(data ?? []).filter((f) => f.status === 'CLOSED').length}
+        >
+          Menunggu Review
+        </FilterPillButton>
+        <FilterPillButton
+          active={tab === 'FINISHED'}
+          onClick={() => setTab('FINISHED')}
+          badge={(data ?? []).filter((f) => f.status === 'APPROVED' || f.status === 'REJECTED').length}
+        >
+          Selesai
+        </FilterPillButton>
       </div>
 
       {!forms.length ? (
@@ -130,30 +151,6 @@ function SOFormListInner({ outletId }: { outletId: string }) {
   )
 }
 
-function FilterButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'rounded-md px-3 py-1.5 text-pos-sm font-medium transition-colors',
-        active
-          ? 'bg-brand text-fg-inverse shadow-sm'
-          : 'text-fg-muted hover:bg-surface-subtle hover:text-fg',
-      )}
-    >
-      {children}
-    </button>
-  )
-}
 
 function SOFormRow({
   form,

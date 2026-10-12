@@ -8,7 +8,6 @@ import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Banner } from '@/components/ui/feedback'
 import { Field } from '@/components/ui/field'
 import { Input, Textarea } from '@/components/ui/input'
 import { toast, toastApiError } from '@/components/ui/toaster'
@@ -51,10 +50,6 @@ export function OutletForm() {
   return (
     <div className="flex max-w-2xl flex-col gap-4">
       <PageHeader title="Tambah Outlet" description="Cabang baru untuk bisnis Anda." />
-
-      <Banner tone="warning">
-        Periksa penulisan data outlet dengan teliti. <strong>Nama dan alamat outlet bersifat permanen</strong> setelah disimpan.
-      </Banner>
 
       <Card>
         <CardContent className="pt-4">
