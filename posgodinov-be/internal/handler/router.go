@@ -99,6 +99,7 @@ func SetupRouter(
 	mux.HandleFunc("POST /v1/landlord/businesses/{id}/suspend", landlordChain(landlordHandler.SuspendBusiness))
 	mux.HandleFunc("POST /v1/landlord/businesses/{id}/unsuspend", landlordChain(landlordHandler.UnsuspendBusiness))
 	mux.HandleFunc("GET /v1/landlord/metrics/overview", landlordChain(landlordHandler.GetMetricsOverview))
+	mux.HandleFunc("GET /v1/landlord/audit-logs", landlordChain(landlordHandler.ListAuditLogs))
 
 	// Merchant SaaS & In-App Ads Routes
 	mux.HandleFunc("GET /v1/business/subscription", authMiddleware(landlordHandler.GetTenantSubscription))

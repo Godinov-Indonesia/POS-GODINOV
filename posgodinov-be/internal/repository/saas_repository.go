@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -238,6 +239,12 @@ func (r *postgresSaaSRepository) IncrementCampaignClick(ctx context.Context, id 
 }
 
 func (r *postgresSaaSRepository) CreateCampaign(ctx context.Context, campaign *domain.SaaSCampaign) error {
+	if campaign.ID == "" {
+		campaign.ID = uuid.New().String()
+	}
+	if campaign.StartsAt.IsZero() {
+		campaign.StartsAt = time.Now()
+	}
 	db := database.GetDB(ctx, r.db)
 	return db.WithContext(ctx).Create(campaign).Error
 }

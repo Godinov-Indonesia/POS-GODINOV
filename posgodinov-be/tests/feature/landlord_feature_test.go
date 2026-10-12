@@ -95,6 +95,10 @@ func (m *mockFeatureLandlordRepo) GetMetricsOverview(ctx context.Context) (*doma
 	return m.metrics, nil
 }
 
+func (m *mockFeatureLandlordRepo) ListAuditLogs(ctx context.Context, page, limit int) ([]domain.LandlordAuditLog, int64, error) {
+	return nil, 0, nil
+}
+
 type mockFeatureSaaSRepo struct {
 	sub       *domain.Subscription
 	overrides []domain.TenantFeatureOverride
@@ -435,6 +439,8 @@ func setupLandlordFeatureTest(opts ...service.LandlordOption) (
 	mux.HandleFunc("POST /v1/landlord/businesses/{id}/suspend", landlordMw(landlordHandler.SuspendBusiness))
 	mux.HandleFunc("POST /v1/landlord/businesses/{id}/unsuspend", landlordMw(landlordHandler.UnsuspendBusiness))
 	mux.HandleFunc("POST /v1/landlord/campaigns", landlordMw(landlordHandler.CreateCampaign))
+	mux.HandleFunc("GET /v1/landlord/audit-logs", landlordMw(landlordHandler.ListAuditLogs))
+	mux.HandleFunc("GET /v1/landlord/businesses", landlordMw(landlordHandler.ListBusinesses))
 	mux.HandleFunc("PUT /v1/landlord/landing/settings/{key}", landlordMw(landlordHandler.UpdateLandingSetting))
 	mux.HandleFunc("POST /v1/landlord/landing/revalidate", landlordMw(landlordHandler.RevalidateLandingPage))
 
@@ -1045,3 +1051,100 @@ func TestFeature_LandlordLandingRevalidate(t *testing.T) {
 		t.Fatalf("expected at least 2 hits on next server after updating setting, got %d", revalidateHits)
 	}
 }
+
+func TestFeature_LandlordCampaignCreation_FlexibleDates(t *testing.T) {
+	mux, tokenMaker, _, _, _, _, _ := setupLandlordFeatureTest()
+	adminToken, _ := tokenMaker.CreateToken(token.Payload{
+		ID:    "admin-1",
+		Email: "admin@godinov.com",
+		Type:  "landlord",
+		Role:  "SUPERADMIN",
+	}, time.Hour)
+
+	// 1. Kirim payload campaign dengan starts_at dan ends_at string kosong "" (seperti yang dikirim UI)
+	emptyDatePayload := map[string]any{
+		"title":              "Campaign Promo Ramadan",
+		"subtitle":           "Diskon Upgrade 50%",
+		"format":             "CAROUSEL_SLIDE",
+		"placement":          "dashboard",
+		"image_url":          "https://cdn.godinov.id/promo.png",
+		"action_type":        "INFO_ONLY",
+		"action_url":         "",
+		"action_label":       "Lihat Info",
+		"target_tier":        "ALL",
+		"priority":           1,
+		"skip_delay_seconds": 10,
+		"starts_at":          "",
+		"ends_at":            "",
+		"is_active":          true,
+	}
+	body, _ := json.Marshal(emptyDatePayload)
+	req := httptest.NewRequest(http.MethodPost, "/v1/landlord/campaigns", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created for empty date campaign, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// 2. Kirim payload campaign dengan format HTML datetime-local "2026-10-12T15:30"
+	htmlDatePayload := map[string]any{
+		"title":              "Campaign Promo Gajian",
+		"format":             "POPUP_MODAL",
+		"placement":          "dashboard",
+		"image_url":          "https://cdn.godinov.id/gajian.png",
+		"action_type":        "INTERNAL_UPGRADE",
+		"target_tier":        "FREE_ONLY",
+		"priority":           2,
+		"skip_delay_seconds": 5,
+		"starts_at":          "2026-10-12T15:30",
+		"ends_at":            "2026-10-15T23:59:00",
+		"is_active":          true,
+	}
+	bodyHTML, _ := json.Marshal(htmlDatePayload)
+	reqHTML := httptest.NewRequest(http.MethodPost, "/v1/landlord/campaigns", bytes.NewBuffer(bodyHTML))
+	reqHTML.Header.Set("Authorization", "Bearer "+adminToken)
+	rrHTML := httptest.NewRecorder()
+	mux.ServeHTTP(rrHTML, reqHTML)
+
+	if rrHTML.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created for HTML datetime-local format, got %d: %s", rrHTML.Code, rrHTML.Body.String())
+	}
+}
+
+func TestFeature_LandlordAuditLogs_Endpoint(t *testing.T) {
+	mux, tokenMaker, _, _, _, _, _ := setupLandlordFeatureTest()
+	adminToken, _ := tokenMaker.CreateToken(token.Payload{
+		ID:    "admin-1",
+		Email: "admin@godinov.com",
+		Type:  "landlord",
+		Role:  "SUPERADMIN",
+	}, time.Hour)
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/landlord/audit-logs?page=1&limit=20", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for GET /v1/landlord/audit-logs, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Status  string                   `json:"status"`
+		Data    []domain.LandlordAuditLog `json:"data"`
+		Meta    map[string]any           `json:"meta"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.Status != "success" {
+		t.Fatalf("expected status 'success', got '%s'", resp.Status)
+	}
+	if resp.Meta == nil {
+		t.Fatalf("expected meta pagination object")
+	}
+}
+

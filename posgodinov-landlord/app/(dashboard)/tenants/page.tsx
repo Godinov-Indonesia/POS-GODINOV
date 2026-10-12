@@ -74,9 +74,21 @@ export default function TenantsDirectoryPage() {
       ),
   });
 
-  const businesses = data?.data || [];
+  const rawData = data?.data;
+  const businesses: BusinessWithSubscription[] = Array.isArray(rawData)
+    ? rawData
+    : Array.isArray((rawData as any)?.businesses)
+    ? (rawData as any).businesses
+    : Array.isArray((data as any)?.businesses)
+    ? (data as any).businesses
+    : [];
+
   const meta = data?.meta || {};
-  const total = meta.total || 0;
+  const total =
+    meta.total ??
+    (rawData as any)?.total ??
+    (data as any)?.total ??
+    businesses.length;
   const totalPages = Math.ceil(total / limit) || 1;
 
   return (

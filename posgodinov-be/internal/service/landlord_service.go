@@ -60,6 +60,9 @@ type LandlordService interface {
 	SuspendBusiness(ctx context.Context, adminID, businessID, reason string) error
 	UnsuspendBusiness(ctx context.Context, adminID, businessID string) error
 	GetMetricsOverview(ctx context.Context) (*domain.LandlordMetricsOverview, error)
+
+	// Audit Trail Superadmin
+	ListAuditLogs(ctx context.Context, page, limit int) ([]domain.LandlordAuditLog, int64, error)
 }
 
 type LandlordOption func(*landlordService)
@@ -283,10 +286,17 @@ func (s *landlordService) ListCampaigns(ctx context.Context, targetTier, placeme
 }
 
 func (s *landlordService) CreateCampaign(ctx context.Context, adminID string, campaign *domain.SaaSCampaign) error {
+	if campaign.ID == "" {
+		campaign.ID = uuid.New().String()
+	}
+	if campaign.StartsAt.IsZero() {
+		campaign.StartsAt = time.Now()
+	}
 	if err := s.saasRepo.CreateCampaign(ctx, campaign); err != nil {
 		return err
 	}
 	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
+		ID:         uuid.New().String(),
 		UserID:     adminID,
 		Action:     "CREATE_CAMPAIGN",
 		TargetType: "CAMPAIGN",
@@ -763,3 +773,8 @@ func (s *landlordService) UnsuspendBusiness(ctx context.Context, adminID, busine
 func (s *landlordService) GetMetricsOverview(ctx context.Context) (*domain.LandlordMetricsOverview, error) {
 	return s.landlordRepo.GetMetricsOverview(ctx)
 }
+
+func (s *landlordService) ListAuditLogs(ctx context.Context, page, limit int) ([]domain.LandlordAuditLog, int64, error) {
+	return s.landlordRepo.ListAuditLogs(ctx, page, limit)
+}
+

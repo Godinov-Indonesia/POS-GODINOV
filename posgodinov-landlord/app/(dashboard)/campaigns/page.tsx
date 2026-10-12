@@ -47,10 +47,15 @@ export default function CampaignsPage() {
       apiClient<ApiResponse<SaaSCampaign[]>>("/api/landlord/campaigns"),
   });
 
-  const campaigns = data?.data || [];
+  const rawCampaigns = data?.data;
+  const campaigns: SaaSCampaign[] = Array.isArray(rawCampaigns)
+    ? rawCampaigns
+    : Array.isArray((rawCampaigns as any)?.campaigns)
+    ? (rawCampaigns as any).campaigns
+    : [];
 
   const createMutation = useMutation({
-    mutationFn: (payload: typeof DEFAULT_FORM) =>
+    mutationFn: (payload: Record<string, unknown>) =>
       apiClient("/api/landlord/campaigns", {
         method: "POST",
         body: JSON.stringify(payload),
@@ -72,7 +77,23 @@ export default function CampaignsPage() {
       toast.error("Judul kampanye wajib diisi");
       return;
     }
-    createMutation.mutate(form);
+
+    const payload = {
+      ...form,
+      title: form.title.trim(),
+      subtitle: form.subtitle?.trim() || undefined,
+      action_url: form.action_url?.trim() || undefined,
+      action_label: form.action_label?.trim() || "Tingkatkan Sekarang",
+      image_url: form.image_url?.trim() || "",
+      starts_at: form.starts_at
+        ? new Date(form.starts_at).toISOString()
+        : new Date().toISOString(),
+      ends_at: form.ends_at
+        ? new Date(form.ends_at).toISOString()
+        : undefined,
+    };
+
+    createMutation.mutate(payload);
   };
 
   const set = (field: keyof typeof DEFAULT_FORM, value: unknown) =>

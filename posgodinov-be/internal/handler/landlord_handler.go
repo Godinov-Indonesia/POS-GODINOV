@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/internal/middleware"
@@ -171,16 +173,99 @@ func (h *LandlordHandler) ListCampaigns(w http.ResponseWriter, r *http.Request) 
 	response.Success(w, http.StatusOK, "Daftar kampanye berhasil diambil", campaigns)
 }
 
+type createCampaignReq struct {
+	Title            string  `json:"title"`
+	Subtitle         string  `json:"subtitle"`
+	Format           string  `json:"format"`
+	Placement        string  `json:"placement"`
+	ImageURL         string  `json:"image_url"`
+	ActionType       string  `json:"action_type"`
+	ActionURL        string  `json:"action_url"`
+	ActionLabel      string  `json:"action_label"`
+	TargetTier       string  `json:"target_tier"`
+	Priority         int     `json:"priority"`
+	SkipDelaySeconds int     `json:"skip_delay_seconds"`
+	StartsAt         *string `json:"starts_at"`
+	EndsAt           *string `json:"ends_at"`
+	IsActive         *bool   `json:"is_active"`
+}
+
+func parseFlexibleCampaignTime(val string) (time.Time, bool) {
+	val = strings.TrimSpace(val)
+	if val == "" {
+		return time.Time{}, false
+	}
+	formats := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04",
+		"2006-01-02 15:04:05",
+		"2006-01-02",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, val); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}
+
 func (h *LandlordHandler) CreateCampaign(w http.ResponseWriter, r *http.Request) {
 	payload, _ := r.Context().Value(middleware.LandlordPayloadKey).(*token.Payload)
-	var campaign domain.SaaSCampaign
-	if err := json.NewDecoder(r.Body).Decode(&campaign); err != nil {
-		response.Error(w, http.StatusBadRequest, "Permintaan tidak valid", nil)
+	var req createCampaignReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Permintaan tidak valid: "+err.Error(), nil)
 		return
 	}
 
-	if err := h.svc.CreateCampaign(r.Context(), payload.ID, &campaign); err != nil {
-		response.Error(w, http.StatusInternalServerError, "Gagal membuat kampanye", nil)
+	if strings.TrimSpace(req.Title) == "" {
+		response.Error(w, http.StatusBadRequest, "Judul kampanye wajib diisi", nil)
+		return
+	}
+
+	campaign := domain.SaaSCampaign{
+		Title:            req.Title,
+		Subtitle:         req.Subtitle,
+		Format:           req.Format,
+		Placement:        req.Placement,
+		ImageURL:         req.ImageURL,
+		ActionType:       req.ActionType,
+		ActionURL:        req.ActionURL,
+		ActionLabel:      req.ActionLabel,
+		TargetTier:       req.TargetTier,
+		Priority:         req.Priority,
+		SkipDelaySeconds: req.SkipDelaySeconds,
+		IsActive:         true,
+	}
+
+	if req.IsActive != nil {
+		campaign.IsActive = *req.IsActive
+	}
+
+	if req.StartsAt != nil && strings.TrimSpace(*req.StartsAt) != "" {
+		if t, ok := parseFlexibleCampaignTime(*req.StartsAt); ok {
+			campaign.StartsAt = t
+		} else {
+			campaign.StartsAt = time.Now()
+		}
+	} else {
+		campaign.StartsAt = time.Now()
+	}
+
+	if req.EndsAt != nil && strings.TrimSpace(*req.EndsAt) != "" {
+		if t, ok := parseFlexibleCampaignTime(*req.EndsAt); ok {
+			campaign.EndsAt = &t
+		}
+	}
+
+	adminID := ""
+	if payload != nil {
+		adminID = payload.ID
+	}
+
+	if err := h.svc.CreateCampaign(r.Context(), adminID, &campaign); err != nil {
+		response.Error(w, http.StatusInternalServerError, "Gagal membuat kampanye: "+err.Error(), nil)
 		return
 	}
 
@@ -330,11 +415,15 @@ func (h *LandlordHandler) ListBusinesses(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.Success(w, http.StatusOK, "Direktori bisnis berhasil dimuat", map[string]any{
+	response.SuccessWithMeta(w, http.StatusOK, "Direktori bisnis berhasil dimuat", map[string]any{
 		"businesses": businesses,
 		"total":      total,
 		"page":       page,
 		"limit":      limit,
+	}, map[string]any{
+		"total": total,
+		"page":  page,
+		"limit": limit,
 	})
 }
 
@@ -410,3 +499,27 @@ func (h *LandlordHandler) GetMetricsOverview(w http.ResponseWriter, r *http.Requ
 
 	response.Success(w, http.StatusOK, "Ringkasan metrik platform berhasil dimuat", metrics)
 }
+
+func (h *LandlordHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+
+	logs, total, err := h.svc.ListAuditLogs(r.Context(), page, limit)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "Gagal mengambil log audit: "+err.Error(), nil)
+		return
+	}
+
+	response.SuccessWithMeta(w, http.StatusOK, "Daftar log audit berhasil diambil", logs, map[string]any{
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
+}
+

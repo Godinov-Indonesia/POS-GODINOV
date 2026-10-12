@@ -19,9 +19,20 @@ export default function AuditLogsPage() {
       ),
   });
 
-  const logs = data?.data || [];
+  const rawLogs = data?.data;
+  const logs: LandlordAuditLog[] = Array.isArray(rawLogs)
+    ? rawLogs
+    : Array.isArray((rawLogs as any)?.logs)
+    ? (rawLogs as any).logs
+    : Array.isArray((data as any)?.logs)
+    ? (data as any).logs
+    : [];
   const meta = data?.meta || {};
-  const total = meta.total || 0;
+  const total =
+    meta.total ??
+    (rawLogs as any)?.total ??
+    (data as any)?.total ??
+    logs.length;
   const totalPages = Math.ceil(total / limit) || 1;
 
   return (

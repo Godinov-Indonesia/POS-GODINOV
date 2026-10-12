@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -45,8 +46,38 @@ func (r *postgresLandlordRepository) GetUserByID(ctx context.Context, id string)
 }
 
 func (r *postgresLandlordRepository) CreateAuditLog(ctx context.Context, log *domain.LandlordAuditLog) error {
+	if log.ID == "" {
+		log.ID = uuid.New().String()
+	}
 	db := database.GetDB(ctx, r.db)
 	return db.WithContext(ctx).Create(log).Error
+}
+
+func (r *postgresLandlordRepository) ListAuditLogs(ctx context.Context, page, limit int) ([]domain.LandlordAuditLog, int64, error) {
+	db := database.GetDB(ctx, r.db)
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	offset := (page - 1) * limit
+
+	var total int64
+	if err := db.WithContext(ctx).Model(&domain.LandlordAuditLog{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var logs []domain.LandlordAuditLog
+	if err := db.WithContext(ctx).
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&logs).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return logs, total, nil
 }
 
 func (r *postgresLandlordRepository) GetLandingSettings(ctx context.Context) ([]domain.LandingPageSetting, error) {
