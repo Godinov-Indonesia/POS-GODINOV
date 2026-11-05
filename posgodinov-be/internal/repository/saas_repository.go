@@ -248,3 +248,13 @@ func (r *postgresSaaSRepository) CreateCampaign(ctx context.Context, campaign *d
 	db := database.GetDB(ctx, r.db)
 	return db.WithContext(ctx).Create(campaign).Error
 }
+
+func (r *postgresSaaSRepository) UpdateCampaign(ctx context.Context, campaign *domain.SaaSCampaign) error {
+	db := database.GetDB(ctx, r.db)
+	return db.WithContext(ctx).Save(campaign).Error
+}
+
+func (r *postgresSaaSRepository) DeleteCampaign(ctx context.Context, id string) error {
+	db := database.GetDB(ctx, r.db)
+	return db.WithContext(ctx).Where("id = ?", id).Delete(&domain.SaaSCampaign{}).Error
+}

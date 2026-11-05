@@ -8,6 +8,8 @@ import {
   BarChart,
   Eye,
   MousePointerClick,
+  Pencil,
+  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -36,9 +38,41 @@ const DEFAULT_FORM = {
   is_active: true,
 };
 
+// Format ISO → "yyyy-MM-ddThh:mm" yang dipahami input datetime-local
+function toDatetimeLocal(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+}
+
+function campaignToForm(c: SaaSCampaign): typeof DEFAULT_FORM {
+  return {
+    title: c.title,
+    subtitle: c.subtitle ?? "",
+    format: (c.format as CampaignFormat) ?? "CAROUSEL_SLIDE",
+    placement: c.placement,
+    image_url: c.image_url ?? "",
+    action_type: (c.action_type as CampaignActionType) ?? "INFO_ONLY",
+    action_url: c.action_url ?? "",
+    action_label: c.action_label ?? "",
+    target_tier: (c.target_tier as CampaignTargetTier) ?? "ALL",
+    priority: c.priority,
+    skip_delay_seconds: c.skip_delay_seconds,
+    starts_at: toDatetimeLocal(c.starts_at),
+    ends_at: toDatetimeLocal(c.ends_at),
+    is_active: c.is_active,
+  };
+}
+
 export default function CampaignsPage() {
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState(DEFAULT_FORM);
 
   const { data, isLoading, isError, error } = useQuery({
@@ -48,10 +82,11 @@ export default function CampaignsPage() {
   });
 
   const rawCampaigns = data?.data;
+  const nestedCampaigns = (rawCampaigns as { campaigns?: unknown } | undefined)?.campaigns;
   const campaigns: SaaSCampaign[] = Array.isArray(rawCampaigns)
     ? rawCampaigns
-    : Array.isArray((rawCampaigns as any)?.campaigns)
-    ? (rawCampaigns as any).campaigns
+    : Array.isArray(nestedCampaigns)
+    ? (nestedCampaigns as SaaSCampaign[])
     : [];
 
   const createMutation = useMutation({
@@ -63,13 +98,60 @@ export default function CampaignsPage() {
     onSuccess: () => {
       toast.success("Kampanye baru berhasil dibuat!");
       queryClient.invalidateQueries({ queryKey: ["landlord-campaigns"] });
-      setModalOpen(false);
-      setForm(DEFAULT_FORM);
+      closeModal();
     },
     onError: (err: Error) => {
       toast.error(err.message || "Gagal membuat kampanye");
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
+      apiClient(`/api/landlord/campaigns/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      toast.success("Kampanye berhasil diperbarui!");
+      queryClient.invalidateQueries({ queryKey: ["landlord-campaigns"] });
+      closeModal();
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Gagal memperbarui kampanye");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiClient(`/api/landlord/campaigns/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast.success("Kampanye berhasil dihapus");
+      queryClient.invalidateQueries({ queryKey: ["landlord-campaigns"] });
+      setDeletingId(null);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Gagal menghapus kampanye");
+      setDeletingId(null);
+    },
+  });
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingId(null);
+    setForm(DEFAULT_FORM);
+  };
+
+  const openCreateModal = () => {
+    setEditingId(null);
+    setForm(DEFAULT_FORM);
+    setModalOpen(true);
+  };
+
+  const openEditModal = (campaign: SaaSCampaign) => {
+    setEditingId(campaign.id);
+    setForm(campaignToForm(campaign));
+    setModalOpen(true);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,11 +175,17 @@ export default function CampaignsPage() {
         : undefined,
     };
 
-    createMutation.mutate(payload);
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, payload });
+    } else {
+      createMutation.mutate(payload);
+    }
   };
 
   const set = (field: keyof typeof DEFAULT_FORM, value: unknown) =>
     setForm((prev) => ({ ...prev, [field]: value }));
+
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -112,7 +200,7 @@ export default function CampaignsPage() {
         </div>
 
         <button
-          onClick={() => setModalOpen(true)}
+          onClick={openCreateModal}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-md shadow-indigo-600/20 transition-colors cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -193,9 +281,27 @@ export default function CampaignsPage() {
                         </div>
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors cursor-pointer">
-                          <BarChart className="w-3 h-3" /> Report
-                        </button>
+                        <div className="inline-flex items-center gap-1.5">
+                          <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors cursor-pointer">
+                            <BarChart className="w-3 h-3" /> Report
+                          </button>
+                          <button
+                            onClick={() => openEditModal(c)}
+                            title="Edit kampanye"
+                            aria-label="Edit kampanye"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors cursor-pointer"
+                          >
+                            <Pencil className="w-3 h-3" /> Edit
+                          </button>
+                          <button
+                            onClick={() => setDeletingId(c.id)}
+                            title="Hapus kampanye"
+                            aria-label="Hapus kampanye"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-red-900/60 hover:text-red-300 text-zinc-300 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -206,15 +312,17 @@ export default function CampaignsPage() {
         </div>
       </div>
 
-      {/* Create Campaign Modal */}
+      {/* Create/Edit Campaign Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl my-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-zinc-100">Buat Kampanye Baru</h2>
+              <h2 className="text-base font-bold text-zinc-100">
+                {editingId ? "Edit Kampanye" : "Buat Kampanye Baru"}
+              </h2>
               <button
                 type="button"
-                onClick={() => { setModalOpen(false); setForm(DEFAULT_FORM); }}
+                onClick={closeModal}
                 className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -387,20 +495,56 @@ export default function CampaignsPage() {
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => { setModalOpen(false); setForm(DEFAULT_FORM); }}
+                  onClick={closeModal}
                   className="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  disabled={createMutation.isPending}
+                  disabled={isSubmitting}
                   className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  {createMutation.isPending ? "Membuat..." : "Buat Kampanye"}
+                  {isSubmitting
+                    ? editingId
+                      ? "Menyimpan..."
+                      : "Membuat..."
+                    : editingId
+                    ? "Simpan Perubahan"
+                    : "Buat Kampanye"}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Konfirmasi Hapus Kampanye */}
+      {deletingId && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+            <h2 className="text-base font-bold text-zinc-100">Hapus Kampanye?</h2>
+            <p className="text-xs text-zinc-400">
+              Tindakan ini tidak dapat dibatalkan. Kampanye akan langsung hilang dari
+              seluruh placement in-app.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingId(null)}
+                className="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(deletingId)}
+                className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? "Menghapus..." : "Ya, Hapus"}
+              </button>
+            </div>
           </div>
         </div>
       )}

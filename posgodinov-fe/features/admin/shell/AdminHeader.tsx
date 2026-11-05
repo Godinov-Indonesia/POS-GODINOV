@@ -1,6 +1,6 @@
 'use client'
 
-import { LogOut, Menu, X } from 'lucide-react'
+import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import * as React from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -9,29 +9,53 @@ import { hardLogout } from '@/lib/auth/session-manager'
 import { useSessionStore } from '@/lib/auth/session-store'
 
 export function AdminHeader({
-  onToggleSidebar,
-  isSidebarOpen = false,
+  isMobileOpen = false,
+  isDesktopCollapsed = false,
+  onToggleMobile,
+  onToggleDesktop,
 }: {
-  onToggleSidebar?: () => void
-  isSidebarOpen?: boolean
+  isMobileOpen?: boolean
+  isDesktopCollapsed?: boolean
+  onToggleMobile?: () => void
+  onToggleDesktop?: () => void
 }) {
   const business = useSessionStore((s) => s.business)
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-4 lg:px-6 w-full z-30">
-      {onToggleSidebar ? (
+      {/* Mobile/tablet (< 1024px): drawer overlay — pola hamburger ↔ X standar. */}
+      {onToggleMobile ? (
         <Button
           variant="ghost"
           size="icon"
-          aria-label={isSidebarOpen ? 'Tutup menu sidebar' : 'Buka menu sidebar'}
-          title={isSidebarOpen ? 'Tutup menu sidebar' : 'Buka menu sidebar'}
-          onClick={onToggleSidebar}
-          className="shrink-0"
+          aria-label={isMobileOpen ? 'Tutup menu sidebar' : 'Buka menu sidebar'}
+          title={isMobileOpen ? 'Tutup menu sidebar' : 'Buka menu sidebar'}
+          onClick={onToggleMobile}
+          className="shrink-0 lg:hidden"
         >
-          {isSidebarOpen ? (
+          {isMobileOpen ? (
             <X className="size-5 transition-transform duration-150 text-fg" aria-hidden="true" />
           ) : (
             <Menu className="size-5 transition-transform duration-150 text-fg" aria-hidden="true" />
+          )}
+        </Button>
+      ) : null}
+
+      {/* Desktop (≥ 1024px): panel statis yang menyusut jadi rail ikon, bukan
+          drawer — ikon panel-left menghindari ambiguitas dengan hamburger. */}
+      {onToggleDesktop ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={isDesktopCollapsed ? 'Perluas sidebar' : 'Perkecil sidebar'}
+          title={isDesktopCollapsed ? 'Perluas sidebar' : 'Perkecil sidebar'}
+          onClick={onToggleDesktop}
+          className="hidden shrink-0 lg:flex"
+        >
+          {isDesktopCollapsed ? (
+            <PanelLeftOpen className="size-5 text-fg" aria-hidden="true" />
+          ) : (
+            <PanelLeftClose className="size-5 text-fg" aria-hidden="true" />
           )}
         </Button>
       ) : null}

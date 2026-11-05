@@ -38,6 +38,9 @@ type LandlordService interface {
 	// Kampanye Iklan In-App
 	ListCampaigns(ctx context.Context, targetTier, placement string) ([]domain.SaaSCampaign, error)
 	CreateCampaign(ctx context.Context, adminID string, campaign *domain.SaaSCampaign) error
+	GetCampaign(ctx context.Context, id string) (*domain.SaaSCampaign, error)
+	UpdateCampaign(ctx context.Context, adminID string, campaign *domain.SaaSCampaign) error
+	DeleteCampaign(ctx context.Context, adminID, id string) error
 
 	// CMS Landing Page
 	GetLandingSettings(ctx context.Context) ([]domain.LandingPageSetting, error)
@@ -301,6 +304,54 @@ func (s *landlordService) CreateCampaign(ctx context.Context, adminID string, ca
 		Action:     "CREATE_CAMPAIGN",
 		TargetType: "CAMPAIGN",
 		TargetID:   campaign.Title,
+	})
+
+	// Fire-and-forget revalidation
+	go func() {
+		revalCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = s.TriggerLandingRevalidate(revalCtx)
+	}()
+
+	return nil
+}
+
+func (s *landlordService) GetCampaign(ctx context.Context, id string) (*domain.SaaSCampaign, error) {
+	return s.saasRepo.GetCampaignByID(ctx, id)
+}
+
+func (s *landlordService) UpdateCampaign(ctx context.Context, adminID string, campaign *domain.SaaSCampaign) error {
+	if err := s.saasRepo.UpdateCampaign(ctx, campaign); err != nil {
+		return err
+	}
+	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
+		ID:         uuid.New().String(),
+		UserID:     adminID,
+		Action:     "UPDATE_CAMPAIGN",
+		TargetType: "CAMPAIGN",
+		TargetID:   campaign.ID,
+	})
+
+	// Fire-and-forget revalidation
+	go func() {
+		revalCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = s.TriggerLandingRevalidate(revalCtx)
+	}()
+
+	return nil
+}
+
+func (s *landlordService) DeleteCampaign(ctx context.Context, adminID, id string) error {
+	if err := s.saasRepo.DeleteCampaign(ctx, id); err != nil {
+		return err
+	}
+	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
+		ID:         uuid.New().String(),
+		UserID:     adminID,
+		Action:     "DELETE_CAMPAIGN",
+		TargetType: "CAMPAIGN",
+		TargetID:   id,
 	})
 
 	// Fire-and-forget revalidation

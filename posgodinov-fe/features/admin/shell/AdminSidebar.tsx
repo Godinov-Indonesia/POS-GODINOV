@@ -7,6 +7,8 @@ import {
   LayoutDashboard,
   Minus,
   Package,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Receipt,
   Store,
@@ -75,17 +77,19 @@ function isActive(pathname: string, href: string): boolean {
 }
 
 export interface AdminSidebarProps {
+  /** Drawer overlay mobile/tablet (< 1024px) — ditutup/dibuka lewat hamburger di header. */
   isMobileOpen: boolean
-  isDesktopOpen: boolean
+  /** Rail ikon desktop (≥ 1024px) — sidebar tidak pernah hilang total, hanya menyusut. */
+  isCollapsed: boolean
   onCloseMobile: () => void
-  onToggleDesktop: () => void
+  onToggleCollapse: () => void
 }
 
 export function AdminSidebar({
   isMobileOpen,
-  isDesktopOpen,
+  isCollapsed,
   onCloseMobile,
-  onToggleDesktop,
+  onToggleCollapse,
 }: AdminSidebarProps) {
   const pathname = usePathname()
 
@@ -118,18 +122,26 @@ export function AdminSidebar({
 
       <aside
         className={cn(
-          'absolute inset-y-0 left-0 z-40 flex h-full w-64 shrink-0 flex-col bg-surface-inverse text-fg-inverse transition-transform duration-200 ease-in-out lg:static lg:z-auto lg:transition-none',
+          'absolute inset-y-0 left-0 z-40 flex h-full w-64 shrink-0 flex-col bg-surface-inverse text-fg-inverse transition-transform duration-200 ease-in-out',
           // Tampilan tab & mobile (drawer overlay)
           isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full',
-          // Tampilan desktop (fixed in flex flow)
-          isDesktopOpen ? 'lg:flex lg:translate-x-0' : 'lg:hidden',
+          // Tampilan desktop: panel statis dalam flex flow, lebar bertransisi
+          // mulus antara penuh (256px) dan rail ikon (72px) — tidak pernah
+          // `hidden` total agar jejak navigasi tetap terlihat ([06 §2.1]).
+          'lg:static lg:z-auto lg:translate-x-0 lg:transition-[width] lg:duration-200 lg:ease-in-out',
+          isCollapsed ? 'lg:w-18' : 'lg:w-64',
         )}
       >
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
           {NAV.map((group, groupIndex) => (
             <div key={group.title ?? groupIndex} className="mb-4">
               {group.title ? (
-                <p className="border-t border-border-inverse px-2 pb-2 pt-4 text-pos-xs font-semibold uppercase tracking-wide text-fg-inverse/55">
+                <p
+                  className={cn(
+                    'border-t border-border-inverse px-2 pb-2 pt-4 text-pos-xs font-semibold uppercase tracking-wide text-fg-inverse/55 whitespace-nowrap',
+                    isCollapsed && 'lg:hidden',
+                  )}
+                >
                   {group.title}
                 </p>
               ) : null}
@@ -143,16 +155,23 @@ export function AdminSidebar({
                         href={item.href}
                         onClick={handleLinkClick}
                         aria-current={active ? 'page' : undefined}
+                        title={isCollapsed ? item.label : undefined}
                         className={cn(
                           // Target 48px penuh walau ikon hanya 20px ([06 §2.1]).
-                          'flex min-h-touch items-center gap-3 rounded-md px-3 text-pos-sm',
+                          'flex min-h-touch items-center gap-3 rounded-md px-3 text-pos-sm whitespace-nowrap',
                           active
-                            ? 'border-l-[3px] border-accent bg-accent-subtle pl-[9px] font-semibold text-accent'
-                            : 'text-fg-inverse/80 hover:bg-fg-inverse/10 hover:text-fg-inverse',
+                            ? isCollapsed
+                              // Rail ikon: border kiri tak muat rapi saat center, pakai fill saja.
+                              ? 'lg:justify-center bg-accent-subtle font-semibold text-accent lg:border-l-0 lg:pl-0 lg:px-0 border-l-[3px] border-accent pl-[9px]'
+                              : 'border-l-[3px] border-accent bg-accent-subtle pl-[9px] font-semibold text-accent'
+                            : cn(
+                                'text-fg-inverse/80 hover:bg-fg-inverse/10 hover:text-fg-inverse',
+                                isCollapsed && 'lg:justify-center lg:px-0',
+                              ),
                         )}
                       >
                         <item.icon className="size-5 shrink-0" aria-hidden="true" />
-                        {item.label}
+                        <span className={cn(isCollapsed && 'lg:hidden')}>{item.label}</span>
                       </Link>
                     </li>
                   )
@@ -161,6 +180,29 @@ export function AdminSidebar({
             </div>
           ))}
         </nav>
+
+        {/* Tombol collapse kedua di dalam sidebar (pola Notion/Linear) — agar
+            discoverability tidak hanya bergantung pada tombol di header. */}
+        <div className="hidden border-t border-border-inverse p-3 lg:block">
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            aria-label={isCollapsed ? 'Perluas sidebar' : 'Perkecil sidebar'}
+            title={isCollapsed ? 'Perluas sidebar' : 'Perkecil sidebar'}
+            className={cn(
+              'flex min-h-touch w-full items-center gap-3 rounded-md px-3 text-pos-sm text-fg-inverse/70',
+              'hover:bg-fg-inverse/10 hover:text-fg-inverse',
+              isCollapsed && 'justify-center px-0',
+            )}
+          >
+            {isCollapsed ? (
+              <PanelLeftOpen className="size-5 shrink-0" aria-hidden="true" />
+            ) : (
+              <PanelLeftClose className="size-5 shrink-0" aria-hidden="true" />
+            )}
+            <span className={cn(isCollapsed && 'hidden')}>Perkecil sidebar</span>
+          </button>
+        </div>
       </aside>
     </>
   )

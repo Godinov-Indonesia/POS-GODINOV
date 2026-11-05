@@ -272,6 +272,97 @@ func (h *LandlordHandler) CreateCampaign(w http.ResponseWriter, r *http.Request)
 	response.Success(w, http.StatusCreated, "Kampanye berhasil dibuat", campaign)
 }
 
+func (h *LandlordHandler) GetCampaign(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	campaign, err := h.svc.GetCampaign(r.Context(), id)
+	if err != nil {
+		response.Error(w, http.StatusNotFound, err.Error(), nil)
+		return
+	}
+	response.Success(w, http.StatusOK, "Kampanye berhasil diambil", campaign)
+}
+
+func (h *LandlordHandler) UpdateCampaign(w http.ResponseWriter, r *http.Request) {
+	payload, _ := r.Context().Value(middleware.LandlordPayloadKey).(*token.Payload)
+	id := r.PathValue("id")
+
+	existing, err := h.svc.GetCampaign(r.Context(), id)
+	if err != nil {
+		response.Error(w, http.StatusNotFound, err.Error(), nil)
+		return
+	}
+
+	var req createCampaignReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Permintaan tidak valid: "+err.Error(), nil)
+		return
+	}
+
+	if strings.TrimSpace(req.Title) == "" {
+		response.Error(w, http.StatusBadRequest, "Judul kampanye wajib diisi", nil)
+		return
+	}
+
+	existing.Title = req.Title
+	existing.Subtitle = req.Subtitle
+	existing.Format = req.Format
+	existing.Placement = req.Placement
+	existing.ImageURL = req.ImageURL
+	existing.ActionType = req.ActionType
+	existing.ActionURL = req.ActionURL
+	existing.ActionLabel = req.ActionLabel
+	existing.TargetTier = req.TargetTier
+	existing.Priority = req.Priority
+	existing.SkipDelaySeconds = req.SkipDelaySeconds
+
+	if req.IsActive != nil {
+		existing.IsActive = *req.IsActive
+	}
+
+	if req.StartsAt != nil && strings.TrimSpace(*req.StartsAt) != "" {
+		if t, ok := parseFlexibleCampaignTime(*req.StartsAt); ok {
+			existing.StartsAt = t
+		}
+	}
+
+	if req.EndsAt != nil && strings.TrimSpace(*req.EndsAt) != "" {
+		if t, ok := parseFlexibleCampaignTime(*req.EndsAt); ok {
+			existing.EndsAt = &t
+		}
+	} else if req.EndsAt != nil {
+		existing.EndsAt = nil
+	}
+
+	adminID := ""
+	if payload != nil {
+		adminID = payload.ID
+	}
+
+	if err := h.svc.UpdateCampaign(r.Context(), adminID, existing); err != nil {
+		response.Error(w, http.StatusInternalServerError, "Gagal memperbarui kampanye: "+err.Error(), nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Kampanye berhasil diperbarui", existing)
+}
+
+func (h *LandlordHandler) DeleteCampaign(w http.ResponseWriter, r *http.Request) {
+	payload, _ := r.Context().Value(middleware.LandlordPayloadKey).(*token.Payload)
+	id := r.PathValue("id")
+
+	adminID := ""
+	if payload != nil {
+		adminID = payload.ID
+	}
+
+	if err := h.svc.DeleteCampaign(r.Context(), adminID, id); err != nil {
+		response.Error(w, http.StatusInternalServerError, "Gagal menghapus kampanye: "+err.Error(), nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Kampanye berhasil dihapus", nil)
+}
+
 func (h *LandlordHandler) GetLandingSettings(w http.ResponseWriter, r *http.Request) {
 	settings, err := h.svc.GetLandingSettings(r.Context())
 	if err != nil {

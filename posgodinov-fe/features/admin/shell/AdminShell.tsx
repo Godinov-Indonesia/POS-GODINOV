@@ -19,31 +19,37 @@ import { useSessionStore } from '@/lib/auth/session-store'
  * `sessionStorage`/`localStorage` dan tidak pernah dikirim sebagai cookie,
  * sehingga server tidak punya cara mengetahui status login ([05 §1.4.2]).
  */
+const SIDEBAR_COLLAPSE_KEY = 'godinov.admin.sidebar-collapsed'
+
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const hydrated = useHasHydrated()
   const status = useSessionStore((s) => s.status)
 
+  // Drawer overlay (mobile/tablet < 1024px) — ditutup secara default.
   const [isMobileOpen, setIsMobileOpen] = React.useState(false)
-  const [isDesktopOpen, setIsDesktopOpen] = React.useState(true)
-  const [isMobile, setIsMobile] = React.useState(false)
+  // Rail ikon (desktop ≥ 1024px) — dipertahankan lintas sesi via localStorage,
+  // sidebar tidak pernah disembunyikan total agar jejak navigasi tetap ada.
+  // Lazy initializer (bukan effect) dipakai karena bagian markup yang
+  // bergantung pada nilai ini baru dirender setelah `hydrated` true, jadi
+  // tidak ada risiko ketidakcocokan HTML server/klien ([05 §1.4.2]).
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = React.useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === '1'
+  })
 
+  // Simpan preferensi setiap kali berubah.
   React.useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 1024)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
+    window.localStorage.setItem(SIDEBAR_COLLAPSE_KEY, isDesktopCollapsed ? '1' : '0')
+  }, [isDesktopCollapsed])
+
+  const toggleMobileSidebar = React.useCallback(() => {
+    setIsMobileOpen((prev) => !prev)
   }, [])
 
-  const toggleSidebar = React.useCallback(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      setIsMobileOpen((prev) => !prev)
-    } else {
-      setIsDesktopOpen((prev) => !prev)
-    }
+  const toggleDesktopSidebar = React.useCallback(() => {
+    setIsDesktopCollapsed((prev) => !prev)
   }, [])
-
-  const isSidebarOpen = isMobile ? isMobileOpen : isDesktopOpen
 
   const usable = status === 'authenticated' || status === 'refreshing'
 
@@ -71,17 +77,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
       {/* 2. Navbar membentang penuh hingga ujung kiri paling awal */}
       <AdminHeader
-        isSidebarOpen={isSidebarOpen}
-        onToggleSidebar={toggleSidebar}
+        isMobileOpen={isMobileOpen}
+        isDesktopCollapsed={isDesktopCollapsed}
+        onToggleMobile={toggleMobileSidebar}
+        onToggleDesktop={toggleDesktopSidebar}
       />
 
       {/* 3. Sidebar dan area konten berada tepat di bawah navbar */}
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <AdminSidebar
           isMobileOpen={isMobileOpen}
-          isDesktopOpen={isDesktopOpen}
+          isCollapsed={isDesktopCollapsed}
           onCloseMobile={() => setIsMobileOpen(false)}
-          onToggleDesktop={toggleSidebar}
+          onToggleCollapse={toggleDesktopSidebar}
         />
         <main className="min-w-0 flex-1 overflow-y-auto">
           <div className="p-4 lg:p-6">{children}</div>

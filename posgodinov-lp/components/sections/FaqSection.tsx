@@ -24,7 +24,7 @@ export function FaqSection() {
             <div
               key={item.id}
               className={cn(
-                "rounded-xl border transition-all duration-200 overflow-hidden",
+                "rounded-xl  border transition-all duration-200 overflow-hidden",
                 isOpen
                   ? "border-brand-500/40 bg-ink-900/90 shadow-lg"
                   : "border-ink-800 bg-ink-950/70 hover:border-ink-700"

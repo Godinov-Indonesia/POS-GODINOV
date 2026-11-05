@@ -46,7 +46,7 @@ type PlanFeature struct {
 }
 
 type Subscription struct {
-	ID         string     `json:"id" gorm:"primaryKey;column:id"`
+	ID         string     `json:"id" gorm:"primaryKey;column:id;default:gen_random_uuid()"`
 	BusinessID string     `json:"business_id" gorm:"column:business_id"`
 	PlanID     string     `json:"plan_id" gorm:"column:plan_id"`
 	Status     string     `json:"status" gorm:"column:status"` // ACTIVE, TRIAL, PAST_DUE, EXPIRED
@@ -106,7 +106,7 @@ type SaaSCampaign struct {
 func (SaaSCampaign) TableName() string { return "saas_campaigns" }
 
 type MerchantWallet struct {
-	ID               string    `json:"id" gorm:"primaryKey;column:id"`
+	ID               string    `json:"id" gorm:"primaryKey;column:id;default:gen_random_uuid()"`
 	BusinessID       string    `json:"business_id" gorm:"column:business_id"`
 	BalanceMinor     int64     `json:"balance_minor" gorm:"column:balance_minor"`
 	HeldBalanceMinor int64     `json:"held_balance_minor" gorm:"column:held_balance_minor"`
@@ -202,6 +202,8 @@ type SaaSRepository interface {
 	GetCampaignByID(ctx context.Context, id string) (*SaaSCampaign, error)
 	IncrementCampaignClick(ctx context.Context, id string) error
 	CreateCampaign(ctx context.Context, campaign *SaaSCampaign) error
+	UpdateCampaign(ctx context.Context, campaign *SaaSCampaign) error
+	DeleteCampaign(ctx context.Context, id string) error
 }
 
 // PolicyEngine mendefinisikan evaluator kuota & fitur berbasis in-memory cache

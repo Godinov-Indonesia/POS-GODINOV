@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Megaphone, Sparkles } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 import { getCampaigns, recordCampaignClick } from '@/lib/api/endpoints/campaigns'
 import { getSubscription } from '@/lib/api/endpoints/subscription'
 import type { SaaSCampaign } from '@/lib/types/api'
@@ -83,8 +83,34 @@ export function CampaignBanner() {
       aria-label="Pengumuman & Promo"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
-      className="relative w-full min-h-[3.75rem] py-2 px-3 sm:px-6 overflow-hidden bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-950 border-b border-border-inverse/40 text-white flex items-center justify-between shadow-xs select-none"
+      className="relative isolate w-full min-h-[3.75rem] py-2 px-3 sm:px-6 overflow-hidden border-b border-border-inverse/40 text-white flex items-center justify-between shadow-xs select-none"
     >
+      {/* Lapis background: gambar full-bleed per campaign bila ada, jatuh ke
+          gradient warna polos bila tidak — copy & CTA tetap teks/HTML asli
+          (aksesibel & responsif), tidak pernah "dikunci" di dalam gambar. */}
+      {current.image_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={`${current.id}-bg`}
+          src={current.image_url}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 -z-20 size-full object-cover"
+        />
+      ) : (
+        <div
+          className="absolute inset-0 -z-20 bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-950"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Overlay gelap di atas gambar agar kontras teks tetap terjaga tanpa
+          bergantung pada warna aset campaign (WCAG AA tetap terpenuhi). */}
+      <div
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-slate-950/90 via-slate-950/60 to-slate-950/90"
+        aria-hidden="true"
+      />
+
       {/* Background ambient glow */}
       <div
         className="pointer-events-none absolute -top-12 left-1/4 h-32 w-96 rounded-full bg-accent/20 blur-3xl"
@@ -115,19 +141,11 @@ export function CampaignBanner() {
         onClick={() => handleClick(current)}
         className="relative z-10 mx-2 flex flex-1 items-center justify-center gap-3 text-center cursor-pointer group py-1 min-w-0"
       >
-        {/* Gambar / Badge Icon */}
-        {current.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={current.image_url}
-            alt=""
-            className="size-9 object-cover rounded-md border border-white/20 shrink-0"
-          />
-        ) : (
-          <div className="hidden sm:flex size-8 shrink-0 items-center justify-center rounded-full bg-accent/25 text-accent-subtle border border-accent/30">
-            <Sparkles className="size-4" aria-hidden="true" />
-          </div>
-        )}
+        {/* Badge ikon — netral untuk semua campaign karena `image_url` kini
+            dipakai sebagai background full-bleed, bukan thumbnail kecil. */}
+        <div className="hidden sm:flex size-8 shrink-0 items-center justify-center rounded-full bg-accent/25 text-accent-subtle border border-accent/30">
+          <Sparkles className="size-4" aria-hidden="true" />
+        </div>
 
         {/* Teks Judul & Subtitle */}
         <div className="flex flex-col items-center sm:flex-row sm:items-baseline sm:gap-2 truncate max-w-3xl">
