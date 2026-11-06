@@ -88,23 +88,42 @@ export default function TenantDetailPage() {
   // Impersonate Mutation
   const impersonateMutation = useMutation({
     mutationFn: () =>
-      apiClient<ApiResponse<{ impersonation_token: string; redirect_url?: string }>>(
-        `/api/landlord/businesses/${businessId}/impersonate`,
-        { method: "POST" }
-      ),
+      apiClient<
+        ApiResponse<{
+          access_token?: string;
+          impersonation_token?: string;
+          refresh_token?: string;
+          redirect_url?: string;
+          business?: Record<string, unknown>;
+        }>
+      >(`/api/landlord/businesses/${businessId}/impersonate`, { method: "POST" }),
     onSuccess: (resp) => {
-      const token = resp.data?.impersonation_token;
-      toast.success("Token impersonasi berhasil diterbitkan!");
-      if (token) {
-        // Tampilkan prompt atau buka POS Merchant
-        const frontendUrl =
-          process.env.NEXT_PUBLIC_MERCHANT_FE_URL || "http://localhost:3000";
-        window.open(
-          `${frontendUrl}/impersonate-login?token=${token}`,
-          "_blank",
-          "noopener,noreferrer"
-        );
+      const data = resp.data;
+      const token = data?.access_token || data?.impersonation_token;
+      if (!token) {
+        toast.error("Gagal membuat sesi impersonasi");
+        return;
       }
+
+      toast.success("Token impersonasi berhasil diterbitkan!");
+
+      const frontendUrl =
+        process.env.NEXT_PUBLIC_MERCHANT_FE_URL || "http://localhost:3000";
+
+      let targetUrl = data?.redirect_url;
+      if (!targetUrl) {
+        const params = new URLSearchParams();
+        params.set("token", token);
+        if (data?.refresh_token) {
+          params.set("refresh_token", data.refresh_token);
+        }
+        if (data?.business) {
+          params.set("business", JSON.stringify(data.business));
+        }
+        targetUrl = `${frontendUrl}/impersonate?${params.toString()}`;
+      }
+
+      window.open(targetUrl, "_blank", "noopener,noreferrer");
     },
     onError: (err: Error) => {
       toast.error(err.message || "Gagal membuat sesi impersonasi");
