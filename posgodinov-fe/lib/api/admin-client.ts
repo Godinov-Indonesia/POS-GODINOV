@@ -58,6 +58,17 @@ async function withRetryOn401<T>(
   try {
     return await run({ ...opts, auth: 'access' })
   } catch (e) {
+    if (
+      e instanceof PosApiError &&
+      e.statusCode === 403 &&
+      e.message.toUpperCase().includes('SUSPENDED')
+    ) {
+      useSessionStore.getState().clear('expired')
+      if (typeof window !== 'undefined') {
+        window.location.replace('/login?reason=suspended')
+      }
+      throw e
+    }
     if (e instanceof PosApiError && e.isUnauthorized && !opts.__retried) {
       await refreshAccessToken() // melempar → logout paksa
       return run({ ...opts, auth: 'access', __retried: true })

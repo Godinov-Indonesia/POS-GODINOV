@@ -1,11 +1,14 @@
 'use client'
 
-import { LogOut, Menu, X } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Crown, LogOut, Menu, Sparkles, X } from 'lucide-react'
+import Link from 'next/link'
 import * as React from 'react'
 
 import { Logo } from '@/components/brand/Logo'
 import { Button } from '@/components/ui/button'
 import { OutletSwitcher } from '@/features/admin/outlets/components/OutletSwitcher'
+import { getSubscription } from '@/lib/api/endpoints/subscription'
 import { hardLogout } from '@/lib/auth/session-manager'
 import { useSessionStore } from '@/lib/auth/session-store'
 
@@ -26,6 +29,21 @@ export function AdminHeader({
   onToggleMobile?: () => void
 }) {
   const business = useSessionStore((s) => s.business)
+
+  const { data: subData } = useQuery({
+    queryKey: ['subscription-info'],
+    queryFn: getSubscription,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  })
+
+  const planCode =
+    subData?.effective_policy?.plan_code ||
+    subData?.policy?.plan_code ||
+    subData?.subscription?.plan?.code ||
+    subData?.subscription?.plan_code ||
+    'FREE'
+  const isPaidPlan = planCode.toUpperCase() !== 'FREE'
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-4 lg:px-6 w-full z-30">
@@ -63,6 +81,29 @@ export function AdminHeader({
       {/* Zona 4: Akun — didorong penuh ke kanan, dipisah separator agar
           tidak tercampur visual dengan konteks outlet di sebelahnya. */}
       <div className="ml-auto flex items-center gap-3">
+        <Link
+          href="/admin/subscription"
+          className={
+            isPaidPlan
+              ? 'inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent-subtle px-3 py-1.5 text-pos-xs font-semibold text-accent transition-colors hover:bg-accent/15'
+              : 'inline-flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1.5 text-pos-xs font-semibold text-accent-fg shadow-xs transition-colors hover:bg-accent-hover'
+          }
+          title="Kelola & Upgrade Paket Langganan"
+        >
+          {isPaidPlan ? (
+            <>
+              <Crown className="size-3.5 shrink-0" aria-hidden="true" />
+              <span className="hidden sm:inline">Paket {planCode.toUpperCase()}</span>
+              <span className="sm:hidden">{planCode.toUpperCase()}</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="size-3.5 shrink-0" aria-hidden="true" />
+              <span>Upgrade Plan</span>
+            </>
+          )}
+        </Link>
+
         <div className="hidden h-8 w-px shrink-0 bg-border sm:block" aria-hidden="true" />
 
         <div className="hidden items-center gap-2.5 sm:flex">

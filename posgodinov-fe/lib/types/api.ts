@@ -710,20 +710,67 @@ export type SaaSCampaign = {
   created_at: IsoDateTime
 }
 
+export type SaaSFeatureInfo = {
+  key: string
+  name: string
+  description: string
+  category: string
+  value_type: 'NUMERIC_LIMIT' | 'BOOLEAN_FLAG' | string
+  unit?: string
+}
+
+export type SaaSPlanFeature = {
+  id: string
+  plan_id: string
+  feature_key: string
+  is_enabled: boolean
+  limit_value: number
+  feature?: SaaSFeatureInfo
+}
+
+export type SaaSPlan = {
+  id: string
+  code: string
+  name: string
+  description: string
+  price_minor: number
+  billing_cycle: 'MONTHLY' | 'YEARLY' | 'LIFETIME' | string
+  is_public: boolean
+  is_active: boolean
+  sort_order: number
+  features?: SaaSPlanFeature[]
+}
+
+export type EffectivePolicyInfo = {
+  plan_code: string
+  plan_name?: string
+  status?: string
+  boolean_flags: Record<string, boolean>
+  numeric_limits: Record<string, number>
+}
+
 export type SubscriptionInfo = {
   subscription: {
+    id?: string
     plan_id: string
-    plan_code: string
-    plan_name: string
+    plan_code?: string
+    plan_name?: string
     status: string
+    started_at?: IsoDateTime
     expires_at: IsoDateTime | null
     auto_renew: boolean
+    plan?: SaaSPlan
   }
-  effective_policy: {
-    plan_code: string
-    boolean_flags: Record<string, boolean>
-    numeric_limits: Record<string, number>
-  }
+  policy?: EffectivePolicyInfo
+  effective_policy?: EffectivePolicyInfo
+  plans?: SaaSPlan[]
+  wallet?: {
+    id?: string
+    business_id: string
+    balance_minor: number
+    held_balance_minor: number
+    is_frozen?: boolean
+  } | null
 }
 
 export type CheckoutSubscriptionRequest = {

@@ -20,6 +20,7 @@ import { BASE_URL } from '@/lib/api/http'
 export function LoginForm() {
   const searchParams = useSearchParams()
   const expired = searchParams.get('reason') === 'expired'
+  const suspended = searchParams.get('reason') === 'suspended'
   const { login, pending, outletChoices, chooseOutlet } = useAuthFlow()
   const [showPassword, setShowPassword] = React.useState(false)
 
@@ -58,7 +59,11 @@ export function LoginForm() {
         </p>
       </div>
 
-      {expired ? (
+      {suspended ? (
+        <Banner tone="danger">
+          Akun bisnis Anda sedang ditangguhkan (SUSPENDED). Silakan hubungi customer support.
+        </Banner>
+      ) : expired ? (
         <Banner tone="warning">Sesi Anda telah berakhir. Silakan masuk kembali.</Banner>
       ) : null}
 
