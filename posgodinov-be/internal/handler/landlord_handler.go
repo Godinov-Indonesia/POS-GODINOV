@@ -3,7 +3,9 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -11,16 +13,22 @@ import (
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/internal/middleware"
 	"posgodinov-backend/internal/service"
+	"posgodinov-backend/pkg/logger"
 	"posgodinov-backend/pkg/response"
 	"posgodinov-backend/pkg/token"
 )
 
 type LandlordHandler struct {
-	svc service.LandlordService
+	svc       service.LandlordService
+	backupSvc domain.BackupService
 }
 
-func NewLandlordHandler(svc service.LandlordService) *LandlordHandler {
-	return &LandlordHandler{svc: svc}
+func NewLandlordHandler(svc service.LandlordService, backupSvc ...domain.BackupService) *LandlordHandler {
+	h := &LandlordHandler{svc: svc}
+	if len(backupSvc) > 0 {
+		h.backupSvc = backupSvc[0]
+	}
+	return h
 }
 
 func (h *LandlordHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -640,4 +648,171 @@ func (h *LandlordHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) 
 		"limit": limit,
 	})
 }
+
+// ── Database Backup Endpoints ───────────────────────────────────────────────
+
+func (h *LandlordHandler) TriggerBackup(w http.ResponseWriter, r *http.Request) {
+	if h.backupSvc == nil {
+		response.Error(w, http.StatusNotImplemented, "Layanan backup belum dikonfigurasi", nil)
+		return
+	}
+
+	payload, ok := r.Context().Value(middleware.LandlordPayloadKey).(*token.Payload)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "Token landlord tidak valid", nil)
+		return
+	}
+
+	var req domain.TriggerBackupRequest
+	if r.ContentLength > 0 {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			response.Error(w, http.StatusBadRequest, "Permintaan tidak valid: "+err.Error(), nil)
+			return
+		}
+	}
+
+	job, err := h.backupSvc.TriggerBackup(r.Context(), payload.ID, &req)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+
+	response.Success(w, http.StatusAccepted, "Pekerjaan backup database telah dijadwalkan", job)
+}
+
+func (h *LandlordHandler) ListBackupJobs(w http.ResponseWriter, r *http.Request) {
+	if h.backupSvc == nil {
+		response.Error(w, http.StatusNotImplemented, "Layanan backup belum dikonfigurasi", nil)
+		return
+	}
+
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+
+	jobs, total, err := h.backupSvc.ListJobs(r.Context(), page, limit)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "Gagal mengambil daftar pekerjaan backup: "+err.Error(), nil)
+		return
+	}
+
+	response.SuccessWithMeta(w, http.StatusOK, "Daftar pekerjaan backup berhasil diambil", jobs, map[string]any{
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
+}
+
+func (h *LandlordHandler) GetBackupJob(w http.ResponseWriter, r *http.Request) {
+	if h.backupSvc == nil {
+		response.Error(w, http.StatusNotImplemented, "Layanan backup belum dikonfigurasi", nil)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		response.Error(w, http.StatusBadRequest, "ID pekerjaan diperlukan", nil)
+		return
+	}
+
+	job, err := h.backupSvc.GetJob(r.Context(), id)
+	if err != nil {
+		response.Error(w, http.StatusNotFound, "Pekerjaan backup tidak ditemukan: "+err.Error(), nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Detail pekerjaan backup berhasil diambil", job)
+}
+
+func (h *LandlordHandler) ListBackupFiles(w http.ResponseWriter, r *http.Request) {
+	if h.backupSvc == nil {
+		response.Error(w, http.StatusNotImplemented, "Layanan backup belum dikonfigurasi", nil)
+		return
+	}
+
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+
+	filter := domain.BackupFileFilter{
+		DBName: r.URL.Query().Get("db_name"),
+		Scope:  r.URL.Query().Get("scope"),
+		Page:   page,
+		Limit:  limit,
+	}
+
+	files, total, err := h.backupSvc.ListFiles(r.Context(), filter)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "Gagal mengambil daftar berkas backup: "+err.Error(), nil)
+		return
+	}
+
+	response.SuccessWithMeta(w, http.StatusOK, "Daftar berkas backup berhasil diambil", files, map[string]any{
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
+}
+
+func (h *LandlordHandler) DownloadBackupFile(w http.ResponseWriter, r *http.Request) {
+	if h.backupSvc == nil {
+		response.Error(w, http.StatusNotImplemented, "Layanan backup belum dikonfigurasi", nil)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		response.Error(w, http.StatusBadRequest, "ID berkas diperlukan", nil)
+		return
+	}
+
+	file, reader, err := h.backupSvc.GetFileForDownload(r.Context(), id)
+	if err != nil {
+		response.Error(w, http.StatusNotFound, "Berkas backup tidak ditemukan: "+err.Error(), nil)
+		return
+	}
+	defer reader.Close()
+
+	filename := filepath.Base(file.FilePath)
+	w.Header().Set("Content-Type", "application/gzip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	if file.FileSizeBytes > 0 {
+		w.Header().Set("Content-Length", strconv.FormatInt(file.FileSizeBytes, 10))
+	}
+
+	if _, err := io.Copy(w, reader); err != nil {
+		logger.Error("Failed to stream backup file download", "id", id, "error", err)
+	}
+}
+
+func (h *LandlordHandler) DeleteBackupFile(w http.ResponseWriter, r *http.Request) {
+	if h.backupSvc == nil {
+		response.Error(w, http.StatusNotImplemented, "Layanan backup belum dikonfigurasi", nil)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		response.Error(w, http.StatusBadRequest, "ID berkas diperlukan", nil)
+		return
+	}
+
+	if err := h.backupSvc.DeleteFile(r.Context(), id); err != nil {
+		response.Error(w, http.StatusBadRequest, "Gagal menghapus berkas backup: "+err.Error(), nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Berkas backup berhasil dihapus", nil)
+}
+
 

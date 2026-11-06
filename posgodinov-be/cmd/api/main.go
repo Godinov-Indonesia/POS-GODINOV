@@ -14,6 +14,7 @@ import (
 	"posgodinov-backend/internal/middleware"
 	"posgodinov-backend/internal/repository"
 	"posgodinov-backend/internal/service"
+	"posgodinov-backend/internal/service/storage"
 	"posgodinov-backend/pkg/logger"
 	"posgodinov-backend/pkg/token"
 
@@ -202,7 +203,22 @@ func main() {
 		}),
 	)
 	uploadHandler := handler.NewUploadHandler(uploadSvc)
-	landlordHandler := handler.NewLandlordHandler(landlordSvc)
+
+	// Setup Backup Subsystem
+	backupRepo := repository.NewBackupRepository(db)
+	localBackupStore := storage.NewLocalStorageProvider(cfg.BackupStoragePath)
+	var gdriveBackupStore *storage.GoogleDriveStorageProvider
+	if cfg.GDriveServiceAccountJSON != "" {
+		var gErr error
+		gdriveBackupStore, gErr = storage.NewGoogleDriveStorageProvider(context.Background(), cfg.GDriveServiceAccountJSON, cfg.GDriveFolderID)
+		if gErr != nil {
+			logger.Warn("Failed to initialize Google Drive storage provider", "error", gErr)
+		} else {
+			logger.Info("Google Drive backup storage provider initialized successfully")
+		}
+	}
+	backupSvc := service.NewBackupService(cfg, backupRepo, localBackupStore, gdriveBackupStore, db)
+	landlordHandler := handler.NewLandlordHandler(landlordSvc, backupSvc)
 	dunningSvc := service.NewDunningService(
 		saasRepo,
 		policyEngine,

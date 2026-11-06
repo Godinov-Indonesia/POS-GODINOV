@@ -16,8 +16,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o main cmd/api/main.go
 # Final stage
 FROM alpine:latest
 
-# Install tzdata in case application needs timezone
-RUN apk --no-cache add tzdata
+# Install tzdata and postgresql-client for pg_dump backup operations
+RUN apk --no-cache add tzdata postgresql-client
 
 WORKDIR /app
 

@@ -38,6 +38,13 @@ type Config struct {
 
 	// Payment Hub Webhook
 	PaymentWebhookSecret string
+
+	// Database Backup & Restore
+	BackupStoragePath        string
+	BackupRetentionDays      int
+	GDriveServiceAccountJSON string
+	GDriveFolderID           string
+	RestoreSource            string
 }
 
 func LoadConfig() (*Config, error) {
@@ -69,6 +76,12 @@ func LoadConfig() (*Config, error) {
 		LandingPageRevalidateURL:    os.Getenv("LANDING_PAGE_REVALIDATE_URL"),
 		LandingPageRevalidateSecret: os.Getenv("LANDING_PAGE_REVALIDATE_SECRET"),
 		PaymentWebhookSecret:        os.Getenv("PAYMENT_WEBHOOK_SECRET"),
+
+		BackupStoragePath:        cmp.Or(os.Getenv("BACKUP_STORAGE_PATH"), "./backups"),
+		BackupRetentionDays:      30,
+		GDriveServiceAccountJSON: os.Getenv("GDRIVE_SERVICE_ACCOUNT_JSON"),
+		GDriveFolderID:           os.Getenv("GDRIVE_FOLDER_ID"),
+		RestoreSource:            cmp.Or(os.Getenv("RESTORE_SOURCE"), "local"),
 	}
 
 	if cfg.AppEnv == "production" {

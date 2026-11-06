@@ -107,6 +107,14 @@ func SetupRouter(
 	mux.HandleFunc("GET /v1/landlord/metrics/overview", landlordChain(landlordHandler.GetMetricsOverview))
 	mux.HandleFunc("GET /v1/landlord/audit-logs", landlordChain(landlordHandler.ListAuditLogs))
 
+	// Landlord Backup Management Routes
+	mux.HandleFunc("POST /v1/landlord/backups/trigger", landlordChain(landlordHandler.TriggerBackup))
+	mux.HandleFunc("GET /v1/landlord/backups/jobs", landlordChain(landlordHandler.ListBackupJobs))
+	mux.HandleFunc("GET /v1/landlord/backups/jobs/{id}", landlordChain(landlordHandler.GetBackupJob))
+	mux.HandleFunc("GET /v1/landlord/backups/files", landlordChain(landlordHandler.ListBackupFiles))
+	mux.HandleFunc("GET /v1/landlord/backups/files/{id}/download", landlordChain(landlordHandler.DownloadBackupFile))
+	mux.HandleFunc("DELETE /v1/landlord/backups/files/{id}", landlordChain(landlordHandler.DeleteBackupFile))
+
 	// Merchant SaaS & In-App Ads Routes
 	mux.HandleFunc("GET /v1/business/subscription", authMiddleware(landlordHandler.GetTenantSubscription))
 	mux.HandleFunc("POST /v1/business/subscription/checkout", authMiddleware(landlordHandler.CheckoutSubscription))
