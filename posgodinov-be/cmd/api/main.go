@@ -57,6 +57,10 @@ func main() {
 		logger.Error("failed to init migrate", "error", err)
 		os.Exit(1)
 	}
+	if ver, dirty, vErr := m.Version(); vErr == nil && dirty && ver > 0 {
+		logger.Warn("dirty migration detected, forcing previous version to retry", "dirty_version", ver)
+		_ = m.Force(int(ver) - 1)
+	}
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		logger.Error("failed to run migrate up", "error", err)
 		os.Exit(1)
