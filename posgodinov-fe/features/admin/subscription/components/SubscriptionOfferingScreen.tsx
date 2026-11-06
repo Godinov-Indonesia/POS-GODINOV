@@ -70,19 +70,19 @@ const FALLBACK_PLANS: SaaSPlan[] = [
   {
     id: 'plan_pro_monthly',
     code: 'PRO',
-    name: 'Pro Bisnis',
+    name: 'Pro Growth Monthly',
     description: 'Ideal untuk bisnis berkembang dengan multi-outlet, laporan lengkap, dan bebas iklan.',
-    price_minor: 29900000,
+    price_minor: 14900000,
     billing_cycle: 'MONTHLY',
     is_public: true,
     is_active: true,
     sort_order: 2,
     features: [
       { id: 'p1', plan_id: 'plan_pro_monthly', feature_key: 'max_outlets', is_enabled: true, limit_value: 5 },
-      { id: 'p2', plan_id: 'plan_pro_monthly', feature_key: 'max_products', is_enabled: true, limit_value: 500 },
-      { id: 'p3', plan_id: 'plan_pro_monthly', feature_key: 'max_raw_materials', is_enabled: true, limit_value: 200 },
-      { id: 'p4', plan_id: 'plan_pro_monthly', feature_key: 'max_staff_per_outlet', is_enabled: true, limit_value: 20 },
-      { id: 'p5', plan_id: 'plan_pro_monthly', feature_key: 'history_days_limit', is_enabled: true, limit_value: 365 },
+      { id: 'p2', plan_id: 'plan_pro_monthly', feature_key: 'max_products', is_enabled: true, limit_value: -1 },
+      { id: 'p3', plan_id: 'plan_pro_monthly', feature_key: 'max_raw_materials', is_enabled: true, limit_value: -1 },
+      { id: 'p4', plan_id: 'plan_pro_monthly', feature_key: 'max_staff_per_outlet', is_enabled: true, limit_value: 10 },
+      { id: 'p5', plan_id: 'plan_pro_monthly', feature_key: 'history_days_limit', is_enabled: true, limit_value: -1 },
       { id: 'p6', plan_id: 'plan_pro_monthly', feature_key: 'export_reports', is_enabled: true, limit_value: 0 },
       { id: 'p7', plan_id: 'plan_pro_monthly', feature_key: 'staff_transfer', is_enabled: true, limit_value: 0 },
       { id: 'p8', plan_id: 'plan_pro_monthly', feature_key: 'stock_opname_collaborative', is_enabled: true, limit_value: 0 },
@@ -91,15 +91,38 @@ const FALLBACK_PLANS: SaaSPlan[] = [
     ],
   },
   {
-    id: 'plan_enterprise',
-    code: 'ENTERPRISE',
-    name: 'Enterprise',
-    description: 'Solusi tanpa batas kuota untuk jaringan franchise dan operasional skala besar.',
-    price_minor: 99900000,
-    billing_cycle: 'MONTHLY',
+    id: 'plan_pro_yearly',
+    code: 'PRO',
+    name: 'Pro Growth Yearly',
+    description: 'Paket Pro tahunan lebih hemat (gratis 2 bulan) untuk pertumbuhan jangka panjang.',
+    price_minor: 149000000,
+    billing_cycle: 'YEARLY',
     is_public: true,
     is_active: true,
     sort_order: 3,
+    features: [
+      { id: 'py1', plan_id: 'plan_pro_yearly', feature_key: 'max_outlets', is_enabled: true, limit_value: 5 },
+      { id: 'py2', plan_id: 'plan_pro_yearly', feature_key: 'max_products', is_enabled: true, limit_value: -1 },
+      { id: 'py3', plan_id: 'plan_pro_yearly', feature_key: 'max_raw_materials', is_enabled: true, limit_value: -1 },
+      { id: 'py4', plan_id: 'plan_pro_yearly', feature_key: 'max_staff_per_outlet', is_enabled: true, limit_value: 10 },
+      { id: 'py5', plan_id: 'plan_pro_yearly', feature_key: 'history_days_limit', is_enabled: true, limit_value: -1 },
+      { id: 'py6', plan_id: 'plan_pro_yearly', feature_key: 'export_reports', is_enabled: true, limit_value: 0 },
+      { id: 'py7', plan_id: 'plan_pro_yearly', feature_key: 'staff_transfer', is_enabled: true, limit_value: 0 },
+      { id: 'py8', plan_id: 'plan_pro_yearly', feature_key: 'stock_opname_collaborative', is_enabled: true, limit_value: 0 },
+      { id: 'py9', plan_id: 'plan_pro_yearly', feature_key: 'dual_stock_auto_unpack', is_enabled: true, limit_value: 0 },
+      { id: 'py10', plan_id: 'plan_pro_yearly', feature_key: 'no_ads', is_enabled: true, limit_value: 0 },
+    ],
+  },
+  {
+    id: 'plan_enterprise',
+    code: 'ENTERPRISE',
+    name: 'Enterprise Monthly',
+    description: 'Solusi tanpa batas kuota untuk jaringan franchise dan operasional skala besar.',
+    price_minor: 49900000,
+    billing_cycle: 'MONTHLY',
+    is_public: true,
+    is_active: true,
+    sort_order: 4,
     features: [
       { id: 'e1', plan_id: 'plan_enterprise', feature_key: 'max_outlets', is_enabled: true, limit_value: -1 },
       { id: 'e2', plan_id: 'plan_enterprise', feature_key: 'max_products', is_enabled: true, limit_value: -1 },
@@ -113,6 +136,31 @@ const FALLBACK_PLANS: SaaSPlan[] = [
       { id: 'e10', plan_id: 'plan_enterprise', feature_key: 'custom_branding', is_enabled: true, limit_value: 0 },
       { id: 'e11', plan_id: 'plan_enterprise', feature_key: 'api_webhook_access', is_enabled: true, limit_value: 0 },
       { id: 'e12', plan_id: 'plan_enterprise', feature_key: 'no_ads', is_enabled: true, limit_value: 0 },
+    ],
+  },
+  {
+    id: 'plan_enterprise_yearly',
+    code: 'ENTERPRISE',
+    name: 'Enterprise Yearly',
+    description: 'Solusi tanpa batas kuota tahunan (hemat 2 bulan) untuk jaringan franchise.',
+    price_minor: 499000000,
+    billing_cycle: 'YEARLY',
+    is_public: true,
+    is_active: true,
+    sort_order: 5,
+    features: [
+      { id: 'ey1', plan_id: 'plan_enterprise_yearly', feature_key: 'max_outlets', is_enabled: true, limit_value: -1 },
+      { id: 'ey2', plan_id: 'plan_enterprise_yearly', feature_key: 'max_products', is_enabled: true, limit_value: -1 },
+      { id: 'ey3', plan_id: 'plan_enterprise_yearly', feature_key: 'max_raw_materials', is_enabled: true, limit_value: -1 },
+      { id: 'ey4', plan_id: 'plan_enterprise_yearly', feature_key: 'max_staff_per_outlet', is_enabled: true, limit_value: -1 },
+      { id: 'ey5', plan_id: 'plan_enterprise_yearly', feature_key: 'history_days_limit', is_enabled: true, limit_value: -1 },
+      { id: 'ey6', plan_id: 'plan_enterprise_yearly', feature_key: 'export_reports', is_enabled: true, limit_value: 0 },
+      { id: 'ey7', plan_id: 'plan_enterprise_yearly', feature_key: 'staff_transfer', is_enabled: true, limit_value: 0 },
+      { id: 'ey8', plan_id: 'plan_enterprise_yearly', feature_key: 'stock_opname_collaborative', is_enabled: true, limit_value: 0 },
+      { id: 'ey9', plan_id: 'plan_enterprise_yearly', feature_key: 'dual_stock_auto_unpack', is_enabled: true, limit_value: 0 },
+      { id: 'ey10', plan_id: 'plan_enterprise_yearly', feature_key: 'custom_branding', is_enabled: true, limit_value: 0 },
+      { id: 'ey11', plan_id: 'plan_enterprise_yearly', feature_key: 'api_webhook_access', is_enabled: true, limit_value: 0 },
+      { id: 'ey12', plan_id: 'plan_enterprise_yearly', feature_key: 'no_ads', is_enabled: true, limit_value: 0 },
     ],
   },
 ]
@@ -155,6 +203,7 @@ function formatFeatureItem(pf: SaaSPlanFeature): { label: string; badge: string 
 
 export function SubscriptionOfferingScreen() {
   const queryClient = useQueryClient()
+  const [billingCycle, setBillingCycle] = React.useState<'MONTHLY' | 'YEARLY'>('MONTHLY')
   const [selectedPlan, setSelectedPlan] = React.useState<SaaSPlan | null>(null)
   const [paymentMethod, setPaymentMethod] = React.useState<'QRIS' | 'VA' | 'WALLET'>('QRIS')
   const [checkoutResult, setCheckoutResult] = React.useState<CheckoutSubscriptionResponse | null>(
@@ -175,7 +224,20 @@ export function SubscriptionOfferingScreen() {
   ).toUpperCase()
   const currentPlanId = data?.subscription?.plan_id || 'plan_free'
   const walletBalanceMinor = data?.wallet?.balance_minor ?? 0
-  const plans = data?.plans && data.plans.length > 0 ? data.plans : FALLBACK_PLANS
+
+  const allPlans = React.useMemo(() => {
+    const map = new Map<string, SaaSPlan>()
+    FALLBACK_PLANS.forEach((p) => map.set(p.id, p))
+    ;(data?.plans ?? []).forEach((p) => map.set(p.id, p))
+    return Array.from(map.values()).sort((a, b) => a.sort_order - b.sort_order)
+  }, [data?.plans])
+
+  const plans = React.useMemo(() => {
+    return allPlans.filter((p) => {
+      const cycle = p.billing_cycle?.toUpperCase()
+      return cycle === 'LIFETIME' || p.code.toUpperCase() === 'FREE' || cycle === billingCycle
+    })
+  }, [allPlans, billingCycle])
 
   const checkoutMut = useMutation({
     mutationFn: checkoutSubscription,
@@ -297,13 +359,45 @@ export function SubscriptionOfferingScreen() {
         </div>
       </section>
 
+      {/* Toggle Siklus Tagihan Bulanan vs Tahunan */}
+      <div className="flex flex-col items-center justify-center gap-2">
+        <div className="inline-flex items-center gap-1 rounded-full border border-border bg-surface p-1 shadow-xs">
+          <button
+            type="button"
+            onClick={() => setBillingCycle('MONTHLY')}
+            className={
+              billingCycle === 'MONTHLY'
+                ? 'rounded-full bg-accent px-5 py-2 text-pos-xs font-bold text-accent-fg shadow-xs transition-colors'
+                : 'rounded-full px-5 py-2 text-pos-xs font-semibold text-fg-muted hover:text-fg transition-colors'
+            }
+          >
+            Bulanan (Monthly)
+          </button>
+          <button
+            type="button"
+            onClick={() => setBillingCycle('YEARLY')}
+            className={
+              billingCycle === 'YEARLY'
+                ? 'inline-flex items-center gap-1.5 rounded-full bg-accent px-5 py-2 text-pos-xs font-bold text-accent-fg shadow-xs transition-colors'
+                : 'inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-pos-xs font-semibold text-fg-muted hover:text-fg transition-colors'
+            }
+          >
+            <span>Tahunan (Annually)</span>
+            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+              Hemat 2 Bulan
+            </span>
+          </button>
+        </div>
+      </div>
+
       {/* Grid Offering Paket Langganan */}
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {plans.map((plan) => {
           const isPro = plan.code.toUpperCase() === 'PRO'
           const isCurrent =
-            plan.id === currentPlanId || plan.code.toUpperCase() === currentPlanCode
-          const isFree = plan.price_minor === 0
+            plan.id === currentPlanId ||
+            (plan.code.toUpperCase() === 'FREE' && currentPlanCode === 'FREE')
+          const isFree = plan.code.toUpperCase() === 'FREE' || plan.billing_cycle === 'LIFETIME'
 
           return (
             <div
