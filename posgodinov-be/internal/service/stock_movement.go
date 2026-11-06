@@ -1,8 +1,10 @@
 package service
 
 import (
+	"cmp"
 	"context"
 	"math"
+	"slices"
 
 	"posgodinov-backend/internal/domain"
 )
@@ -53,7 +55,12 @@ func (a bomStockAdjuster) applyToProduct(
 		return nil // produk sudah tidak ada — lihat catatan di atas
 	}
 
-	for _, recipe := range product.Recipes {
+	recipes := slices.Clone(product.Recipes)
+	slices.SortFunc(recipes, func(a, b *domain.ProductRecipe) int {
+		return cmp.Compare(a.RawMaterialID, b.RawMaterialID)
+	})
+
+	for _, recipe := range recipes {
 		rm, err := a.rawMatRepo.LockByID(ctx, recipe.RawMaterialID)
 		if err != nil {
 			// Bahan baku yang hilang diperlakukan sama dengan produk yang

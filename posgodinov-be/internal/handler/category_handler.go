@@ -47,13 +47,7 @@ func (h *ProductCategoryHandler) Create(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Kategori berhasil dibuat",
-		"data":    category,
-	})
+	response.Success(w, http.StatusCreated, "Kategori berhasil dibuat", category)
 }
 
 func (h *ProductCategoryHandler) CreateBulk(w http.ResponseWriter, r *http.Request) {
@@ -84,13 +78,7 @@ func (h *ProductCategoryHandler) CreateBulk(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Kategori berhasil dibuat secara massal",
-		"data":    categories,
-	})
+	response.Success(w, http.StatusCreated, "Kategori berhasil dibuat secara massal", categories)
 }
 
 func (h *ProductCategoryHandler) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -115,11 +103,5 @@ func (h *ProductCategoryHandler) GetAll(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Kategori berhasil diambil",
-		"data":    categories,
-	})
+	response.Success(w, http.StatusOK, "Kategori berhasil diambil", categories)
 }

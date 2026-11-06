@@ -59,13 +59,7 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Produk berhasil ditambahkan",
-		"data":    product,
-	})
+	response.Success(w, http.StatusCreated, "Produk berhasil ditambahkan", product)
 }
 
 func (h *ProductHandler) CreateBulk(w http.ResponseWriter, r *http.Request) {
@@ -105,13 +99,7 @@ func (h *ProductHandler) CreateBulk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Produk massal berhasil ditambahkan",
-		"data":    products,
-	})
+	response.Success(w, http.StatusCreated, "Produk massal berhasil ditambahkan", products)
 }
 
 func (h *ProductHandler) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -136,13 +124,7 @@ func (h *ProductHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Berhasil mengambil data produk",
-		"data":    products,
-	})
+	response.Success(w, http.StatusOK, "Berhasil mengambil data produk", products)
 }
 
 func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -173,13 +155,7 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Produk berhasil diupdate",
-		"data":    product,
-	})
+	response.Success(w, http.StatusOK, "Produk berhasil diupdate", product)
 }
 
 func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -204,10 +180,5 @@ func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Produk berhasil dihapus",
-	})
+	response.Success(w, http.StatusOK, "Produk berhasil dihapus", nil)
 }

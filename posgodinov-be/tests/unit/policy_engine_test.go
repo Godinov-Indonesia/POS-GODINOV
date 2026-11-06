@@ -85,10 +85,6 @@ func (m *mockSaaSRepository) ListSubscriptionsExpiredBefore(ctx context.Context,
 	return nil, nil
 }
 
-func (m *mockSaaSRepository) BulkUpdateSubscriptionStatus(ctx context.Context, ids []string, status string) error {
-	return nil
-}
-
 func (m *mockSaaSRepository) ListActiveOverrides(ctx context.Context, businessID string) ([]domain.TenantFeatureOverride, error) {
 	return m.overrides, nil
 }
@@ -137,6 +133,11 @@ func (m *mockSaaSRepository) ListActiveCampaigns(ctx context.Context, targetTier
 }
 
 func (m *mockSaaSRepository) GetCampaignByID(ctx context.Context, id string) (*domain.SaaSCampaign, error) {
+	for _, c := range m.campaigns {
+		if c.ID == id {
+			return &c, nil
+		}
+	}
 	return nil, nil
 }
 
@@ -146,6 +147,14 @@ func (m *mockSaaSRepository) IncrementCampaignClick(ctx context.Context, id stri
 
 func (m *mockSaaSRepository) CreateCampaign(ctx context.Context, campaign *domain.SaaSCampaign) error {
 	m.campaigns = append(m.campaigns, *campaign)
+	return nil
+}
+
+func (m *mockSaaSRepository) UpdateCampaign(ctx context.Context, campaign *domain.SaaSCampaign) error {
+	return nil
+}
+
+func (m *mockSaaSRepository) DeleteCampaign(ctx context.Context, id string) error {
 	return nil
 }
 

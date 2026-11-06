@@ -51,8 +51,11 @@ func (s *restockLogService) RecordRestock(ctx context.Context, businessID, outle
 			return errors.New("bahan baku tidak ditemukan atau tidak valid untuk outlet ini")
 		}
 
-		// Hitung HPP Baru (Moving Average)
+		// Hitung HPP Baru (Moving Average) — batasi stok lama minimal 0 agar stok minus tidak mengenolkan/merusak HPP
 		oldTotalUnits := rm.TotalStock()
+		if oldTotalUnits < 0 {
+			oldTotalUnits = 0
+		}
 		oldTotalValue := oldTotalUnits * rm.CostPerUnit
 		newTotalValue := req.Quantity * req.CostPerUnit
 
@@ -140,6 +143,9 @@ func (s *restockLogService) RecordBulkRestock(ctx context.Context, businessID, o
 			}
 
 			oldTotalUnits := rm.TotalStock()
+			if oldTotalUnits < 0 {
+				oldTotalUnits = 0
+			}
 			oldTotalValue := oldTotalUnits * rm.CostPerUnit
 			newTotalValue := req.Quantity * req.CostPerUnit
 
@@ -164,6 +170,10 @@ func (s *restockLogService) RecordBulkRestock(ctx context.Context, businessID, o
 			if updateErr := s.rmRepo.UpdateDualStockAndCost(txCtx, rm.ID, newPackageStock, newLooseStock, newCost); updateErr != nil {
 				return errors.New("gagal mengupdate stok dan HPP bahan baku")
 			}
+			rm.PackageStock = newPackageStock
+			rm.LooseStock = newLooseStock
+			rm.CostPerUnit = newCost
+			rm.UnitStock = rm.TotalStock()
 
 			log := &domain.RestockLog{
 				OutletID:      outletID,

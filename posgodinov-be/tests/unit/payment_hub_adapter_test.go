@@ -149,5 +149,12 @@ func TestMockPaymentHubAdapter_AllMethods(t *testing.T) {
 		if _, err := client.VerifyWebhookSignature(badReq); err == nil {
 			t.Fatal("expected error for bad json, got nil")
 		}
+
+		// With HMAC-SHA256 secret: missing or invalid signature rejected
+		securedClient := adapter.NewMockPaymentHubAdapterWithSecret("my-webhook-secret")
+		unauthReq := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewBuffer(bodyBytes))
+		if _, err := securedClient.VerifyWebhookSignature(unauthReq); err == nil {
+			t.Fatal("expected error when X-Webhook-Signature is missing, got nil")
+		}
 	})
 }

@@ -79,14 +79,6 @@ func (m *mockDunningSaaSRepo) ListSubscriptionsExpiredBefore(ctx context.Context
 	}
 	return result, nil
 }
-func (m *mockDunningSaaSRepo) BulkUpdateSubscriptionStatus(ctx context.Context, ids []string, status string) error {
-	for _, id := range ids {
-		if s, ok := m.subs[id]; ok {
-			s.Status = status
-		}
-	}
-	return nil
-}
 func (m *mockDunningSaaSRepo) ListActiveOverrides(ctx context.Context, businessID string) ([]domain.TenantFeatureOverride, error) {
 	return nil, nil
 }
@@ -117,13 +109,19 @@ func (m *mockDunningSaaSRepo) UpdateInvoiceStatus(ctx context.Context, id string
 func (m *mockDunningSaaSRepo) ListActiveCampaigns(ctx context.Context, targetTier, placement string) ([]domain.SaaSCampaign, error) {
 	return nil, nil
 }
-func (m *mockDunningSaaSRepo) GetCampaignByID(ctx context.Context, id string) (*domain.SaaSCampaign, error) {
-	return nil, nil
-}
 func (m *mockDunningSaaSRepo) IncrementCampaignClick(ctx context.Context, id string) error {
 	return nil
 }
 func (m *mockDunningSaaSRepo) CreateCampaign(ctx context.Context, campaign *domain.SaaSCampaign) error {
+	return nil
+}
+func (m *mockDunningSaaSRepo) GetCampaignByID(ctx context.Context, id string) (*domain.SaaSCampaign, error) {
+	return nil, nil
+}
+func (m *mockDunningSaaSRepo) UpdateCampaign(ctx context.Context, campaign *domain.SaaSCampaign) error {
+	return nil
+}
+func (m *mockDunningSaaSRepo) DeleteCampaign(ctx context.Context, id string) error {
 	return nil
 }
 

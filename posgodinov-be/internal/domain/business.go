@@ -6,15 +6,16 @@ import (
 )
 
 type Business struct {
-	ID             string    `json:"id" gorm:"primaryKey;column:id"`
-	SerialBusiness string    `json:"serial_business" gorm:"column:serial_business"`
-	Email          string    `json:"email" gorm:"column:email"`
-	Password       *string   `json:"-" gorm:"column:password"`
-	GoogleID       *string   `json:"-" gorm:"column:google_id"`
-	Name           string    `json:"name" gorm:"column:name"`
-	OwnerName      string    `json:"owner_name" gorm:"column:owner_name"`
-	IsDeleted      bool      `json:"-" gorm:"column:is_deleted;default:false"`
-	CreatedAt      time.Time `json:"created_at,omitzero" gorm:"column:created_at"`
+	ID               string    `json:"id" gorm:"primaryKey;column:id"`
+	SerialBusiness   string    `json:"serial_business" gorm:"column:serial_business"`
+	Email            string    `json:"email" gorm:"column:email"`
+	Password         *string   `json:"-" gorm:"column:password"`
+	GoogleID         *string   `json:"-" gorm:"column:google_id"`
+	Name             string    `json:"name" gorm:"column:name"`
+	OwnerName        string    `json:"owner_name" gorm:"column:owner_name"`
+	StorageUsedBytes int64     `json:"storage_used_bytes" gorm:"column:storage_used_bytes;default:0"`
+	IsDeleted        bool      `json:"-" gorm:"column:is_deleted;default:false"`
+	CreatedAt        time.Time `json:"created_at,omitzero" gorm:"column:created_at"`
 }
 
 
@@ -59,7 +60,6 @@ type BusinessRepository interface {
 	UpsertByGoogle(ctx context.Context, business *Business) error
 	GetBySerialBusiness(ctx context.Context, serial string) (*Business, error)
 	GetByID(ctx context.Context, id string) (*Business, error)
-	LockByID(ctx context.Context, id string) (*Business, error)
 	SaveResetToken(ctx context.Context, rt *PasswordResetToken) error
 	GetResetToken(ctx context.Context, token string) (*PasswordResetToken, error)
 	MarkResetTokenUsed(ctx context.Context, id int) error

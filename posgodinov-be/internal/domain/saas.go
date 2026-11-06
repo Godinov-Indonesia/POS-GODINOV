@@ -180,7 +180,6 @@ type SaaSRepository interface {
 	UpdateSubscription(ctx context.Context, sub *Subscription) error
 	CreateSubscriptionLog(ctx context.Context, log *SubscriptionLog) error
 	ListSubscriptionsExpiredBefore(ctx context.Context, t time.Time, status string) ([]*Subscription, error)
-	BulkUpdateSubscriptionStatus(ctx context.Context, ids []string, status string) error
 
 	// Overrides
 	ListActiveOverrides(ctx context.Context, businessID string) ([]TenantFeatureOverride, error)

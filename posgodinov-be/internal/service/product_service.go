@@ -56,12 +56,8 @@ func (s *productService) Create(ctx context.Context, businessID, outletID string
 	}
 
 	// 1. Pastikan outlet valid dan milik bisnis
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	if s.policyEngine != nil {
@@ -75,7 +71,7 @@ func (s *productService) Create(ctx context.Context, businessID, outletID string
 	var createdProduct *domain.Product
 
 	// 2. Gunakan Transaction Manager untuk insert Product beserta ProductRecipes (BOM)
-	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		// Validasi setiap raw material di resep
 		var recipes []*domain.ProductRecipe
 		seenMaterials := make(map[string]bool)
@@ -134,12 +130,8 @@ func (s *productService) Create(ctx context.Context, businessID, outletID string
 }
 
 func (s *productService) CreateBulk(ctx context.Context, businessID, outletID string, reqs []*domain.CreateProductRequest) ([]*domain.Product, error) {
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	if s.policyEngine != nil {
@@ -152,7 +144,7 @@ func (s *productService) CreateBulk(ctx context.Context, businessID, outletID st
 
 	var createdProducts []*domain.Product
 
-	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		var products []*domain.Product
 
 		// Pre-fetch all raw materials to avoid N+1 query
@@ -232,13 +224,8 @@ func (s *productService) CreateBulk(ctx context.Context, businessID, outletID st
 }
 
 func (s *productService) GetAllByOutlet(ctx context.Context, businessID, outletID string) ([]*domain.Product, error) {
-	// Pastikan outlet valid dan milik bisnis
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	products, err := s.repo.GetAllByOutletID(ctx, outletID)
@@ -260,23 +247,24 @@ func (s *productService) Update(ctx context.Context, businessID, productID strin
 		return nil, errors.New("produk tidak ditemukan")
 	}
 
-	outlet, err := s.outletRepo.GetByID(ctx, product.OutletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: produk ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, product.OutletID); err != nil {
+		return nil, err
 	}
 
 	var updatedProduct *domain.Product
 
 	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 		var recipes []*domain.ProductRecipe
+		seenMaterials := make(map[string]bool)
 		// Validasi setiap bahan baku (cek apakah bahan baku itu valid & milik outlet yang sama)
 		for _, r := range req.Recipes {
 			if r.Quantity <= 0 {
 				return errors.New("kuantitas bahan baku pada resep tidak valid")
 			}
+			if seenMaterials[r.RawMaterialID] {
+				return errors.New("bahan baku yang sama tidak boleh didaftarkan lebih dari sekali pada satu produk")
+			}
+			seenMaterials[r.RawMaterialID] = true
 
 			rm, errRm := s.rmRepo.GetByID(txCtx, r.RawMaterialID)
 			if errRm != nil || rm.OutletID != product.OutletID {
@@ -327,12 +315,8 @@ func (s *productService) Delete(ctx context.Context, businessID, productID strin
 		return errors.New("produk tidak ditemukan")
 	}
 
-	outlet, err := s.outletRepo.GetByID(ctx, product.OutletID)
-	if err != nil {
-		return errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return errors.New("akses ditolak: produk ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, product.OutletID); err != nil {
+		return err
 	}
 
 	// Penghapusan WAJIB menaikkan versi: produk yang lenyap tidak menyentuh

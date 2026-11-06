@@ -128,6 +128,9 @@ func (s *wasteLogService) RecordBulkWaste(ctx context.Context, businessID, outle
 			if updateErr := s.rmRepo.UpdateDualStock(txCtx, rm.ID, newPkg, newLoose); updateErr != nil {
 				return errors.New("gagal memotong stok bahan baku")
 			}
+			rm.PackageStock = newPkg
+			rm.LooseStock = newLoose
+			rm.UnitStock = rm.TotalStock()
 
 			log := &domain.WasteLog{
 				OutletID:      outletID,

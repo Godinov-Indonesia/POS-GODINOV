@@ -3,6 +3,9 @@ package adapter
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,12 +20,21 @@ import (
 type MockPaymentHubAdapter struct {
 	DefaultPaymentStatus string // default: PAID
 	DefaultDisbStatus    string // default: COMPLETED
+	WebhookSecret        string
 }
 
 func NewMockPaymentHubAdapter() *MockPaymentHubAdapter {
 	return &MockPaymentHubAdapter{
 		DefaultPaymentStatus: "PAID",
 		DefaultDisbStatus:    "COMPLETED",
+	}
+}
+
+func NewMockPaymentHubAdapterWithSecret(secret string) *MockPaymentHubAdapter {
+	return &MockPaymentHubAdapter{
+		DefaultPaymentStatus: "PAID",
+		DefaultDisbStatus:    "COMPLETED",
+		WebhookSecret:        secret,
 	}
 }
 
@@ -121,12 +133,22 @@ func (m *MockPaymentHubAdapter) VerifyWebhookSignature(r *http.Request) (*domain
 	if r.Body == nil {
 		return nil, fmt.Errorf("empty webhook body")
 	}
-	body, err := io.ReadAll(r.Body)
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body: %w", err)
 	}
 	// Restore body for downstream handlers
 	r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	if m.WebhookSecret != "" {
+		sigHeader := r.Header.Get("X-Webhook-Signature")
+		mac := hmac.New(sha256.New, []byte(m.WebhookSecret))
+		mac.Write(body)
+		expectedMAC := hex.EncodeToString(mac.Sum(nil))
+		if !hmac.Equal([]byte(sigHeader), []byte(expectedMAC)) {
+			return nil, fmt.Errorf("invalid webhook signature")
+		}
+	}
 
 	var payload domain.PaymentHubWebhookPayload
 	if err := json.Unmarshal(body, &payload); err != nil {

@@ -63,12 +63,8 @@ func (s *staffService) RegisterStaff(ctx context.Context, businessID string, req
 	}
 
 	// 1. Pastikan outlet ada dan milik businessID ini
-	outlet, err := s.outletRepo.GetByID(ctx, req.OutletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, req.OutletID); err != nil {
+		return nil, err
 	}
 
 	if s.policyEngine != nil {
@@ -133,12 +129,8 @@ func (s *staffService) RegisterStaff(ctx context.Context, businessID string, req
 }
 
 func (s *staffService) GetAllByOutlet(ctx context.Context, businessID, outletID string) ([]*domain.Staff, error) {
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	return s.staffRepo.GetAllByOutletID(ctx, outletID)
@@ -158,12 +150,8 @@ func (s *staffService) UpdateStaff(ctx context.Context, businessID, staffID stri
 		return nil, err
 	}
 
-	outlet, err := s.outletRepo.GetByID(ctx, staff.OutletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: staff ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, staff.OutletID); err != nil {
+		return nil, err
 	}
 
 	// Cek identifier duplicate if changed
@@ -218,12 +206,8 @@ func (s *staffService) DeleteStaff(ctx context.Context, businessID, staffID stri
 		return err
 	}
 
-	outlet, err := s.outletRepo.GetByID(ctx, staff.OutletID)
-	if err != nil {
-		return errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return errors.New("akses ditolak: staff ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, staff.OutletID); err != nil {
+		return err
 	}
 
 	// Penghapusan WAJIB menaikkan versi: staff yang lenyap tidak menyentuh
@@ -256,12 +240,8 @@ func (s *staffService) TransferStaff(ctx context.Context, businessID, staffID st
 	}
 
 	// 1. Pastikan outlet asal milik bisnis pemanggil
-	sourceOutlet, err := s.outletRepo.GetByID(ctx, staff.OutletID)
-	if err != nil {
-		return nil, errors.New("outlet asal tidak ditemukan")
-	}
-	if sourceOutlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: staff ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, staff.OutletID); err != nil {
+		return nil, err
 	}
 
 	// 2. Cegah transfer ke outlet yang sama

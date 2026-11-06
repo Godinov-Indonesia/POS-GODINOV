@@ -14,6 +14,7 @@ services:
       # Hubungkan ke container 'db' pada internal port 5432
       - DB_HOST=db
       - DB_PORT=5432
+      # Gunakan role aplikasi dengan NOSUPERUSER NOBYPASSRLS di production agar PostgreSQL RLS aktif
       - DB_USER=${DB_USER:-posgodinov}
       - DB_PASSWORD=${DB_PASSWORD:-secret}
       - DB_NAME=${DB_NAME:-posgodinov}

@@ -61,19 +61,6 @@ func (r *postgresBusinessRepository) GetByID(ctx context.Context, id string) (*d
 	return &b, nil
 }
 
-func (r *postgresBusinessRepository) LockByID(ctx context.Context, id string) (*domain.Business, error) {
-	db := database.GetDB(ctx, r.db)
-	var b domain.Business
-	// FOR UPDATE untuk menghindari race condition
-	if err := db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).First(&b).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("business not found")
-		}
-		return nil, err
-	}
-	return &b, nil
-}
-
 func (r *postgresBusinessRepository) GetByGoogleID(ctx context.Context, googleID string) (*domain.Business, error) {
 	db := database.GetDB(ctx, r.db)
 	var b domain.Business

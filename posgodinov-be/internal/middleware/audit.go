@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -12,6 +13,31 @@ import (
 	"posgodinov-backend/pkg/logger"
 	"posgodinov-backend/pkg/token"
 )
+
+func sanitizeAuditJSON(raw []byte) string {
+	if len(raw) == 0 {
+		return "{}"
+	}
+	if len(raw) > 4096 {
+		return `{"truncated":true}`
+	}
+	str := strings.TrimSpace(string(raw))
+	if !strings.HasPrefix(str, "{") && !strings.HasPrefix(str, "[") {
+		return "{}"
+	}
+	var obj map[string]interface{}
+	if err := json.Unmarshal(raw, &obj); err == nil {
+		for _, k := range []string{"password", "new_password", "confirmation_password", "pin", "pin_hash"} {
+			if _, exists := obj[k]; exists {
+				obj[k] = "[REDACTED]"
+			}
+		}
+		if b, err := json.Marshal(obj); err == nil {
+			return string(b)
+		}
+	}
+	return str
+}
 
 type responseWriterInterceptor struct {
 	http.ResponseWriter
@@ -33,9 +59,10 @@ func AuditMiddleware(repo domain.AuditRepository) func(http.HandlerFunc) http.Ha
 			}
 			userAgent := r.Header.Get("User-Agent")
 
-			// Clone the body so we can log it without destroying it for the handler
+			// Clone the body (capped at 1 MB) so we can log it without destroying it for the handler
 			var bodyBytes []byte
 			if r.Body != nil {
+				r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 				bodyBytes, _ = io.ReadAll(r.Body)
 				r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 			}
@@ -49,25 +76,12 @@ func AuditMiddleware(repo domain.AuditRepository) func(http.HandlerFunc) http.Ha
 			// Pass to the next handler
 			next(rw, r)
 
-			// We only care about logging POST, PUT, DELETE, PATCH actions for audit (mutations)
-			// But for strict auditing, maybe we log GET as well? The user said "semua activity".
-			// But let's log everything that is authenticated.
-
 			// Check if actor is available from context
 			payload, ok := r.Context().Value(AuthPayloadKey).(*token.Payload)
-			
+
 			// Only audit logged-in users actions
 			if ok && payload != nil {
-				// Clean up the body for JSON storage (remove passwords etc if needed, but for simplicity we store raw or sanitized)
-				// For safety, let's just convert it to string. If it's too large or not json, handle it gracefully.
-				details := "{}"
-				if len(bodyBytes) > 0 {
-					// Basic check to see if it's JSON (Object or Array)
-					bodyStr := strings.TrimSpace(string(bodyBytes))
-					if strings.HasPrefix(bodyStr, "{") || strings.HasPrefix(bodyStr, "[") {
-						details = string(bodyBytes)
-					}
-				}
+				details := sanitizeAuditJSON(bodyBytes)
 
 				// Determine action name based on route/method (e.g., "Create Outlet", etc)
 				// Or simply store the method + path

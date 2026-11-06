@@ -9,8 +9,9 @@ import (
 type contextKey string
 
 const (
-	txKey contextKey = "gorm_transaction"
+	txKey         contextKey = "gorm_transaction"
 	BusinessDBKey contextKey = "tenant_db"
+	OutletIDKey   contextKey = "outlet_id"
 )
 
 // TransactionManager adalah kontrak untuk menjalankan fungsi di dalam scope transaksi
@@ -48,6 +49,11 @@ func (tm *postgresTransactionManager) WithTransaction(ctx context.Context, fn fu
 	dbToUse := GetDB(ctx, tm.db)
 
 	return dbToUse.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if outletID, ok := ctx.Value(OutletIDKey).(string); ok && outletID != "" {
+			if err := tx.Exec("SELECT set_config('app.current_outlet_id', ?, true)", outletID).Error; err != nil {
+				return err
+			}
+		}
 		// Simpan object transaksi GORM ke dalam Context
 		txCtx := context.WithValue(ctx, txKey, tx)
 		return fn(txCtx)

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -298,23 +299,25 @@ func (s *businessService) buildAuthResponse(business *domain.Business) (*domain.
 	}, nil
 }
 
-// buildSerialBusiness menghasilkan kode serial dari nama bisnis + pemilik + tanggal.
+// buildSerialBusiness menghasilkan kode serial unik dari nama bisnis + pemilik + tanggal + suffix acak.
 func buildSerialBusiness(name, ownerName string) string {
+	nameRunes := []rune(strings.TrimSpace(name))
 	namePrefix := "XXX"
-	if len(name) >= 3 {
-		namePrefix = strings.ToUpper(name[:3])
-	} else if len(name) > 0 {
-		namePrefix = strings.ToUpper(name)
+	if len(nameRunes) >= 3 {
+		namePrefix = strings.ToUpper(string(nameRunes[:3]))
+	} else if len(nameRunes) > 0 {
+		namePrefix = strings.ToUpper(string(nameRunes))
 	}
 
+	ownerRunes := []rune(strings.TrimSpace(ownerName))
 	ownerPrefix := "XX"
-	if len(ownerName) >= 2 {
-		ownerPrefix = strings.ToUpper(ownerName[:2])
-	} else if len(ownerName) > 0 {
-		ownerPrefix = strings.ToUpper(ownerName)
+	if len(ownerRunes) >= 2 {
+		ownerPrefix = strings.ToUpper(string(ownerRunes[:2]))
+	} else if len(ownerRunes) > 0 {
+		ownerPrefix = strings.ToUpper(string(ownerRunes))
 	}
 
-	return fmt.Sprintf("%s%s%s", namePrefix, ownerPrefix, time.Now().Format("020106"))
+	return fmt.Sprintf("%s%s%s%s", namePrefix, ownerPrefix, time.Now().Format("020106"), utils.GenerateRandomString(4))
 }
 
 type googleUserInfo struct {
@@ -371,25 +374,28 @@ func (s *businessService) ForgotPassword(ctx context.Context, req *domain.Forgot
 		return errors.New("gagal membuat token reset")
 	}
 	resetToken := hex.EncodeToString(b)
+	tokenHash := sha256.Sum256([]byte(resetToken))
 
 	rt := &domain.PasswordResetToken{
 		BusinessID: business.ID,
-		Token:      resetToken,
+		Token:      hex.EncodeToString(tokenHash[:]),
 		ExpiresAt:  time.Now().Add(15 * time.Minute),
 	}
 	if err := s.repo.SaveResetToken(ctx, rt); err != nil {
 		return errors.New("gagal menyimpan token reset")
 	}
 
-	// Di production: kirim email berisi link reset. Di sini log ke console.
-	frontendURL := os.Getenv("FRONTEND_URL")
-	if frontendURL == "" {
-		frontendURL = "http://localhost:3000"
+	// Hanya log link reset di environment local/dev.
+	if env := os.Getenv("APP_ENV"); env == "" || env == "local" {
+		frontendURL := os.Getenv("FRONTEND_URL")
+		if frontendURL == "" {
+			frontendURL = "http://localhost:3000"
+		}
+		logger.Info("[DEV] Password reset link",
+			"url", fmt.Sprintf("%s/reset-password?token=%s", frontendURL, resetToken),
+			"email", req.Email,
+		)
 	}
-	logger.Info("[DEV] Password reset link",
-		"url", fmt.Sprintf("%s/reset-password?token=%s", frontendURL, resetToken),
-		"email", req.Email,
-	)
 	return nil
 }
 
@@ -401,7 +407,8 @@ func (s *businessService) ResetPassword(ctx context.Context, req *domain.ResetPa
 		return errors.New("password minimal 8 karakter")
 	}
 
-	rt, err := s.repo.GetResetToken(ctx, req.Token)
+	tokenHash := sha256.Sum256([]byte(req.Token))
+	rt, err := s.repo.GetResetToken(ctx, hex.EncodeToString(tokenHash[:]))
 	if err != nil {
 		return errors.New("token tidak valid")
 	}

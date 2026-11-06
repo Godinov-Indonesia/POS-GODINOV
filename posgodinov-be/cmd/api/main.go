@@ -122,7 +122,7 @@ func main() {
 	restockLogSvc := service.NewRestockLogService(restockLogRepo, rawMaterialRepo, outletRepo, txManager)
 	categorySvc := service.NewProductCategoryService(categoryRepo, outletRepo,
 		service.WithCategoryMasterVersion(txManager, masterVersionRepo))
-	paymentHubClient := adapter.NewMockPaymentHubAdapter()
+	paymentHubClient := adapter.NewMockPaymentHubAdapterWithSecret(cfg.PaymentWebhookSecret)
 	landlordSvc := service.NewLandlordService(
 		landlordRepo, saasRepo, businessRepo, tokenMaker, policyEngine,
 		service.WithLandlordPaymentHub(paymentHubClient),
@@ -164,6 +164,7 @@ func main() {
 		service.WithReportPolicyEngine(policyEngine),
 		service.WithReportWasteLogRepo(wasteLogRepo),
 		service.WithReportRestockLogRepo(restockLogRepo),
+		service.WithReportOutletRepo(outletRepo),
 	)
 
 	// Setup Handlers
@@ -184,6 +185,14 @@ func main() {
 	uploadSvc := service.NewUploadService(
 		cfg,
 		service.WithUploadPolicyEngine(policyEngine),
+		service.WithUploadStorageUsage(func(ctx context.Context, businessID string) (int64, error) {
+			var usedBytes int64
+			err := db.WithContext(ctx).Raw("SELECT COALESCE(storage_used_bytes, 0) FROM businesses WHERE id = ?", businessID).Scan(&usedBytes).Error
+			return (usedBytes + (1024*1024 - 1)) / (1024 * 1024), err
+		}),
+		service.WithUploadStorageAdder(func(ctx context.Context, businessID string, bytes int64) error {
+			return db.WithContext(ctx).Exec("UPDATE businesses SET storage_used_bytes = COALESCE(storage_used_bytes, 0) + ? WHERE id = ?", bytes, businessID).Error
+		}),
 	)
 	uploadHandler := handler.NewUploadHandler(uploadSvc)
 	landlordHandler := handler.NewLandlordHandler(landlordSvc)
@@ -224,8 +233,12 @@ func main() {
 	handlerToServe = middleware.RequestLogger(handlerToServe)
 
 	srv := &http.Server{
-		Addr:    ":" + cfg.AppPort,
-		Handler: handlerToServe,
+		Addr:              ":" + cfg.AppPort,
+		Handler:           handlerToServe,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	// Graceful shutdown setup

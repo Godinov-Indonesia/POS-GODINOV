@@ -60,13 +60,7 @@ func (h *OutletHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	// 4. Return Berhasil
 	logger.Info("outlet berhasil didaftarkan", "id", outlet.ID, "business_id", payload.ID)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Outlet berhasil didaftarkan",
-		"data":    outlet,
-	})
+	response.Success(w, http.StatusCreated, "Outlet berhasil didaftarkan", outlet)
 }
 
 func (h *OutletHandler) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -86,11 +80,5 @@ func (h *OutletHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Berhasil mengambil daftar outlet",
-		"data":    outlets,
-	})
+	response.Success(w, http.StatusOK, "Berhasil mengambil daftar outlet", outlets)
 }

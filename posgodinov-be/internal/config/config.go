@@ -2,6 +2,7 @@ package config
 
 import (
 	"cmp"
+	"errors"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -34,6 +35,9 @@ type Config struct {
 	// Landing Page Revalidation
 	LandingPageRevalidateURL    string
 	LandingPageRevalidateSecret string
+
+	// Payment Hub Webhook
+	PaymentWebhookSecret string
 }
 
 func LoadConfig() (*Config, error) {
@@ -64,6 +68,16 @@ func LoadConfig() (*Config, error) {
 
 		LandingPageRevalidateURL:    os.Getenv("LANDING_PAGE_REVALIDATE_URL"),
 		LandingPageRevalidateSecret: os.Getenv("LANDING_PAGE_REVALIDATE_SECRET"),
+		PaymentWebhookSecret:        os.Getenv("PAYMENT_WEBHOOK_SECRET"),
+	}
+
+	if cfg.AppEnv == "production" {
+		if cfg.PasetoSymmetricKey == "12345678901234567890123456789012" || len(cfg.PasetoSymmetricKey) < 32 {
+			return nil, errors.New("PASETO_SYMMETRIC_KEY wajib diatur minimal 32 byte dan bukan default di production")
+		}
+		if cfg.PaymentWebhookSecret == "" {
+			return nil, errors.New("PAYMENT_WEBHOOK_SECRET wajib diatur di production")
+		}
 	}
 
 	return cfg, nil

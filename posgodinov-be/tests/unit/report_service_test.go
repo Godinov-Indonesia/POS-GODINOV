@@ -4,19 +4,22 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/internal/service"
 )
 
 type MockReportRepository struct {
-	Stats       *domain.DashboardStats
-	TopProducts []*domain.TopProduct
+	Stats        *domain.DashboardStats
+	TopProducts  []*domain.TopProduct
 	Transactions []*domain.Transaction
-	Err         error
+	LastFilter   domain.ReportFilter
+	Err          error
 }
 
 func (m *MockReportRepository) GetDashboardStats(ctx context.Context, filter domain.ReportFilter) (*domain.DashboardStats, error) {
+	m.LastFilter = filter
 	if m.Err != nil {
 		return nil, m.Err
 	}
@@ -24,6 +27,7 @@ func (m *MockReportRepository) GetDashboardStats(ctx context.Context, filter dom
 }
 
 func (m *MockReportRepository) GetTopProducts(ctx context.Context, filter domain.ReportFilter, limit int) ([]*domain.TopProduct, error) {
+	m.LastFilter = filter
 	if m.Err != nil {
 		return nil, m.Err
 	}
@@ -35,6 +39,7 @@ func (m *MockReportRepository) GetTopProducts(ctx context.Context, filter domain
 }
 
 func (m *MockReportRepository) GetTransactions(ctx context.Context, filter domain.ReportFilter) ([]*domain.Transaction, error) {
+	m.LastFilter = filter
 	if m.Err != nil {
 		return nil, m.Err
 	}
@@ -120,6 +125,29 @@ func TestReportService_GetTransactions(t *testing.T) {
 		_, err := svc.GetTransactions(ctx, filter)
 		if err == nil {
 			t.Error("expected error, got nil")
+		}
+	})
+
+	t.Run("Clamps StartDate to history_days_limit via PolicyEngine", func(t *testing.T) {
+		repo := &MockReportRepository{
+			Transactions: []*domain.Transaction{},
+		}
+		pe := &mockM6PolicyEngine{
+			numericLimits: map[string]int64{"history_days_limit": 7},
+		}
+		svc := service.NewReportService(repo, service.WithReportPolicyEngine(pe))
+		filter := domain.ReportFilter{
+			BusinessID: "b1",
+			StartDate:  "2020-01-01",
+		}
+
+		_, err := svc.GetTransactions(ctx, filter)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		expectedStart := time.Now().AddDate(0, 0, -7).Format("2006-01-02")
+		if repo.LastFilter.StartDate != expectedStart {
+			t.Errorf("expected clamped StartDate %s, got %s", expectedStart, repo.LastFilter.StartDate)
 		}
 	})
 }

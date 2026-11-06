@@ -1,10 +1,12 @@
 package service
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"time"
 
 	"posgodinov-backend/internal/database"
@@ -169,24 +171,21 @@ func (s *opnameSessionService) buildFormResponse(ctx context.Context, session *d
 	}
 
 	if session.Status == domain.SOStatusCounting || session.Status == domain.SOStatusPublished {
-		hasCounts, _ := s.repo.HasCountEntries(ctx, session.ID)
 		total := len(items)
 		var counted int
 		countersMap := make(map[string]bool)
 
-		if hasCounts {
-			entries, err := s.repo.ListCountEntries(ctx, session.ID)
-			if err == nil {
-				countedMaterials := make(map[string]bool)
-				for _, entry := range entries {
-					countedMaterials[entry.RawMaterialID] = true
-					countersMap[entry.CountedBy] = true
-				}
-				counted = len(countedMaterials)
+		entries, err := s.repo.ListCountEntries(ctx, session.ID)
+		if err == nil && len(entries) > 0 {
+			countedMaterials := make(map[string]bool)
+			for _, entry := range entries {
+				countedMaterials[entry.RawMaterialID] = true
+				countersMap[entry.CountedBy] = true
 			}
+			counted = len(countedMaterials)
 		}
 
-		counters := make([]string, 0)
+		counters := make([]string, 0, len(countersMap))
 		for k := range countersMap {
 			counters = append(counters, k)
 		}
@@ -396,11 +395,16 @@ func (s *opnameSessionService) CreateForm(ctx context.Context, businessID, outle
 		CreatedAt:     s.now(),
 	}
 
-	if err := s.repo.Create(ctx, session); err != nil {
-		return nil, err
-	}
-
-	if err := s.repo.SetFormItems(ctx, session.ID, req.RawMaterialIDs); err != nil {
+	err = s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if existing, getErr := s.repo.GetByID(txCtx, session.ID); getErr == nil && existing != nil {
+			return errors.New("ID form SO sudah digunakan")
+		}
+		if err := s.repo.Create(txCtx, session); err != nil {
+			return err
+		}
+		return s.repo.SetFormItems(txCtx, session.ID, req.RawMaterialIDs)
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -512,9 +516,14 @@ func (s *opnameSessionService) ApproveForm(ctx context.Context, businessID, outl
 		if err != nil {
 			return err
 		}
+		slices.SortFunc(items, func(a, b *domain.OpnameSessionItem) int {
+			return cmp.Compare(a.RawMaterialID, b.RawMaterialID)
+		})
 
 		for _, it := range items {
-			if it.SystemStock != nil && it.Difference != nil && *it.Difference != 0 {
+			hasDiff := it.Difference != nil && *it.Difference != 0
+			hasDualCount := it.ActualPackages != nil || it.ActualLoose != nil
+			if it.SystemStock != nil && (hasDiff || hasDualCount) {
 				rm, err := s.rmRepo.LockByID(txCtx, it.RawMaterialID)
 				if err != nil {
 					return err
@@ -529,13 +538,19 @@ func (s *opnameSessionService) ApproveForm(ctx context.Context, businessID, outl
 					newLooseStock = *it.ActualLoose
 				}
 
+				if !hasDiff && rm.PackageStock == newPackageStock && rm.LooseStock == newLooseStock {
+					continue
+				}
+
 				if err := s.rmRepo.UpdateDualStock(txCtx, rm.ID, newPackageStock, newLooseStock); err != nil {
 					return err
 				}
 
-				itemsAdjusted++
-				if it.DifferenceValue != nil {
-					totalVariance += *it.DifferenceValue
+				if hasDiff {
+					itemsAdjusted++
+					if it.DifferenceValue != nil {
+						totalVariance += *it.DifferenceValue
+					}
 				}
 			}
 		}
@@ -679,16 +694,44 @@ func (s *opnameSessionService) ListAvailable(ctx context.Context, businessID, ou
 		return nil, err
 	}
 
-	responses := make([]*domain.SOFormResponse, 0)
+	responses := make([]*domain.SOFormResponse, 0, len(sessions))
 	for _, session := range sessions {
-		resp, err := s.buildFormResponse(ctx, session)
+		items, err := s.repo.ListFormItems(ctx, session.ID)
 		if err != nil {
 			return nil, err
 		}
-		// Di list available, sembunyikan detail materials agar response ringkas
-		// Kasir akan melihat detail materials saat membuka form spesifik via GET /v1/so/{form_id}
-		resp.Materials = nil
-		responses = append(responses, resp)
+		var counted int
+		countersMap := make(map[string]bool)
+		if entries, err := s.repo.ListCountEntries(ctx, session.ID); err == nil && len(entries) > 0 {
+			countedMaterials := make(map[string]bool)
+			for _, entry := range entries {
+				countedMaterials[entry.RawMaterialID] = true
+				countersMap[entry.CountedBy] = true
+			}
+			counted = len(countedMaterials)
+		}
+		counters := make([]string, 0, len(countersMap))
+		for k := range countersMap {
+			counters = append(counters, k)
+		}
+		responses = append(responses, &domain.SOFormResponse{
+			ID:            session.ID,
+			OutletID:      session.OutletID,
+			Status:        session.Status,
+			Scope:         session.Scope,
+			Notes:         session.Notes,
+			CreatedBy:     session.CreatedBy,
+			RecountOf:     session.RecountOf,
+			RecountNumber: session.RecountNumber,
+			PublishedAt:   session.PublishedAt,
+			ClosedAt:      session.ClosedAt,
+			CreatedAt:     session.CreatedAt,
+			CountProgress: &domain.SOCountProgress{
+				TotalMaterials:   len(items),
+				CountedMaterials: counted,
+				Counters:         counters,
+			},
+		})
 	}
 
 	return responses, nil
@@ -757,6 +800,9 @@ func (s *opnameSessionService) SubmitCounts(ctx context.Context, businessID, out
 
 	var entries []*domain.OpnameCountEntry
 	for _, reqItem := range items {
+		if reqItem.ActualPackages < 0 || reqItem.ActualLoose < 0 {
+			return errors.New("jumlah stok aktual tidak boleh negatif")
+		}
 		if !validMaterials[reqItem.RawMaterialID] {
 			return fmt.Errorf("material dengan ID %s tidak ada dalam form ini", reqItem.RawMaterialID)
 		}
@@ -787,17 +833,17 @@ func (s *opnameSessionService) SubmitCounts(ctx context.Context, businessID, out
 		})
 	}
 
-	if err := s.repo.UpsertCountEntries(ctx, entries); err != nil {
-		return err
-	}
-
-	if session.Status == domain.SOStatusPublished {
-		if err := s.repo.MarkCounting(ctx, session.ID); err != nil {
+	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.repo.UpsertCountEntries(txCtx, entries); err != nil {
 			return err
 		}
-	}
-
-	return nil
+		if session.Status == domain.SOStatusPublished {
+			if err := s.repo.MarkCounting(txCtx, session.ID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (s *opnameSessionService) GetMyCounts(ctx context.Context, businessID, outletID, formID, staffID string) (*domain.SOCountSheet, error) {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,10 +23,11 @@ import (
 )
 
 type mockFeatureLandlordRepo struct {
-	users         []*domain.LandlordUser
-	auditLogs     []*domain.LandlordAuditLog
-	subStatus     map[string]string
-	metrics       *domain.LandlordMetricsOverview
+	users     []*domain.LandlordUser
+	auditLogs []*domain.LandlordAuditLog
+	subStatus map[string]string
+	metrics   *domain.LandlordMetricsOverview
+	saasRepo  *mockFeatureSaaSRepo
 }
 
 func (m *mockFeatureLandlordRepo) GetUserByEmail(ctx context.Context, email string) (*domain.LandlordUser, error) {
@@ -52,10 +54,6 @@ func (m *mockFeatureLandlordRepo) CreateAuditLog(ctx context.Context, log *domai
 }
 
 func (m *mockFeatureLandlordRepo) GetLandingSettings(ctx context.Context) ([]domain.LandingPageSetting, error) {
-	return nil, nil
-}
-
-func (m *mockFeatureLandlordRepo) GetLandingSettingByKey(ctx context.Context, key string) (*domain.LandingPageSetting, error) {
 	return nil, nil
 }
 
@@ -88,6 +86,9 @@ func (m *mockFeatureLandlordRepo) SetBusinessSubscriptionStatus(ctx context.Cont
 		m.subStatus = make(map[string]string)
 	}
 	m.subStatus[businessID] = status
+	if m.saasRepo != nil && m.saasRepo.sub != nil && m.saasRepo.sub.BusinessID == businessID {
+		m.saasRepo.sub.Status = status
+	}
 	return nil
 }
 
@@ -193,17 +194,6 @@ func (m *mockFeatureSaaSRepo) ListSubscriptionsExpiredBefore(ctx context.Context
 	return nil, nil
 }
 
-func (m *mockFeatureSaaSRepo) BulkUpdateSubscriptionStatus(ctx context.Context, ids []string, status string) error {
-	if m.sub != nil {
-		for _, id := range ids {
-			if m.sub.ID == id {
-				m.sub.Status = status
-			}
-		}
-	}
-	return nil
-}
-
 func (m *mockFeatureSaaSRepo) ListActiveOverrides(ctx context.Context, businessID string) ([]domain.TenantFeatureOverride, error) {
 	return m.overrides, nil
 }
@@ -268,16 +258,42 @@ func (m *mockFeatureSaaSRepo) ListActiveCampaigns(ctx context.Context, targetTie
 	return m.campaigns, nil
 }
 
-func (m *mockFeatureSaaSRepo) GetCampaignByID(ctx context.Context, id string) (*domain.SaaSCampaign, error) {
-	return nil, nil
-}
-
 func (m *mockFeatureSaaSRepo) IncrementCampaignClick(ctx context.Context, id string) error {
 	return nil
 }
 
 func (m *mockFeatureSaaSRepo) CreateCampaign(ctx context.Context, campaign *domain.SaaSCampaign) error {
 	m.campaigns = append(m.campaigns, *campaign)
+	return nil
+}
+
+func (m *mockFeatureSaaSRepo) GetCampaignByID(ctx context.Context, id string) (*domain.SaaSCampaign, error) {
+	for _, c := range m.campaigns {
+		if c.ID == id {
+			return &c, nil
+		}
+	}
+	return nil, nil
+}
+
+func (m *mockFeatureSaaSRepo) UpdateCampaign(ctx context.Context, campaign *domain.SaaSCampaign) error {
+	for i, c := range m.campaigns {
+		if c.ID == campaign.ID {
+			m.campaigns[i] = *campaign
+			return nil
+		}
+	}
+	return nil
+}
+
+func (m *mockFeatureSaaSRepo) DeleteCampaign(ctx context.Context, id string) error {
+	var filtered []domain.SaaSCampaign
+	for _, c := range m.campaigns {
+		if c.ID != id {
+			filtered = append(filtered, c)
+		}
+	}
+	m.campaigns = filtered
 	return nil
 }
 
@@ -384,6 +400,7 @@ func setupLandlordFeatureTest(opts ...service.LandlordOption) (
 	}
 
 	saasRepo := &mockFeatureSaaSRepo{sub: sub}
+	landlordRepo.saasRepo = saasRepo
 	policyEngine := service.NewPolicyEngine(saasRepo)
 
 	biz := &domain.Business{
@@ -624,7 +641,7 @@ func TestFeature_QuotaEnforcement_OutletRegistration(t *testing.T) {
 }
 
 func TestFeature_SuspendAndUnsuspendBusiness(t *testing.T) {
-	mux, tokenMaker, _, saasRepo, _, _, policyEngine := setupLandlordFeatureTest()
+	mux, tokenMaker, _, _, _, _, _ := setupLandlordFeatureTest()
 
 	merchantToken, _ := tokenMaker.CreateToken(token.Payload{
 		ID:         "b1",
@@ -652,10 +669,6 @@ func TestFeature_SuspendAndUnsuspendBusiness(t *testing.T) {
 		t.Fatalf("expected 200 OK for suspend, got %d", suspendRR.Code)
 	}
 
-	// Simulasikan status di mock saasRepo
-	saasRepo.sub.Status = "SUSPENDED"
-	policyEngine.InvalidateCache("b1")
-
 	// 2. Merchant mencoba membuat outlet -> Ditolak karena SUSPENDED (403)
 	outletBody, _ := json.Marshal(map[string]string{"name": "Outlet Cabang", "address": "Jl. Baru"})
 	actReq := httptest.NewRequest(http.MethodPost, "/v1/business/outlets", bytes.NewBuffer(outletBody))
@@ -677,9 +690,6 @@ func TestFeature_SuspendAndUnsuspendBusiness(t *testing.T) {
 	if unsuspendRR.Code != http.StatusOK {
 		t.Fatalf("expected 200 OK for unsuspend, got %d", unsuspendRR.Code)
 	}
-
-	saasRepo.sub.Status = "ACTIVE"
-	policyEngine.InvalidateCache("b1")
 
 	// 4. Merchant sekarang bisa membuat outlet
 	actReq2 := httptest.NewRequest(http.MethodPost, "/v1/business/outlets", bytes.NewBuffer(outletBody))
@@ -974,14 +984,17 @@ func TestFeature_SubscriptionCheckoutQRIS_AndWebhook(t *testing.T) {
 }
 
 func TestFeature_LandlordLandingRevalidate(t *testing.T) {
+	var mu sync.Mutex
 	var revalidateHits int
 	var receivedTag, receivedSecret string
 
 	// 1. Mock Next.js revalidation server
 	fakeNextServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
 		revalidateHits++
 		receivedTag = r.URL.Query().Get("tag")
 		receivedSecret = r.URL.Query().Get("secret")
+		mu.Unlock()
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"revalidated":true}`))
 	}))
@@ -1024,11 +1037,14 @@ func TestFeature_LandlordLandingRevalidate(t *testing.T) {
 		t.Fatalf("expected 200 OK for manual force revalidate, got %d: %s", rrManual.Code, rrManual.Body.String())
 	}
 
-	if revalidateHits != 1 {
-		t.Fatalf("expected 1 hit on fake next server, got %d", revalidateHits)
+	mu.Lock()
+	hits1, tag1, secret1 := revalidateHits, receivedTag, receivedSecret
+	mu.Unlock()
+	if hits1 != 1 {
+		t.Fatalf("expected 1 hit on fake next server, got %d", hits1)
 	}
-	if receivedTag != "landing-page" || receivedSecret != "secret-token-123" {
-		t.Fatalf("unexpected query params: tag=%s, secret=%s", receivedTag, receivedSecret)
+	if tag1 != "landing-page" || secret1 != "secret-token-123" {
+		t.Fatalf("unexpected query params: tag=%s, secret=%s", tag1, secret1)
 	}
 
 	// 4. Update Landing Setting oleh Superadmin -> auto trigger revalidate asynchronous
@@ -1047,8 +1063,11 @@ func TestFeature_LandlordLandingRevalidate(t *testing.T) {
 
 	// Wait up to 50ms for goroutine to hit revalidation server
 	time.Sleep(50 * time.Millisecond)
-	if revalidateHits < 2 {
-		t.Fatalf("expected at least 2 hits on next server after updating setting, got %d", revalidateHits)
+	mu.Lock()
+	hits2 := revalidateHits
+	mu.Unlock()
+	if hits2 < 2 {
+		t.Fatalf("expected at least 2 hits on next server after updating setting, got %d", hits2)
 	}
 }
 

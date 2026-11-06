@@ -47,13 +47,7 @@ func (h *RawMaterialHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Bahan baku berhasil ditambahkan",
-		"data":    rm,
-	})
+	response.Success(w, http.StatusCreated, "Bahan baku berhasil ditambahkan", rm)
 }
 
 func (h *RawMaterialHandler) CreateBulk(w http.ResponseWriter, r *http.Request) {
@@ -84,13 +78,7 @@ func (h *RawMaterialHandler) CreateBulk(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Bahan baku berhasil ditambahkan secara massal",
-		"data":    rawMaterials,
-	})
+	response.Success(w, http.StatusCreated, "Bahan baku berhasil ditambahkan secara massal", rawMaterials)
 }
 
 func (h *RawMaterialHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -121,13 +109,7 @@ func (h *RawMaterialHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Bahan baku berhasil diupdate",
-		"data":    rm,
-	})
+	response.Success(w, http.StatusOK, "Bahan baku berhasil diupdate", rm)
 }
 
 func (h *RawMaterialHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -152,12 +134,7 @@ func (h *RawMaterialHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Bahan baku berhasil dihapus",
-	})
+	response.Success(w, http.StatusOK, "Bahan baku berhasil dihapus", nil)
 }
 
 func (h *RawMaterialHandler) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -182,11 +159,5 @@ func (h *RawMaterialHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Berhasil mengambil data bahan baku",
-		"data":    rms,
-	})
+	response.Success(w, http.StatusOK, "Berhasil mengambil data bahan baku", rms)
 }

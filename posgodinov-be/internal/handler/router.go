@@ -43,7 +43,7 @@ func SetupRouter(
 		return authMiddleware(tenantMiddleware(auditMiddleware(handler)))
 	}
 	landlordChain := func(handler http.HandlerFunc) http.HandlerFunc {
-		return landlordMiddleware(auditMiddleware(handler))
+		return landlordMiddleware(handler)
 	}
 	deviceChain := func(handler http.HandlerFunc) http.HandlerFunc {
 		return deviceMiddleware(tenantMiddleware(handler))
@@ -69,16 +69,16 @@ func SetupRouter(
 
 	// Business Routes
 	mux.HandleFunc("POST /v1/auth/business/register", middleware.RateLimitRegistration(businessHandler.Register))
-	mux.HandleFunc("POST /v1/auth/business/login", businessHandler.Login)
+	mux.HandleFunc("POST /v1/auth/business/login", middleware.RateLimitRegistration(businessHandler.Login))
 	mux.HandleFunc("POST /v1/auth/business/refresh", businessHandler.RefreshToken)
 	mux.HandleFunc("GET /v1/auth/business/oauth/google", businessHandler.GoogleOAuthRedirect)
 	mux.HandleFunc("GET /v1/auth/business/oauth/google/callback", businessHandler.GoogleOAuthCallback)
-	mux.HandleFunc("POST /v1/auth/business/forgot-password", businessHandler.ForgotPassword)
-	mux.HandleFunc("POST /v1/auth/business/reset-password", businessHandler.ResetPassword)
+	mux.HandleFunc("POST /v1/auth/business/forgot-password", middleware.RateLimitRegistration(businessHandler.ForgotPassword))
+	mux.HandleFunc("POST /v1/auth/business/reset-password", middleware.RateLimitRegistration(businessHandler.ResetPassword))
 
 	// Landlord Public & Auth Routes
 	mux.HandleFunc("GET /v1/public/landing-page", landlordHandler.GetPublicLandingPage)
-	mux.HandleFunc("POST /v1/landlord/auth/login", landlordHandler.Login)
+	mux.HandleFunc("POST /v1/landlord/auth/login", middleware.RateLimitRegistration(landlordHandler.Login))
 
 	// Landlord Admin Protected Routes
 	mux.HandleFunc("GET /v1/landlord/auth/me", landlordChain(landlordHandler.GetMe))
@@ -114,7 +114,7 @@ func SetupRouter(
 	mux.HandleFunc("POST /v1/webhooks/payment-hub", landlordHandler.HandlePaymentWebhook)
 	
 	// POS Device Routes
-	mux.HandleFunc("POST /v1/auth/device/bind", posAuthHandler.BindDevice)
+	mux.HandleFunc("POST /v1/auth/device/bind", middleware.RateLimitRegistration(posAuthHandler.BindDevice))
 	// POS Sync Routes (Mobile / Cashier Device)
 	//
 	// `posDevice`, bukan `deviceMiddleware` telanjang: perangkat gudang yang

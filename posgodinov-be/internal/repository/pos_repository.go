@@ -76,7 +76,7 @@ func (r *posRepository) SaveTransaction(ctx context.Context, trx *domain.Transac
 func (r *posRepository) GetTransactionByID(ctx context.Context, id string) (*domain.Transaction, error) {
 	db := database.GetDB(ctx, r.db)
 	var t domain.Transaction
-	if err := db.WithContext(ctx).Where("id = ?", id).First(&t).Error; err != nil {
+	if err := db.WithContext(ctx).Preload("Items").Where("id = ?", id).First(&t).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("transaction not found")
 		}

@@ -34,6 +34,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -80,7 +81,7 @@ var wib = time.FixedZone("WIB", 7*60*60)
 //
 // schema_migrations sengaja TIDAK ada di sini: mengosongkannya membuat
 // golang-migrate menjalankan ulang seluruh migrasi pada startup berikutnya.
-var dataTables = []string{
+var tenantDataTables = []string{
 	"return_items", "returns",
 	"transaction_payments", "transaction_items",
 	"void_logs", "pos_security_events", "product_wastes",
@@ -89,9 +90,13 @@ var dataTables = []string{
 	"stock_opnames", "waste_logs", "restock_logs",
 	"product_recipes", "products", "product_categories", "raw_materials",
 	"outlet_master_versions", "users", "outlets",
+}
+
+var landlordDataTables = []string{
 	// SaaS — urutan penting: anak sebelum induk
 	"tenant_feature_overrides", "subscription_logs", "subscriptions",
 	"saas_campaigns", "plan_features", "plans", "saas_features",
+	"landlord_audit_logs", "landlord_users",
 	"businesses",
 	"audit_logs",
 }
@@ -301,10 +306,12 @@ type builtTx struct {
 }
 
 type seeder struct {
-	db   *gorm.DB
-	rng  *rand.Rand
-	days int
-	now  time.Time
+	db         *gorm.DB
+	landlordDB *gorm.DB
+	tenantDB   *gorm.DB
+	rng        *rand.Rand
+	days       int
+	now        time.Time
 
 	business *domain.Business
 	outlets  []*outletData
@@ -370,33 +377,48 @@ func main() {
 			"    go run ./cmd/seeder -reset", existing)
 	}
 
+	businessManager := database.NewBusinessDBManager(cfg, db)
+	if err := businessManager.CreateNewTenantDatabase(businessID); err != nil {
+		log.Fatalf("gagal membuat/migrasi database tenant %s: %v", businessID, err)
+	}
+	tenantDB, err := businessManager.GetBusinessDB(context.Background(), businessID)
+	if err != nil {
+		log.Fatalf("gagal membuka koneksi database tenant %s: %v", businessID, err)
+	}
+	tenantDB.Logger = logger.Default.LogMode(logger.Silent)
+
 	s := &seeder{
-		db:       db,
-		rng:      rand.New(rand.NewSource(rngSeed)),
-		days:     *days,
-		now:      time.Now().In(wib),
-		consumed: map[string]float64{},
-		stockAdj: map[string]float64{},
-		counts:   map[string]int{},
+		db:         tenantDB,
+		landlordDB: db,
+		tenantDB:   tenantDB,
+		rng:        rand.New(rand.NewSource(rngSeed)),
+		days:       *days,
+		now:        time.Now().In(wib),
+		consumed:   map[string]float64{},
+		stockAdj:   map[string]float64{},
+		counts:     map[string]int{},
 	}
 
 	start := time.Now()
-	// Satu transaksi untuk seluruh proses. Seed yang gagal separuh jalan lebih
-	// buruk daripada tidak ada seed sama sekali: skema tampak terisi, tetapi
-	// shift kehilangan transaksinya dan QA melaporkan bug pada laporan yang
-	// sebenarnya benar.
-	if err := db.Transaction(func(tx *gorm.DB) error {
-		root := s.db
-		s.db = tx
-		defer func() { s.db = root }()
+	// Transaksi terpisah untuk landlord DB dan tenant DB agar database-per-tenant konsisten.
+	if err := db.Transaction(func(landlordTx *gorm.DB) error {
+		return tenantDB.Transaction(func(tenantTx *gorm.DB) error {
+			s.landlordDB = landlordTx
+			s.tenantDB = tenantTx
+			s.db = tenantTx
 
-		if *reset {
-			stmt := "TRUNCATE TABLE " + strings.Join(dataTables, ", ") + " RESTART IDENTITY CASCADE"
-			if err := tx.Exec(stmt).Error; err != nil {
-				return fmt.Errorf("gagal mengosongkan tabel: %w", err)
+			if *reset {
+				stmtLandlord := "TRUNCATE TABLE " + strings.Join(landlordDataTables, ", ") + " RESTART IDENTITY CASCADE"
+				if err := landlordTx.Exec(stmtLandlord).Error; err != nil {
+					return fmt.Errorf("gagal mengosongkan tabel landlord: %w", err)
+				}
+				stmtTenant := "TRUNCATE TABLE " + strings.Join(tenantDataTables, ", ") + " RESTART IDENTITY CASCADE"
+				if err := tenantTx.Exec(stmtTenant).Error; err != nil {
+					return fmt.Errorf("gagal mengosongkan tabel tenant: %w", err)
+				}
 			}
-		}
-		return s.run()
+			return s.run()
+		})
 	}); err != nil {
 		log.Fatalf("seeding gagal, seluruh perubahan dibatalkan: %v", err)
 	}
@@ -405,8 +427,13 @@ func main() {
 }
 
 func (s *seeder) run() error {
+	s.db = s.landlordDB
 	if err := s.seedBusiness(); err != nil {
 		return err
+	}
+	s.db = s.tenantDB
+	if s.tenantDB.Migrator().HasTable(&domain.Business{}) {
+		_ = s.tenantDB.FirstOrCreate(s.business, "id = ?", s.business.ID).Error
 	}
 	for _, bp := range outletBlueprints() {
 		od, err := s.seedOutletMaster(bp)
@@ -432,6 +459,7 @@ func (s *seeder) run() error {
 	if err := s.applyStock(); err != nil {
 		return err
 	}
+	s.db = s.landlordDB
 	if err := s.seedSaaS(); err != nil {
 		return err
 	}
@@ -1506,6 +1534,25 @@ func ptrT(v time.Time) *time.Time { return &v }
 // ════════════════════════════════════════════════════════════════════════════
 
 func (s *seeder) seedSaaS() error {
+	// ── 0. landlord_users (Superadmin untuk dev lokal) ───────────────────────
+	adminHash, err := bcrypt.GenerateFromPassword([]byte(ownerPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	superAdmin := domain.LandlordUser{
+		ID:           utils.NewUUID(),
+		Name:         "Super Admin Godinov",
+		Email:        "admin@godinov.id",
+		PasswordHash: string(adminHash),
+		Role:         "SUPERADMIN",
+		IsActive:     true,
+		CreatedAt:    s.now,
+	}
+	if err := s.db.Where("email = ?", superAdmin.Email).FirstOrCreate(&superAdmin).Error; err != nil {
+		return fmt.Errorf("seedSaaS superadmin: %w", err)
+	}
+	s.add("landlord_users", 1)
+
 	// ── 1. saas_features ─────────────────────────────────────────────────────
 	type feat struct {
 		key       string

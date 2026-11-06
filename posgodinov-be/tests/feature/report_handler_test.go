@@ -74,9 +74,9 @@ func TestReportHandler_GetDashboard(t *testing.T) {
 	}, h.GetDashboard))
 	
 	mux.HandleFunc("GET /v1/business/outlets/out1/reports/dashboard_tenant", mockAuthMiddleware(&token.Payload{
-		ID:    "out1", // Tenant token ID is OutletID
-		Email: "biz1", // Tenant token Email is BusinessID
-		Type:  "TENANT",
+		ID:    "out1", // Device token ID is OutletID
+		Email: "biz1", // Device token Email is BusinessID
+		Type:  "device",
 	}, h.GetDashboard))
 	
 	mux.HandleFunc("GET /v1/reports/dashboard/unauthorized", h.GetDashboard)

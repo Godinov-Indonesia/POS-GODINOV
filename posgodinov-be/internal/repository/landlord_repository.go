@@ -5,12 +5,12 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/domain"
+	"posgodinov-backend/pkg/utils"
 )
 
 type postgresLandlordRepository struct {
@@ -47,7 +47,7 @@ func (r *postgresLandlordRepository) GetUserByID(ctx context.Context, id string)
 
 func (r *postgresLandlordRepository) CreateAuditLog(ctx context.Context, log *domain.LandlordAuditLog) error {
 	if log.ID == "" {
-		log.ID = uuid.New().String()
+		log.ID = utils.NewUUID()
 	}
 	db := database.GetDB(ctx, r.db)
 	return db.WithContext(ctx).Create(log).Error
@@ -87,15 +87,6 @@ func (r *postgresLandlordRepository) GetLandingSettings(ctx context.Context) ([]
 		return nil, err
 	}
 	return settings, nil
-}
-
-func (r *postgresLandlordRepository) GetLandingSettingByKey(ctx context.Context, key string) (*domain.LandingPageSetting, error) {
-	db := database.GetDB(ctx, r.db)
-	var setting domain.LandingPageSetting
-	if err := db.WithContext(ctx).Where("key = ?", key).First(&setting).Error; err != nil {
-		return nil, err
-	}
-	return &setting, nil
 }
 
 func (r *postgresLandlordRepository) UpsertLandingSetting(ctx context.Context, setting *domain.LandingPageSetting) error {
@@ -238,7 +229,7 @@ func (r *postgresLandlordRepository) GetMetricsOverview(ctx context.Context) (*d
 
 	var mrr *int64
 	_ = db.WithContext(ctx).Table("subscriptions s").
-		Select("COALESCE(SUM(p.price_minor), 0)").
+		Select("COALESCE(SUM(CASE WHEN p.billing_cycle = 'YEARLY' THEN p.price_minor / 12 ELSE p.price_minor END), 0)").
 		Joins("JOIN plans p ON s.plan_id = p.id").
 		Where("s.status = ?", "ACTIVE").
 		Scan(&mrr).Error

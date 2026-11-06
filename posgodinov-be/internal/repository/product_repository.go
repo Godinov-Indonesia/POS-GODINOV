@@ -63,8 +63,8 @@ func (r *postgresProductRepository) UpdateProductWithRecipes(ctx context.Context
 		return err
 	}
 	
-	// Update the product fields
-	if err := db.WithContext(ctx).Save(product).Error; err != nil {
+	// Update the product fields (omit associations to prevent Category overwrite and double Recipe insert)
+	if err := db.WithContext(ctx).Omit("Recipes", "Category").Save(product).Error; err != nil {
 		return err
 	}
 	

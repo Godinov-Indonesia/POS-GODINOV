@@ -55,14 +55,7 @@ func (h *StaffHandler) RegisterStaff(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Info("kasir berhasil didaftarkan", "id", staff.ID, "outlet_id", staff.OutletID)
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Staff berhasil didaftarkan",
-		"data":    staff,
-	})
+	response.Success(w, http.StatusCreated, "Staff berhasil didaftarkan", staff)
 }
 
 func (h *StaffHandler) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -87,13 +80,7 @@ func (h *StaffHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Daftar staff berhasil didapatkan",
-		"data":    staffs,
-	})
+	response.Success(w, http.StatusOK, "Daftar staff berhasil didapatkan", staffs)
 }
 
 func (h *StaffHandler) GetAllByBusiness(w http.ResponseWriter, r *http.Request) {
@@ -112,13 +99,7 @@ func (h *StaffHandler) GetAllByBusiness(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Daftar semua staff bisnis berhasil didapatkan",
-		"data":    staffs,
-	})
+	response.Success(w, http.StatusOK, "Daftar semua staff bisnis berhasil didapatkan", staffs)
 }
 
 func (h *StaffHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -149,13 +130,7 @@ func (h *StaffHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Staff berhasil diupdate",
-		"data":    staff,
-	})
+	response.Success(w, http.StatusOK, "Staff berhasil diupdate", staff)
 }
 
 func (h *StaffHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -180,12 +155,7 @@ func (h *StaffHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Staff berhasil dihapus",
-	})
+	response.Success(w, http.StatusOK, "Staff berhasil dihapus", nil)
 }
 
 func (h *StaffHandler) Transfer(w http.ResponseWriter, r *http.Request) {
@@ -220,12 +190,6 @@ func (h *StaffHandler) Transfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Staff berhasil dipindahkan ke outlet tujuan",
-		"data":    staff,
-	})
+	response.Success(w, http.StatusOK, "Staff berhasil dipindahkan ke outlet tujuan", staff)
 }
 

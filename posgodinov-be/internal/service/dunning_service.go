@@ -6,10 +6,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/google/uuid"
-
 	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/domain"
+	"posgodinov-backend/pkg/utils"
 )
 
 type dunningService struct {
@@ -57,6 +56,12 @@ func (s *dunningService) RunDunningCheck(ctx context.Context) error {
 
 	for _, sub := range activeExpired {
 		err := s.withTx(ctx, func(txCtx context.Context) error {
+			if current, err := s.saasRepo.GetSubscriptionByBusinessID(txCtx, sub.BusinessID); err == nil && current != nil {
+				if current.Status != "ACTIVE" || current.ExpiresAt == nil || current.ExpiresAt.After(now) {
+					return nil
+				}
+				sub = current
+			}
 			sub.Status = "PAST_DUE"
 			sub.UpdatedAt = now
 			if err := s.saasRepo.UpdateSubscription(txCtx, sub); err != nil {
@@ -64,7 +69,7 @@ func (s *dunningService) RunDunningCheck(ctx context.Context) error {
 			}
 
 			return s.saasRepo.CreateSubscriptionLog(txCtx, &domain.SubscriptionLog{
-				ID:             uuid.New().String(),
+				ID:             utils.NewUUID(),
 				SubscriptionID: sub.ID,
 				BusinessID:     sub.BusinessID,
 				Event:          "STATUS_CHANGED",
@@ -98,6 +103,13 @@ func (s *dunningService) RunDunningCheck(ctx context.Context) error {
 	for _, sub := range pastDueExpired {
 		oldPlanID := sub.PlanID
 		err := s.withTx(ctx, func(txCtx context.Context) error {
+			if current, err := s.saasRepo.GetSubscriptionByBusinessID(txCtx, sub.BusinessID); err == nil && current != nil {
+				if current.Status != "PAST_DUE" || current.ExpiresAt == nil || current.ExpiresAt.After(graceThreshold) {
+					return nil
+				}
+				sub = current
+				oldPlanID = current.PlanID
+			}
 			sub.Status = "EXPIRED"
 			sub.PlanID = freePlanID
 			sub.ExpiresAt = nil // Free tier bersifat lifetime
@@ -108,7 +120,7 @@ func (s *dunningService) RunDunningCheck(ctx context.Context) error {
 			}
 
 			return s.saasRepo.CreateSubscriptionLog(txCtx, &domain.SubscriptionLog{
-				ID:             uuid.New().String(),
+				ID:             utils.NewUUID(),
 				SubscriptionID: sub.ID,
 				BusinessID:     sub.BusinessID,
 				Event:          "DOWNGRADED",

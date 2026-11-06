@@ -1,12 +1,14 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"posgodinov-backend/internal/config"
 	"posgodinov-backend/internal/database"
+	"posgodinov-backend/pkg/token"
 )
 
 func TestBusinessMiddleware_MissingHeader(t *testing.T) {
@@ -51,5 +53,28 @@ func TestBusinessMiddleware_InvalidFormat(t *testing.T) {
 	// middleware catches it and returns 500.
 	if status := rr.Code; status != http.StatusInternalServerError {
 		t.Errorf("Expected status 500 (failed connection / validation), got %d", status)
+	}
+}
+
+func TestBusinessMiddleware_CrossTenantForbidden(t *testing.T) {
+	tm := database.NewBusinessDBManager(&config.Config{}, nil)
+	mw := BusinessMiddleware(tm)
+
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("Handler should not be called when X-Business-ID mismatches token")
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("X-Business-ID", "BIZ_VICTIM")
+	ctx := context.WithValue(req.Context(), AuthPayloadKey, &token.Payload{
+		ID:   "BIZ_ATTACKER",
+		Type: "access",
+	})
+	rr := httptest.NewRecorder()
+
+	mw(nextHandler).ServeHTTP(rr, req.WithContext(ctx))
+
+	if status := rr.Code; status != http.StatusForbidden {
+		t.Errorf("Expected status 403 Forbidden, got %d", status)
 	}
 }

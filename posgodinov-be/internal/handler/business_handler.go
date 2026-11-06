@@ -169,8 +169,10 @@ func (h *BusinessHandler) GoogleOAuthCallback(w http.ResponseWriter, r *http.Req
 	if frontendURL == "" {
 		frontendURL = "http://localhost:3000"
 	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	redirectTarget := fmt.Sprintf(
-		"%s/oauth/callback?access_token=%s&refresh_token=%s&business=%s",
+		"%s/oauth/callback#access_token=%s&refresh_token=%s&business=%s",
 		frontendURL,
 		res.AccessToken,
 		res.RefreshToken,

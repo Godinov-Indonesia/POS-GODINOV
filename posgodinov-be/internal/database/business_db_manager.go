@@ -55,29 +55,29 @@ func (tm *BusinessDBManager) GetBusinessDB(ctx context.Context, businessID strin
 		return db.WithContext(ctx), nil
 	}
 
-	// 2. Connection doesn't exist, acquire Write Lock to create and store
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
-	// Double check pattern: maybe another goroutine just created it while we were waiting for the lock
-	if db, exists = tm.businessPool[businessID]; exists {
-		return db.WithContext(ctx), nil
-	}
-
-	// Create new connection
+	// 2. Connection doesn't exist — create outside global write lock so slow dials/migrations don't block other tenants
 	newDB, err := tm.createBusinessConnection(businessID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connection for tenant %s: %w", businessID, err)
 	}
 
+	tm.mu.Lock()
+	if existingDB, exists := tm.businessPool[businessID]; exists {
+		tm.mu.Unlock()
+		if sqlDB, dbErr := newDB.DB(); dbErr == nil {
+			_ = sqlDB.Close()
+		}
+		return existingDB.WithContext(ctx), nil
+	}
 	tm.businessPool[businessID] = newDB
+	tm.mu.Unlock()
 	return newDB.WithContext(ctx), nil
 }
 
 // createBusinessConnection establishes a GORM connection to a specific business DB.
 func (tm *BusinessDBManager) createBusinessConnection(businessID string) (*gorm.DB, error) {
 	dbName := "business_" + businessID // Prefix for safety
-	
+
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		tm.cfg.DBHost, tm.cfg.DBPort, tm.cfg.DBUser, tm.cfg.DBPassword, dbName, tm.cfg.DBSSLMode)
 
@@ -94,12 +94,14 @@ func (tm *BusinessDBManager) createBusinessConnection(businessID string) (*gorm.
 	}
 
 	// Important to prevent OOM / DB connection limits exhausted
-	sqlDB.SetMaxOpenConns(10) // Limit per tenant, adjust based on total tenants and DB specs
-	sqlDB.SetMaxIdleConns(2)
+	sqlDB.SetMaxOpenConns(5)
+	sqlDB.SetMaxIdleConns(1)
+	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	// Pastikan migrasi database tenant selalu up-to-date saat koneksi pertama dibuat
 	if err := tm.runBusinessMigrations(db); err != nil {
+		_ = sqlDB.Close()
 		return nil, fmt.Errorf("failed to run migrations for tenant %s: %w", businessID, err)
 	}
 
@@ -116,30 +118,26 @@ func (tm *BusinessDBManager) CreateNewTenantDatabase(businessID string) error {
 	businessID = strings.ToLower(businessID)
 	dbName := fmt.Sprintf("business_%s", businessID)
 
-	// Create database if it doesn't exist.
-	// In PostgreSQL, CREATE DATABASE cannot be executed within a transaction block.
-	// So we execute it directly on the landlordDB instance.
-	err := tm.landlordDB.Exec(fmt.Sprintf("CREATE DATABASE %s", dbName)).Error
-	if err != nil {
-		return fmt.Errorf("failed to create database %s: %w", dbName, err)
+	// Check if database already exists (idempotent for OAuth account linking)
+	var exists int64
+	if err := tm.landlordDB.Raw("SELECT COUNT(1) FROM pg_database WHERE datname = ?", dbName).Scan(&exists).Error; err != nil {
+		return fmt.Errorf("failed to check existing database %s: %w", dbName, err)
 	}
 
-	// Now run migrations on the newly created business DB
+	if exists == 0 {
+		err := tm.landlordDB.Exec(fmt.Sprintf("CREATE DATABASE %s", dbName)).Error
+		if err != nil {
+			return fmt.Errorf("failed to create database %s: %w", dbName, err)
+		}
+	}
+
+	// Connect and run migrations (createBusinessConnection already runs runBusinessMigrations and closes sqlDB on error)
 	businessDB, err := tm.createBusinessConnection(businessID)
 	if err != nil {
-		tm.landlordDB.Exec(fmt.Sprintf("DROP DATABASE %s", dbName))
-		return fmt.Errorf("database created but failed to connect for migration: %w", err)
-	}
-	
-	err = tm.runBusinessMigrations(businessDB)
-	if err != nil {
-		// Tutup koneksi gorm agar PostgreSQL mengizinkan DROP DATABASE
-		if sqlDB, dbErr := businessDB.DB(); dbErr == nil {
-			sqlDB.Close()
+		if exists == 0 {
+			tm.landlordDB.Exec(fmt.Sprintf("DROP DATABASE %s", dbName))
 		}
-		// Hapus database karena gagal migrasi
-		tm.landlordDB.Exec(fmt.Sprintf("DROP DATABASE %s", dbName))
-		return fmt.Errorf("failed to migrate tenant db: %w", err)
+		return fmt.Errorf("database created but failed to connect/migrate: %w", err)
 	}
 
 	// Add to pool

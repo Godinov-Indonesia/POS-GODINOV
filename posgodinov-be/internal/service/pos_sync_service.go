@@ -118,6 +118,9 @@ func (s *posSyncService) GetMasterData(ctx context.Context, businessID, outletID
 
 	var posStaffs []*domain.POSMasterStaff
 	for _, s := range staffs {
+		if !s.IsActive {
+			continue
+		}
 		posStaffs = append(posStaffs, &domain.POSMasterStaff{
 			ID:              s.ID,
 			StaffIdentifier: s.StaffIdentifier,
@@ -191,9 +194,10 @@ func (s *posSyncService) SyncUp(ctx context.Context, businessID, outletID string
 		FailedTransactions: make([]string, 0),
 	}
 
-	s.syncShifts(ctx, businessID, outletID, req, resp)
+	closedShiftIDs := s.syncShifts(ctx, businessID, outletID, req, resp)
 	s.syncTransactions(ctx, businessID, outletID, req, resp)
 	s.syncReturns(ctx, businessID, outletID, req, resp)
+	s.reconcileClosedShifts(ctx, closedShiftIDs, resp)
 	s.syncVoidLogs(ctx, businessID, outletID, req, resp)
 	s.syncWastes(ctx, businessID, outletID, req, resp)
 	s.syncSecurityEvents(ctx, businessID, outletID, req, resp)
@@ -211,7 +215,8 @@ func (s *posSyncService) SyncUp(ctx context.Context, businessID, outletID string
 
 /* ── 1. Shift ─────────────────────────────────────────────────────────────── */
 
-func (s *posSyncService) syncShifts(ctx context.Context, businessID, outletID string, req *domain.SyncUpRequestV2, resp *domain.SyncUpResponse) {
+func (s *posSyncService) syncShifts(ctx context.Context, businessID, outletID string, req *domain.SyncUpRequestV2, resp *domain.SyncUpResponse) []string {
+	var closedShiftIDs []string
 	for _, shift := range req.Shifts {
 		shift.BusinessID = businessID
 		shift.OutletID = outletID
@@ -270,7 +275,10 @@ func (s *posSyncService) syncShifts(ctx context.Context, businessID, outletID st
 			continue
 		}
 
-		if err := s.posRepo.SaveShift(ctx, shift); err != nil {
+		err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+			return s.posRepo.SaveShift(txCtx, shift)
+		})
+		if err != nil {
 			// Indeks unik parsial `uq_shift_open_per_device`/`_per_staff`
 			// (butir 12) mendarat di sini. Kegagalannya PERMANEN: mengirim
 			// ulang tidak akan membuat shift lain tertutup dengan sendirinya,
@@ -279,36 +287,27 @@ func (s *posSyncService) syncShifts(ctx context.Context, businessID, outletID st
 				"shift gagal disimpan: "+err.Error(), false)
 			continue
 		}
-		// ── BUTIR 9 — rekonsiliasi, SETELAH baris tersimpan ─────────────────
-		//
-		// Hanya untuk shift yang sudah ditutup: shift `OPEN` masih menerima
-		// transaksi, dan angka ekspektasinya akan basi sebelum sempat dibaca
-		// siapa pun.
-		//
-		// Urutannya penting. Rekonsiliasi membaca `declared_*` dari BARIS YANG
-		// SUDAH TERSIMPAN, bukan dari struct kiriman — sehingga ia menghitung
-		// terhadap angka yang benar-benar tercatat, bukan terhadap salinan yang
-		// mungkin belum melewati upsert.
+
 		if shift.Status == domain.ShiftStatusClosed && s.shiftReconcile != nil {
-			if _, err := s.shiftReconcile.Reconcile(ctx, shift.ID); err != nil {
-				// `retryable: true` — berbeda dari seluruh kegagalan lain di
-				// blok ini. Baris shift-nya SUDAH tersimpan lengkap dengan
-				// ketiga angka deklarasi kasir; yang belum ada hanyalah hitungan
-				// server. `Reconcile` maupun `SaveShift` sama-sama idempoten,
-				// sehingga pengiriman ulang benar-benar dapat berhasil tanpa
-				// apa pun berubah di perangkat.
-				//
-				// `ShiftsSynced` sengaja TIDAK dinaikkan: menaikkannya sambil
-				// melaporkan galat untuk id yang sama membuat respons
-				// bertentangan dengan dirinya sendiri, dan klien yang membaca
-				// hitungan agregat — jalur v1 — akan menyimpulkan sebaliknya
-				// dari klien yang membaca galat per-id.
-				resp.AddError(domain.EntityShift, shift.ID, domain.ErrCodePersistFailed,
-					"rekonsiliasi shift tertunda: "+err.Error(), true)
-				continue
-			}
+			closedShiftIDs = append(closedShiftIDs, shift.ID)
+			continue
 		}
 
+		resp.ShiftsSynced++
+	}
+	return closedShiftIDs
+}
+
+// reconcileClosedShifts dijalankan SETELAH syncTransactions dan syncReturns
+// agar transaksi/retur yang dikirim dalam satu batch offline sudah tersimpan
+// saat server menghitung expected_cash, expected_edc_total, dan expected_qris_total.
+func (s *posSyncService) reconcileClosedShifts(ctx context.Context, closedShiftIDs []string, resp *domain.SyncUpResponse) {
+	for _, shiftID := range closedShiftIDs {
+		if _, err := s.shiftReconcile.Reconcile(ctx, shiftID); err != nil {
+			resp.AddError(domain.EntityShift, shiftID, domain.ErrCodePersistFailed,
+				"rekonsiliasi shift tertunda: "+err.Error(), true)
+			continue
+		}
 		resp.ShiftsSynced++
 	}
 }
@@ -335,6 +334,9 @@ func (s *posSyncService) syncTransactions(ctx context.Context, businessID, outle
 		err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 			existingTrx, err := s.posRepo.GetTransactionByID(txCtx, trx.ID)
 			if err == nil && existingTrx != nil {
+				if existingTrx.OutletID != "" && existingTrx.OutletID != outletID {
+					return domain.NewSyncFieldError("id", "transaksi milik outlet lain")
+				}
 				// BUTIR 15 — transaksi yang struknya SUDAH terbit tidak dapat
 				// di-void; jalurnya adalah Retur. Basis data juga menolaknya
 				// lewat `ck_void_requires_unprinted`, tetapi menangkapnya di
@@ -345,7 +347,7 @@ func (s *posSyncService) syncTransactions(ctx context.Context, businessID, outle
 						"transaksi yang struknya sudah tercetak tidak dapat di-void; gunakan alur Retur")
 				}
 				if existingTrx.Status == domain.TxStatusCompleted && domain.IsCancellation(trx.Status) {
-					return s.handleCancelTransaction(txCtx, trx)
+					return s.handleCancelTransaction(txCtx, existingTrx, trx)
 				}
 				return nil // duplikat — idempotensi
 			}
@@ -560,7 +562,10 @@ func (s *posSyncService) syncVoidLogs(ctx context.Context, businessID, outletID 
 			resp.AddError(domain.EntityVoidLog, log.ID, domain.ErrCodeInvalidPayload, err.Error(), false)
 			continue
 		}
-		if err := s.voidLogRepo.Save(ctx, log); err != nil {
+		err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+			return s.voidLogRepo.Save(txCtx, log)
+		})
+		if err != nil {
 			resp.AddError(domain.EntityVoidLog, log.ID, domain.ErrCodePersistFailed, err.Error(), true)
 			continue
 		}
@@ -621,7 +626,10 @@ func (s *posSyncService) syncSecurityEvents(ctx context.Context, businessID, out
 			resp.AddError(domain.EntitySecurityEvent, event.ID, domain.ErrCodeInvalidPayload, err.Error(), false)
 			continue
 		}
-		if err := s.securityEventRepo.Save(ctx, event); err != nil {
+		err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+			return s.securityEventRepo.Save(txCtx, event)
+		})
+		if err != nil {
 			resp.AddError(domain.EntitySecurityEvent, event.ID, domain.ErrCodePersistFailed, err.Error(), true)
 			continue
 		}
@@ -640,14 +648,21 @@ func fallbackDeviceID(deviceID string) string {
 	return domain.LegacyDeviceID
 }
 
-func (s *posSyncService) handleCancelTransaction(ctx context.Context, trx *domain.Transaction) error {
-	// Reverse Deduction
-	if err := s.deductBOMStock(ctx, trx, true); err != nil {
+func (s *posSyncService) handleCancelTransaction(ctx context.Context, existingTrx *domain.Transaction, reqTrx *domain.Transaction) error {
+	sourceTrx := existingTrx
+	if len(sourceTrx.Items) == 0 && len(reqTrx.Items) > 0 {
+		sourceTrx = reqTrx
+	}
+	// Reverse Deduction menggunakan item transaksi yang tersimpan di server
+	if err := s.deductBOMStock(ctx, sourceTrx, true); err != nil {
 		return err
 	}
-	
-	// Update Status
-	return s.posRepo.UpdateTransactionStatus(ctx, trx.ID, "CANCELLED", trx.CancelNotes)
+
+	status := reqTrx.Status
+	if status == "" {
+		status = domain.TxStatusCancelled
+	}
+	return s.posRepo.UpdateTransactionStatus(ctx, existingTrx.ID, status, reqTrx.CancelNotes)
 }
 
 // deductBOMStock diteruskan ke [bomStockAdjuster].

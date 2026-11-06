@@ -1,6 +1,7 @@
 package token
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/vk-rv/pvx"
@@ -65,12 +66,10 @@ type PasetoMaker struct {
 func NewPasetoMaker(symmetricKeyHex string) (TokenMaker, error) {
 	// PASETO v4 local tokens require a 32-byte symmetric key.
 	keyBytes := []byte(symmetricKeyHex)
-	if len(keyBytes) != 32 {
-		// Pad or truncate to exactly 32 bytes for simplicity
-		padded := make([]byte, 32)
-		copy(padded, keyBytes)
-		keyBytes = padded
+	if len(keyBytes) < 32 {
+		return nil, fmt.Errorf("paseto symmetric key must be at least 32 bytes, got %d", len(keyBytes))
 	}
+	keyBytes = keyBytes[:32]
 
 	symKey := pvx.NewSymmetricKey(keyBytes, pvx.Version4)
 

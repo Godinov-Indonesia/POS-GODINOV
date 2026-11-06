@@ -127,7 +127,6 @@ type LandlordRepository interface {
 	CreateAuditLog(ctx context.Context, log *LandlordAuditLog) error
 	ListAuditLogs(ctx context.Context, page, limit int) ([]LandlordAuditLog, int64, error)
 	GetLandingSettings(ctx context.Context) ([]LandingPageSetting, error)
-	GetLandingSettingByKey(ctx context.Context, key string) (*LandingPageSetting, error)
 	UpsertLandingSetting(ctx context.Context, setting *LandingPageSetting) error
 	GetActiveHeroBanners(ctx context.Context) ([]LandingHeroBanner, error)
 	GetActiveFAQs(ctx context.Context) ([]LandingFAQ, error)

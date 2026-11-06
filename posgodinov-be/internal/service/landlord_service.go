@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
 	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/pkg/token"
+	"posgodinov-backend/pkg/utils"
 )
 
 type LandlordService interface {
@@ -191,12 +191,16 @@ func (s *landlordService) Impersonate(ctx context.Context, adminID, businessID s
 	}
 
 	// Catat di audit log secara permanen
+	impMeta, _ := json.Marshal(map[string]string{
+		"business_name": business.Name,
+		"admin_email":   admin.Email,
+	})
 	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
 		UserID:     admin.ID,
 		Action:     "IMPERSONATE",
 		TargetType: "BUSINESS",
 		TargetID:   business.ID,
-		Metadata:   domain.JSONB(`{"business_name":"` + business.Name + `","admin_email":"` + admin.Email + `"}`),
+		Metadata:   domain.JSONB(impMeta),
 	})
 
 	return &domain.ImpersonateResponse{
@@ -231,12 +235,13 @@ func (s *landlordService) UpdatePlanFeature(ctx context.Context, adminID, planID
 		s.policyEngine.InvalidateCache("")
 	}
 
+	pfMeta, _ := json.Marshal(map[string]string{"feature": featureKey})
 	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
 		UserID:     adminID,
 		Action:     "UPDATE_PLAN_FEATURE",
 		TargetType: "PLAN",
 		TargetID:   planID,
-		Metadata:   domain.JSONB(`{"feature":"` + featureKey + `"}`),
+		Metadata:   domain.JSONB(pfMeta),
 	})
 
 	return nil
@@ -255,12 +260,13 @@ func (s *landlordService) CreateOverride(ctx context.Context, adminID string, ov
 	// Invalidasi cache tenant
 	s.policyEngine.InvalidateCache(override.BusinessID)
 
+	ovMeta, _ := json.Marshal(map[string]string{"feature": override.FeatureKey})
 	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
 		UserID:     adminID,
 		Action:     "CREATE_OVERRIDE",
 		TargetType: "TENANT_OVERRIDE",
 		TargetID:   override.BusinessID,
-		Metadata:   domain.JSONB(`{"feature":"` + override.FeatureKey + `"}`),
+		Metadata:   domain.JSONB(ovMeta),
 	})
 
 	return nil
@@ -290,7 +296,7 @@ func (s *landlordService) ListCampaigns(ctx context.Context, targetTier, placeme
 
 func (s *landlordService) CreateCampaign(ctx context.Context, adminID string, campaign *domain.SaaSCampaign) error {
 	if campaign.ID == "" {
-		campaign.ID = uuid.New().String()
+		campaign.ID = utils.NewUUID()
 	}
 	if campaign.StartsAt.IsZero() {
 		campaign.StartsAt = time.Now()
@@ -299,7 +305,7 @@ func (s *landlordService) CreateCampaign(ctx context.Context, adminID string, ca
 		return err
 	}
 	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
-		ID:         uuid.New().String(),
+		ID:         utils.NewUUID(),
 		UserID:     adminID,
 		Action:     "CREATE_CAMPAIGN",
 		TargetType: "CAMPAIGN",
@@ -325,7 +331,7 @@ func (s *landlordService) UpdateCampaign(ctx context.Context, adminID string, ca
 		return err
 	}
 	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
-		ID:         uuid.New().String(),
+		ID:         utils.NewUUID(),
 		UserID:     adminID,
 		Action:     "UPDATE_CAMPAIGN",
 		TargetType: "CAMPAIGN",
@@ -347,7 +353,7 @@ func (s *landlordService) DeleteCampaign(ctx context.Context, adminID, id string
 		return err
 	}
 	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
-		ID:         uuid.New().String(),
+		ID:         utils.NewUUID(),
 		UserID:     adminID,
 		Action:     "DELETE_CAMPAIGN",
 		TargetType: "CAMPAIGN",
@@ -500,6 +506,9 @@ func (s *landlordService) CheckoutSubscription(ctx context.Context, businessID s
 			if err != nil || wallet == nil {
 				return errors.New("dompet merchant tidak ditemukan")
 			}
+			if wallet.IsFrozen {
+				return errors.New("dompet merchant sedang dibekukan")
+			}
 			if wallet.BalanceMinor < total {
 				return errors.New("saldo dompet tidak mencukupi untuk upgrade")
 			}
@@ -519,19 +528,13 @@ func (s *landlordService) CheckoutSubscription(ctx context.Context, businessID s
 			currentSub.PlanID = plan.ID
 			currentSub.Status = "ACTIVE"
 			currentSub.UpdatedAt = now
-			var expiresAt time.Time
-			if plan.BillingCycle == "YEARLY" {
-				expiresAt = now.AddDate(1, 0, 0)
-			} else {
-				expiresAt = now.AddDate(0, 1, 0)
-			}
-			currentSub.ExpiresAt = &expiresAt
+			currentSub.ExpiresAt = calcSubscriptionExpiry(now, currentSub.ExpiresAt, plan.BillingCycle)
 			if err := s.saasRepo.UpdateSubscription(txCtx, currentSub); err != nil {
 				return fmt.Errorf("gagal mengupdate langganan: %w", err)
 			}
 
 			inv := &domain.SubscriptionInvoice{
-				ID:               uuid.New().String(),
+				ID:               utils.NewUUID(),
 				BusinessID:       businessID,
 				SubscriptionID:   currentSub.ID,
 				InvoiceNumber:    invNum,
@@ -553,7 +556,7 @@ func (s *landlordService) CheckoutSubscription(ctx context.Context, businessID s
 			}
 
 			if err := s.saasRepo.CreateSubscriptionLog(txCtx, &domain.SubscriptionLog{
-				ID:             uuid.New().String(),
+				ID:             utils.NewUUID(),
 				SubscriptionID: currentSub.ID,
 				BusinessID:     businessID,
 				Event:          "CHECKOUT_WALLET",
@@ -599,7 +602,7 @@ func (s *landlordService) CheckoutSubscription(ctx context.Context, businessID s
 
 	expiredAt := now.Add(24 * time.Hour)
 	inv := &domain.SubscriptionInvoice{
-		ID:               uuid.New().String(),
+		ID:               utils.NewUUID(),
 		BusinessID:       businessID,
 		SubscriptionID:   sub.ID,
 		InvoiceNumber:    invNum,
@@ -625,7 +628,7 @@ func (s *landlordService) CheckoutSubscription(ctx context.Context, businessID s
 		}
 
 		return s.saasRepo.CreateSubscriptionLog(txCtx, &domain.SubscriptionLog{
-			ID:             uuid.New().String(),
+			ID:             utils.NewUUID(),
 			SubscriptionID: sub.ID,
 			BusinessID:     businessID,
 			Event:          "CHECKOUT_INITIATED",
@@ -688,19 +691,13 @@ func (s *landlordService) HandlePaymentWebhook(ctx context.Context, r *http.Requ
 			sub.PlanID = inv.PlanID
 			sub.Status = "ACTIVE"
 			sub.UpdatedAt = now
-			var expiresAt time.Time
-			if inv.BillingCycle == "YEARLY" {
-				expiresAt = now.AddDate(1, 0, 0)
-			} else {
-				expiresAt = now.AddDate(0, 1, 0)
-			}
-			sub.ExpiresAt = &expiresAt
+			sub.ExpiresAt = calcSubscriptionExpiry(now, sub.ExpiresAt, inv.BillingCycle)
 			if err := s.saasRepo.UpdateSubscription(txCtx, sub); err != nil {
 				return err
 			}
 
 			if err := s.saasRepo.CreateSubscriptionLog(txCtx, &domain.SubscriptionLog{
-				ID:             uuid.New().String(),
+				ID:             utils.NewUUID(),
 				SubscriptionID: sub.ID,
 				BusinessID:     inv.BusinessID,
 				Event:          "UPGRADED",
@@ -784,7 +781,7 @@ func (s *landlordService) SuspendBusiness(ctx context.Context, adminID, business
 
 	meta, _ := json.Marshal(map[string]string{"reason": reason})
 	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
-		ID:         uuid.New().String(),
+		ID:         utils.NewUUID(),
 		UserID:     adminID,
 		Action:     "SUSPEND_BUSINESS",
 		TargetType: "BUSINESS",
@@ -809,7 +806,7 @@ func (s *landlordService) UnsuspendBusiness(ctx context.Context, adminID, busine
 
 	meta, _ := json.Marshal(map[string]string{"action": "unsuspend"})
 	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
-		ID:         uuid.New().String(),
+		ID:         utils.NewUUID(),
 		UserID:     adminID,
 		Action:     "UNSUSPEND_BUSINESS",
 		TargetType: "BUSINESS",
@@ -827,5 +824,22 @@ func (s *landlordService) GetMetricsOverview(ctx context.Context) (*domain.Landl
 
 func (s *landlordService) ListAuditLogs(ctx context.Context, page, limit int) ([]domain.LandlordAuditLog, int64, error) {
 	return s.landlordRepo.ListAuditLogs(ctx, page, limit)
+}
+
+func calcSubscriptionExpiry(now time.Time, current *time.Time, cycle string) *time.Time {
+	if cycle == "LIFETIME" {
+		return nil
+	}
+	base := now
+	if current != nil && current.After(now) {
+		base = *current
+	}
+	var exp time.Time
+	if cycle == "YEARLY" {
+		exp = base.AddDate(1, 0, 0)
+	} else {
+		exp = base.AddDate(0, 1, 0)
+	}
+	return &exp
 }
 

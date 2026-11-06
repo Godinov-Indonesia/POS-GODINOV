@@ -49,12 +49,8 @@ func (s *productCategoryService) Create(ctx context.Context, businessID, outletI
 		return nil, errors.New("nama kategori wajib diisi")
 	}
 
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	category := &domain.ProductCategory{
@@ -63,7 +59,7 @@ func (s *productCategoryService) Create(ctx context.Context, businessID, outletI
 		Description: req.Description,
 	}
 
-	err = s.versions.run(ctx, outletID, func(txCtx context.Context) error {
+	err := s.versions.run(ctx, outletID, func(txCtx context.Context) error {
 		if err := s.repo.Create(txCtx, category); err != nil {
 			return errors.New("gagal menyimpan kategori")
 		}
@@ -77,12 +73,8 @@ func (s *productCategoryService) Create(ctx context.Context, businessID, outletI
 }
 
 func (s *productCategoryService) CreateBulk(ctx context.Context, businessID, outletID string, reqs []*domain.CreateProductCategoryRequest) ([]*domain.ProductCategory, error) {
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	var categories []*domain.ProductCategory
@@ -101,7 +93,7 @@ func (s *productCategoryService) CreateBulk(ctx context.Context, businessID, out
 		return nil, errors.New("data kategori kosong")
 	}
 
-	err = s.versions.run(ctx, outletID, func(txCtx context.Context) error {
+	err := s.versions.run(ctx, outletID, func(txCtx context.Context) error {
 		if err := s.repo.CreateBulk(txCtx, categories); err != nil {
 			return errors.New("gagal menyimpan kategori secara massal")
 		}
@@ -115,12 +107,8 @@ func (s *productCategoryService) CreateBulk(ctx context.Context, businessID, out
 }
 
 func (s *productCategoryService) GetAllByOutlet(ctx context.Context, businessID, outletID string) ([]*domain.ProductCategory, error) {
-	outlet, err := s.outletRepo.GetByID(ctx, outletID)
-	if err != nil {
-		return nil, errors.New("outlet tidak ditemukan")
-	}
-	if outlet.BusinessID != businessID {
-		return nil, errors.New("akses ditolak: outlet ini bukan milik bisnis Anda")
+	if _, err := assertOutlet(ctx, s.outletRepo, businessID, outletID); err != nil {
+		return nil, err
 	}
 
 	return s.repo.GetAllByOutletID(ctx, outletID)

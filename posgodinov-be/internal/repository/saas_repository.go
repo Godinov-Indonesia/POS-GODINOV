@@ -5,12 +5,12 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/domain"
+	"posgodinov-backend/pkg/utils"
 )
 
 type postgresSaaSRepository struct {
@@ -113,23 +113,10 @@ func (r *postgresSaaSRepository) ListSubscriptionsExpiredBefore(ctx context.Cont
 	db := database.GetDB(ctx, r.db)
 	var subs []*domain.Subscription
 	err := db.WithContext(ctx).
-		Preload("Plan.Features.Feature").
+		Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
 		Where("status = ? AND expires_at IS NOT NULL AND expires_at <= ?", status, t).
 		Find(&subs).Error
 	return subs, err
-}
-
-func (r *postgresSaaSRepository) BulkUpdateSubscriptionStatus(ctx context.Context, ids []string, status string) error {
-	if len(ids) == 0 {
-		return nil
-	}
-	db := database.GetDB(ctx, r.db)
-	return db.WithContext(ctx).Model(&domain.Subscription{}).
-		Where("id IN ?", ids).
-		Updates(map[string]any{
-			"status":     status,
-			"updated_at": time.Now(),
-		}).Error
 }
 
 func (r *postgresSaaSRepository) ListActiveOverrides(ctx context.Context, businessID string) ([]domain.TenantFeatureOverride, error) {
@@ -160,7 +147,7 @@ func (r *postgresSaaSRepository) CreateWallet(ctx context.Context, wallet *domai
 func (r *postgresSaaSRepository) GetWalletByBusinessID(ctx context.Context, businessID string) (*domain.MerchantWallet, error) {
 	db := database.GetDB(ctx, r.db)
 	var wallet domain.MerchantWallet
-	if err := db.WithContext(ctx).Where("business_id = ?", businessID).First(&wallet).Error; err != nil {
+	if err := db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("business_id = ?", businessID).First(&wallet).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("dompet merchant tidak ditemukan")
 		}
@@ -220,18 +207,6 @@ func (r *postgresSaaSRepository) ListActiveCampaigns(ctx context.Context, target
 	return campaigns, err
 }
 
-func (r *postgresSaaSRepository) GetCampaignByID(ctx context.Context, id string) (*domain.SaaSCampaign, error) {
-	db := database.GetDB(ctx, r.db)
-	var campaign domain.SaaSCampaign
-	if err := db.WithContext(ctx).Where("id = ?", id).First(&campaign).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("kampanye tidak ditemukan")
-		}
-		return nil, err
-	}
-	return &campaign, nil
-}
-
 func (r *postgresSaaSRepository) IncrementCampaignClick(ctx context.Context, id string) error {
 	db := database.GetDB(ctx, r.db)
 	return db.WithContext(ctx).Model(&domain.SaaSCampaign{}).Where("id = ?", id).
@@ -240,13 +215,23 @@ func (r *postgresSaaSRepository) IncrementCampaignClick(ctx context.Context, id 
 
 func (r *postgresSaaSRepository) CreateCampaign(ctx context.Context, campaign *domain.SaaSCampaign) error {
 	if campaign.ID == "" {
-		campaign.ID = uuid.New().String()
+		campaign.ID = utils.NewUUID()
 	}
 	if campaign.StartsAt.IsZero() {
 		campaign.StartsAt = time.Now()
 	}
 	db := database.GetDB(ctx, r.db)
 	return db.WithContext(ctx).Create(campaign).Error
+}
+
+func (r *postgresSaaSRepository) GetCampaignByID(ctx context.Context, id string) (*domain.SaaSCampaign, error) {
+	db := database.GetDB(ctx, r.db)
+	var campaign domain.SaaSCampaign
+	err := db.WithContext(ctx).Where("id = ?", id).First(&campaign).Error
+	if err != nil {
+		return nil, err
+	}
+	return &campaign, nil
 }
 
 func (r *postgresSaaSRepository) UpdateCampaign(ctx context.Context, campaign *domain.SaaSCampaign) error {

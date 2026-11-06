@@ -5,20 +5,18 @@ import (
 	"net/http"
 	"strings"
 
-	"gorm.io/gorm"
 	"posgodinov-backend/internal/database"
 	"posgodinov-backend/pkg/response"
 	"posgodinov-backend/pkg/token"
 )
 
-// BusinessMiddleware extracts the Tenant ID from the HTTP Header (X-Business-ID)
-// or from the Auth Payload (if auth middleware was already run),
-// acquires the business DB connection from the connection pool,
+// BusinessMiddleware extracts the Tenant ID from the Auth Payload (or X-Business-ID header),
+// verifies tenant isolation, acquires the business DB connection from the connection pool,
 // and injects it into the request context.
 func BusinessMiddleware(businessManager *database.BusinessDBManager) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			businessID := r.Header.Get("X-Business-ID")
+			businessID := strings.TrimSpace(r.Header.Get("X-Business-ID"))
 
 			// Coba ambil payload dari context jika ada
 			var payload *token.Payload
@@ -26,10 +24,17 @@ func BusinessMiddleware(businessManager *database.BusinessDBManager) func(http.H
 				payload, _ = p.(*token.Payload)
 			}
 
-			// Fallback to JWT/PASETO Payload if header is empty and user is authenticated
-			if businessID == "" && payload != nil {
+			if payload != nil {
+				tokenBizID := strings.TrimSpace(payload.ID)
 				if payload.Type == "device" {
-					businessID = payload.Email // For device, businessID is in Email field
+					tokenBizID = strings.TrimSpace(payload.Email)
+				}
+				if tokenBizID != "" {
+					if businessID != "" && businessID != tokenBizID {
+						response.Error(w, http.StatusForbidden, "Akses ditolak: X-Business-ID tidak sesuai dengan token aktif", nil)
+						return
+					}
+					businessID = tokenBizID
 				}
 			}
 
@@ -38,31 +43,16 @@ func BusinessMiddleware(businessManager *database.BusinessDBManager) func(http.H
 				return
 			}
 
-			// Validate format basic
-			businessID = strings.TrimSpace(businessID)
-			
 			businessDB, err := businessManager.GetBusinessDB(r.Context(), businessID)
 			if err != nil {
 				response.Error(w, http.StatusInternalServerError, "Failed to connect to business database", nil)
 				return
 			}
 
-			// Terapkan RLS (Row-Level Security) jika request berasal dari device (POS/Gudang)
-			if payload != nil && payload.Type == "device" {
-				// Gunakan Transaction dan set_config(..., true) agar aman secara parameter dan tidak bocor ke koneksi lain di pool
-				businessDB.Transaction(func(tx *gorm.DB) error {
-					if err := tx.Exec("SELECT set_config('app.current_outlet_id', ?, true)", payload.ID).Error; err != nil {
-						response.Error(w, http.StatusInternalServerError, "Gagal menginisialisasi sesi outlet", nil)
-						return err
-					}
-					ctx := context.WithValue(r.Context(), database.BusinessDBKey, tx)
-					next.ServeHTTP(w, r.WithContext(ctx))
-					return nil
-				})
-				return
-			}
-
 			ctx := context.WithValue(r.Context(), database.BusinessDBKey, businessDB)
+			if payload != nil && payload.Type == "device" {
+				ctx = context.WithValue(ctx, database.OutletIDKey, payload.ID)
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		}
 	}

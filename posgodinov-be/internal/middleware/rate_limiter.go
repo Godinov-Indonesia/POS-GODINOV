@@ -3,6 +3,7 @@ package middleware
 import (
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,6 +31,10 @@ func init() {
 func getVisitorLimiter(ip string) *rate.Limiter {
 	mu.Lock()
 	defer mu.Unlock()
+
+	if len(visitors) > 10000 {
+		clear(visitors)
+	}
 
 	v, exists := visitors[ip]
 	if !exists {
@@ -61,13 +66,16 @@ func cleanupVisitors() {
 	}
 }
 
-// RateLimitRegistration adalah middleware untuk membatasi endpoint registrasi khusus per IP
+// RateLimitRegistration adalah middleware untuk membatasi endpoint sensitif per IP
 func RateLimitRegistration(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Dapatkan IP asli dengan menghapus port (karena RemoteAddr berupa IP:PORT)
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			ip = r.RemoteAddr
+		ip := strings.TrimSpace(r.Header.Get("X-Real-IP"))
+		if ip == "" {
+			var err error
+			ip, _, err = net.SplitHostPort(r.RemoteAddr)
+			if err != nil {
+				ip = r.RemoteAddr
+			}
 		}
 
 		limiter := getVisitorLimiter(ip)

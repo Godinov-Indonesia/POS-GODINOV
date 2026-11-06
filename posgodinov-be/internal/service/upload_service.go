@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 
 var (
 	ErrCloudinaryNotConfigured = errors.New("layanan upload Cloudinary belum dikonfigurasi di server")
+	validUploadSegmentRegex    = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 )
 
 type UploadServiceOption func(*uploadService)
@@ -32,11 +34,18 @@ func WithUploadStorageUsage(fn func(ctx context.Context, businessID string) (int
 	}
 }
 
+func WithUploadStorageAdder(fn func(ctx context.Context, businessID string, deltaBytes int64) error) UploadServiceOption {
+	return func(s *uploadService) {
+		s.addStorageUsage = fn
+	}
+}
+
 type uploadService struct {
 	cfg             *config.Config
 	now             func() time.Time
 	policyEngine    domain.PolicyEngine
 	getStorageUsage func(ctx context.Context, businessID string) (int64, error)
+	addStorageUsage func(ctx context.Context, businessID string, deltaBytes int64) error
 }
 
 func NewUploadService(cfg *config.Config, opts ...UploadServiceOption) domain.UploadService {
@@ -73,7 +82,11 @@ func (s *uploadService) GenerateUploadSignature(
 			}
 			usage = u
 		}
-		if limit != -1 && usage >= limit {
+		var addedMB int64
+		if req != nil && req.FileSizeBytes > 0 {
+			addedMB = (req.FileSizeBytes + (1 << 20) - 1) / (1 << 20)
+		}
+		if limit != -1 && (usage >= limit || (addedMB > 0 && usage+addedMB > limit)) {
 			return nil, &QuotaExceededError{
 				FeatureKey:   "cloud_storage_mb",
 				CurrentUsage: usage,
@@ -97,6 +110,9 @@ func (s *uploadService) GenerateUploadSignature(
 	if sanitizedBizID == "" {
 		sanitizedBizID = "general"
 	}
+	if !validUploadSegmentRegex.MatchString(sanitizedBizID) {
+		return nil, errors.New("business_id tidak valid")
+	}
 
 	purpose := domain.UploadPurposeProduct
 	outletID := ""
@@ -106,10 +122,18 @@ func (s *uploadService) GenerateUploadSignature(
 		}
 		outletID = strings.TrimSpace(req.OutletID)
 	}
+	if outletID != "" && !validUploadSegmentRegex.MatchString(outletID) {
+		return nil, errors.New("outlet_id tidak valid")
+	}
 
 	sanitizedPurpose := strings.ToLower(strings.TrimSpace(string(purpose)))
 	if sanitizedPurpose == "" {
 		sanitizedPurpose = string(domain.UploadPurposeProduct)
+	}
+	switch domain.UploadPurpose(sanitizedPurpose) {
+	case domain.UploadPurposeProduct, domain.UploadPurposeProfile, domain.UploadPurposeGeneral:
+	default:
+		return nil, errors.New("purpose upload tidak valid")
 	}
 
 	var folder string
@@ -128,6 +152,12 @@ func (s *uploadService) GenerateUploadSignature(
 	sig, err := api.SignParameters(params, s.cfg.CloudinaryAPISecret)
 	if err != nil {
 		return nil, errors.New("gagal membuat signature upload: " + err.Error())
+	}
+
+	if s.addStorageUsage != nil && req != nil && req.FileSizeBytes > 0 && businessID != "" && businessID != "general" {
+		if err := s.addStorageUsage(context.Background(), businessID, req.FileSizeBytes); err != nil {
+			return nil, err
+		}
 	}
 
 	return &domain.UploadSignatureResponse{

@@ -5,6 +5,8 @@
 *.so
 *.dylib
 bin/
+/api
+/tmp_api
 tmp_app
 tmp/
 main
@@ -28,6 +30,7 @@ coverage.out
 .agents/
 AGENTS.md
 GEMINI.md
+graphify-out
 
 # Logs
 *.log

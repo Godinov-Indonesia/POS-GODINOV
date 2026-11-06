@@ -105,6 +105,8 @@ func (m *mockACIDSaaSRepo) ListActiveCampaigns(ctx context.Context, targetTier, 
 func (m *mockACIDSaaSRepo) GetCampaignByID(ctx context.Context, id string) (*domain.SaaSCampaign, error) { return nil, nil }
 func (m *mockACIDSaaSRepo) IncrementCampaignClick(ctx context.Context, id string) error { return nil }
 func (m *mockACIDSaaSRepo) CreateCampaign(ctx context.Context, campaign *domain.SaaSCampaign) error { return nil }
+func (m *mockACIDSaaSRepo) UpdateCampaign(ctx context.Context, campaign *domain.SaaSCampaign) error { return nil }
+func (m *mockACIDSaaSRepo) DeleteCampaign(ctx context.Context, id string) error { return nil }
 func (m *mockACIDSaaSRepo) RecordCampaignClick(ctx context.Context, campaignID string) error { return nil }
 
 type mockACIDPolicyEngine struct {

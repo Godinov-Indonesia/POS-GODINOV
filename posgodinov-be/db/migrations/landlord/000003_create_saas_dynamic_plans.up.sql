@@ -281,12 +281,7 @@ CREATE INDEX idx_merchant_payout_requests_status ON merchant_payout_requests(sta
 -- INITIAL SEED DATA
 -- ============================================================================
 
--- 1. Default Superadmin (password: password123)
-INSERT INTO landlord_users (id, name, email, password_hash, role, is_active) VALUES
-('a0000000-0000-0000-0000-000000000001', 'Godinov Superadmin', 'admin@godinov.id', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'SUPERADMIN', TRUE)
-ON CONFLICT (email) DO NOTHING;
-
--- 2. Master Fitur Platform
+-- 1. Master Fitur Platform
 INSERT INTO saas_features (key, name, description, category, value_type, unit, sort_order) VALUES
 ('max_outlets', 'Maksimal Outlet', 'Jumlah maksimal cabang toko yang dapat didaftarkan', 'CORE', 'NUMERIC_LIMIT', 'Outlet', 1),
 ('max_products', 'Maksimal Produk', 'Batas maksimal katalog produk yang tersimpan', 'CORE', 'NUMERIC_LIMIT', 'Produk', 2),

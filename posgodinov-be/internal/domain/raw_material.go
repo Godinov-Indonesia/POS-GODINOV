@@ -24,14 +24,15 @@ type RawMaterial struct {
 
 // TotalStock mengembalikan total stok dalam base unit.
 func (rm *RawMaterial) TotalStock() float64 {
-	if rm.UnitStock > 0 {
-		return rm.UnitStock
-	}
 	qtyPerPkg := 0.0
 	if rm.QuantityPerPackage != nil {
 		qtyPerPkg = *rm.QuantityPerPackage
 	}
-	return float64(rm.PackageStock)*qtyPerPkg + rm.LooseStock
+	total := float64(rm.PackageStock)*qtyPerPkg + rm.LooseStock
+	if total == 0 && rm.PackageStock == 0 && rm.LooseStock == 0 && rm.UnitStock != 0 {
+		return rm.UnitStock
+	}
+	return total
 }
 
 type CreateRawMaterialRequest struct {

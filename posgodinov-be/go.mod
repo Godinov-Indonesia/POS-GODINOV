@@ -3,12 +3,13 @@ module posgodinov-backend
 go 1.26.1
 
 require (
-	github.com/brianvoe/gofakeit/v7 v7.15.0
+	github.com/cloudinary/cloudinary-go/v2 v2.16.1
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/joho/godotenv v1.5.1
 	github.com/rs/cors v1.11.1
 	github.com/vk-rv/pvx v0.0.0-20210912195928-ac00bc32f6e7
 	golang.org/x/crypto v0.54.0
+	golang.org/x/oauth2 v0.37.0
 	golang.org/x/time v0.15.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.2
@@ -16,7 +17,6 @@ require (
 
 require (
 	cloud.google.com/go/compute/metadata v0.8.0 // indirect
-	github.com/cloudinary/cloudinary-go/v2 v2.16.1 // indirect
 	github.com/creasty/defaults v1.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/schema v1.4.1 // indirect
@@ -27,7 +27,6 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/lib/pq v1.12.3 // indirect
-	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect

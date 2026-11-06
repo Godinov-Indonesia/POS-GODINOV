@@ -23,8 +23,7 @@ func NewOpnameSessionRepository(db *gorm.DB) domain.OpnameSessionRepository {
 
 func (r *opnameSessionRepository) Create(ctx context.Context, session *domain.OpnameSession) error {
 	db := database.GetDB(ctx, r.db)
-	err := db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(session).Error
-	return err
+	return db.WithContext(ctx).Create(session).Error
 }
 
 func (r *opnameSessionRepository) GetByID(ctx context.Context, id string) (*domain.OpnameSession, error) {
@@ -61,13 +60,14 @@ func (r *opnameSessionRepository) SetFormItems(ctx context.Context, sessionID st
 			return nil
 		}
 		
+		items := make([]domain.OpnameFormItem, 0, len(rawMaterialIDs))
 		for _, rmID := range rawMaterialIDs {
-			err := tx.Exec("INSERT INTO opname_form_items (id, session_id, raw_material_id) VALUES (gen_random_uuid(), ?, ?)", sessionID, rmID).Error
-			if err != nil {
-				return err
-			}
+			items = append(items, domain.OpnameFormItem{
+				SessionID:     sessionID,
+				RawMaterialID: rmID,
+			})
 		}
-		return nil
+		return tx.Create(&items).Error
 	})
 }
 
@@ -145,29 +145,32 @@ func (r *opnameSessionRepository) Publish(ctx context.Context, sessionID string,
 func (r *opnameSessionRepository) MarkCounting(ctx context.Context, sessionID string) error {
 	db := database.GetDB(ctx, r.db)
 	res := db.WithContext(ctx).Model(&domain.OpnameSession{}).
-		Where("id = ? AND status = ?", sessionID, domain.SOStatusPublished).
+		Where("id = ? AND status IN ?", sessionID, []string{domain.SOStatusPublished, domain.SOStatusCounting}).
 		Update("status", domain.SOStatusCounting)
 	if res.Error != nil {
 		return res.Error
 	}
 	if res.RowsAffected == 0 {
-		return errors.New("sesi opname gagal ditandai COUNTING (mungkin sudah COUNTING atau bukan PUBLISHED)")
+		return errors.New("sesi opname gagal ditandai COUNTING (bukan PUBLISHED/COUNTING)")
 	}
 	return nil
 }
 
 func (r *opnameSessionRepository) Close(ctx context.Context, sessionID string, closedAt time.Time, closedBy string) error {
 	db := database.GetDB(ctx, r.db)
-	
-	// a. Aggregate count_entries into session_items
+
+	// a. Aggregate form_items + count_entries into session_items so uncounted materials on the form are preserved
 	aggregateQuery := `
     INSERT INTO opname_session_items (id, session_id, raw_material_id, actual_packages, actual_loose, actual_stock)
-    SELECT gen_random_uuid(), ce.session_id, ce.raw_material_id,
-           SUM(ce.actual_packages),
-           SUM(ce.actual_loose),
-           SUM(ce.actual_stock)
-    FROM opname_count_entries ce WHERE ce.session_id = ?
-    GROUP BY ce.session_id, ce.raw_material_id
+    SELECT gen_random_uuid(), fi.session_id, fi.raw_material_id,
+           COALESCE(SUM(ce.actual_packages), 0),
+           COALESCE(SUM(ce.actual_loose), 0),
+           COALESCE(SUM(ce.actual_stock), 0)
+    FROM opname_form_items fi
+    LEFT JOIN opname_count_entries ce
+      ON ce.session_id = fi.session_id AND ce.raw_material_id = fi.raw_material_id
+    WHERE fi.session_id = ?
+    GROUP BY fi.session_id, fi.raw_material_id
     ON CONFLICT (session_id, raw_material_id) DO UPDATE SET
         actual_packages = EXCLUDED.actual_packages,
         actual_loose = EXCLUDED.actual_loose,

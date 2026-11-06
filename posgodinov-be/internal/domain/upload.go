@@ -13,8 +13,9 @@ const (
 
 // CreateUploadSignatureRequest payload dari frontend saat meminta signature upload.
 type CreateUploadSignatureRequest struct {
-	Purpose  UploadPurpose `json:"purpose"`
-	OutletID string        `json:"outlet_id,omitempty"`
+	Purpose       UploadPurpose `json:"purpose"`
+	OutletID      string        `json:"outlet_id,omitempty"`
+	FileSizeBytes int64         `json:"file_size_bytes,omitempty"`
 }
 
 // UploadSignatureResponse berisi token/signature dan kredensial yang dibutuhkan

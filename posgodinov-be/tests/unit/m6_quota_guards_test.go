@@ -260,6 +260,45 @@ func TestM6_UploadService_CloudStorageQuotaGuard(t *testing.T) {
 			t.Fatal("expected signature response, got nil/empty")
 		}
 	})
+
+	t.Run("FileSizeBytes tracked and rejected when exceeding remaining quota", func(t *testing.T) {
+		var usedBytes int64 = 95 * 1024 * 1024 // 95 MB used
+		pe := &mockM6PolicyEngine{
+			numericLimits: map[string]int64{"cloud_storage_mb": 100},
+		}
+		svc := service.NewUploadService(
+			cfg,
+			service.WithUploadPolicyEngine(pe),
+			service.WithUploadStorageUsage(func(ctx context.Context, businessID string) (int64, error) {
+				return (usedBytes + (1024*1024 - 1)) / (1024 * 1024), nil
+			}),
+			service.WithUploadStorageAdder(func(ctx context.Context, businessID string, bytes int64) error {
+				usedBytes += bytes
+				return nil
+			}),
+		)
+
+		// Upload 4 MB -> 95 + 4 = 99 MB <= 100 MB -> allowed
+		_, err := svc.GenerateUploadSignature(ctx, "biz1", &domain.CreateUploadSignatureRequest{
+			Purpose:       domain.UploadPurposeProduct,
+			FileSizeBytes: 4 * 1024 * 1024,
+		})
+		if err != nil {
+			t.Fatalf("expected 4 MB upload to succeed, got: %v", err)
+		}
+		if usedBytes != 99*1024*1024 {
+			t.Fatalf("expected usedBytes to be 99 MB, got %d", usedBytes)
+		}
+
+		// Upload 2 MB -> 99 + 2 = 101 MB > 100 MB -> rejected
+		_, err = svc.GenerateUploadSignature(ctx, "biz1", &domain.CreateUploadSignatureRequest{
+			Purpose:       domain.UploadPurposeProduct,
+			FileSizeBytes: 2 * 1024 * 1024,
+		})
+		if err == nil {
+			t.Fatal("expected QuotaExceededError when upload exceeds remaining storage, got nil")
+		}
+	})
 }
 
 func TestM6_OpnameSessionService_CollaborativeQuotaGuard(t *testing.T) {

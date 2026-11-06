@@ -100,6 +100,11 @@ func (s *returnService) Create(ctx context.Context, businessID, outletID string,
 			return domain.NewSyncFieldError("original_transaction_id",
 				"transaksi asal tidak ditemukan di server")
 		}
+		if (original.OutletID != "" && original.OutletID != outletID) ||
+			(original.BusinessID != "" && original.BusinessID != businessID) {
+			return domain.NewSyncFieldError("original_transaction_id",
+				"transaksi asal bukan milik outlet ini")
+		}
 
 		// ── BUTIR 15 — retur hanya untuk transaksi yang struknya SUDAH terbit ─
 		//
@@ -181,6 +186,11 @@ func validateAgainstSnapshot(ret *domain.Return, snapshot *domain.ReturnSnapshot
 				"kuantitas retur (%d) melebihi sisa yang boleh diretur (%d) untuk item %s",
 				qty, limit.Returnable, itemID,
 			))
+		}
+	}
+	for i := range ret.Items {
+		if limit, ok := limits[ret.Items[i].TransactionItemID]; ok && limit.ProductID != "" {
+			ret.Items[i].ProductID = limit.ProductID
 		}
 	}
 	return nil
