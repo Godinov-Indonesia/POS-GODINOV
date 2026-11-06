@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -190,6 +191,18 @@ func (s *landlordService) Impersonate(ctx context.Context, adminID, businessID s
 		return nil, errors.New("gagal menerbitkan token impersonasi")
 	}
 
+	refreshToken, err := s.tokenMaker.CreateToken(token.Payload{
+		ID:             business.ID,
+		Email:          business.Email,
+		Type:           "refresh",
+		BusinessID:     business.ID,
+		IsImpersonated: true,
+		ImpersonatedBy: admin.ID,
+	}, 30*time.Minute)
+	if err != nil {
+		return nil, errors.New("gagal menerbitkan token impersonasi")
+	}
+
 	// Catat di audit log secara permanen
 	impMeta, _ := json.Marshal(map[string]string{
 		"business_name": business.Name,
@@ -203,10 +216,26 @@ func (s *landlordService) Impersonate(ctx context.Context, adminID, businessID s
 		Metadata:   domain.JSONB(impMeta),
 	})
 
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+	bizJSON, _ := json.Marshal(business)
+	redirectURL := fmt.Sprintf(
+		"%s/impersonate?token=%s&refresh_token=%s&business=%s",
+		frontendURL,
+		accessToken,
+		refreshToken,
+		url.QueryEscape(string(bizJSON)),
+	)
+
 	return &domain.ImpersonateResponse{
-		AccessToken: accessToken,
-		ExpiresIn:   1800,
-		Business:    business,
+		AccessToken:        accessToken,
+		ImpersonationToken: accessToken,
+		RefreshToken:       refreshToken,
+		RedirectURL:        redirectURL,
+		ExpiresIn:          1800,
+		Business:           business,
 	}, nil
 }
 

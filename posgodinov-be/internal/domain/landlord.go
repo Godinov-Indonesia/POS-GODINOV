@@ -86,9 +86,12 @@ type LandlordLoginResponse struct {
 }
 
 type ImpersonateResponse struct {
-	AccessToken string    `json:"access_token"`
-	ExpiresIn   int64     `json:"expires_in"` // seconds (1800s / 30m)
-	Business    *Business `json:"business"`
+	AccessToken        string    `json:"access_token"`
+	ImpersonationToken string    `json:"impersonation_token,omitempty"`
+	RefreshToken       string    `json:"refresh_token,omitempty"`
+	RedirectURL        string    `json:"redirect_url,omitempty"`
+	ExpiresIn          int64     `json:"expires_in"` // seconds (1800s / 30m)
+	Business           *Business `json:"business"`
 }
 
 type BusinessWithSubscription struct {

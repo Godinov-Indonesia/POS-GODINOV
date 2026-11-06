@@ -560,6 +560,16 @@ func TestFeature_LandlordImpersonation(t *testing.T) {
 		t.Fatalf("invalid impersonation claims: Type=%s, IsImp=%v, ImpBy=%s", payload.Type, payload.IsImpersonated, payload.ImpersonatedBy)
 	}
 
+	if resp.Data.ImpersonationToken != resp.Data.AccessToken {
+		t.Fatalf("expected impersonation_token to equal access_token")
+	}
+	if resp.Data.RefreshToken == "" {
+		t.Fatalf("expected refresh_token to be populated")
+	}
+	if resp.Data.RedirectURL == "" {
+		t.Fatalf("expected redirect_url to be populated")
+	}
+
 	// Validasi audit log tercatat
 	if len(landlordRepo.auditLogs) == 0 {
 		t.Fatal("expected audit log to be created for impersonation")

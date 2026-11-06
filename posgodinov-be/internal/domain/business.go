@@ -74,6 +74,7 @@ type BusinessService interface {
 	GoogleOAuthCallback(ctx context.Context, code, state string) (*LoginBusinessResponse, error)
 	ForgotPassword(ctx context.Context, req *ForgotPasswordRequest) error
 	ResetPassword(ctx context.Context, req *ResetPasswordRequest) error
+	GetMe(ctx context.Context, businessID string) (*Business, error)
 }
 
 // PasswordResetToken is a single-use token for password reset.

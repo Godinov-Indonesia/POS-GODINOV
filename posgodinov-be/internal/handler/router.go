@@ -75,6 +75,7 @@ func SetupRouter(
 	mux.HandleFunc("GET /v1/auth/business/oauth/google/callback", businessHandler.GoogleOAuthCallback)
 	mux.HandleFunc("POST /v1/auth/business/forgot-password", middleware.RateLimitRegistration(businessHandler.ForgotPassword))
 	mux.HandleFunc("POST /v1/auth/business/reset-password", middleware.RateLimitRegistration(businessHandler.ResetPassword))
+	mux.HandleFunc("GET /v1/auth/business/me", authMiddleware(businessHandler.GetMe))
 
 	// Landlord Public & Auth Routes
 	mux.HandleFunc("GET /v1/public/landing-page", landlordHandler.GetPublicLandingPage)

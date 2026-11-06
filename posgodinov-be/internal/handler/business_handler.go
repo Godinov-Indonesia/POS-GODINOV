@@ -11,8 +11,10 @@ import (
 	"strings"
 
 	"posgodinov-backend/internal/domain"
+	"posgodinov-backend/internal/middleware"
 	"posgodinov-backend/pkg/logger"
 	"posgodinov-backend/pkg/response"
+	"posgodinov-backend/pkg/token"
 )
 
 type BusinessHandler struct {
@@ -214,4 +216,20 @@ func (h *BusinessHandler) ResetPassword(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Password berhasil diperbarui. Silakan login kembali.",
 	})
+}
+
+func (h *BusinessHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	payload, ok := r.Context().Value(middleware.AuthPayloadKey).(*token.Payload)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "Token tidak valid", nil)
+		return
+	}
+
+	business, err := h.svc.GetMe(r.Context(), payload.ID)
+	if err != nil {
+		response.Error(w, http.StatusNotFound, "Bisnis tidak ditemukan", nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Profil bisnis berhasil diambil", business)
 }

@@ -193,6 +193,10 @@ func (s *businessService) GoogleOAuthURL(_ context.Context, state string) string
 	return s.oauthCfg.AuthCodeURL(state, oauth2.AccessTypeOffline)
 }
 
+func (s *businessService) GetMe(ctx context.Context, businessID string) (*domain.Business, error) {
+	return s.repo.GetByID(ctx, businessID)
+}
+
 func (s *businessService) GoogleOAuthCallback(ctx context.Context, code, _ string) (*domain.LoginBusinessResponse, error) {
 	oauthToken, err := s.oauthCfg.Exchange(ctx, code)
 	if err != nil {

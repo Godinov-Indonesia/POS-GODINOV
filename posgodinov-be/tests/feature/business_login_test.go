@@ -14,8 +14,10 @@ import (
 	"posgodinov-backend/internal/database"
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/internal/handler"
+	"posgodinov-backend/internal/middleware"
 	"posgodinov-backend/internal/service"
 	"posgodinov-backend/pkg/token"
+	"time"
 )
 
 // MockBusinessLoginRepository — mock untuk feature test login
@@ -90,7 +92,7 @@ func (m *MockBusinessLoginRepository) UpdatePassword(_ context.Context, _, _ str
 	return nil
 }
 
-func newLoginTestSvc(repo domain.BusinessRepository) (domain.BusinessService, *handler.BusinessHandler, *http.ServeMux) {
+func newLoginTestSvc(repo domain.BusinessRepository) (domain.BusinessService, *handler.BusinessHandler, *http.ServeMux, token.TokenMaker) {
 	tokenMaker, _ := token.NewPasetoMaker("01234567890123456789012345678901")
 	txManager := database.NewMockTransactionManager()
 	svc := service.NewBusinessService(repo, tokenMaker, txManager, nil, "", "", "")
@@ -99,12 +101,13 @@ func newLoginTestSvc(repo domain.BusinessRepository) (domain.BusinessService, *h
 	mux.HandleFunc("POST /v1/auth/business/login", h.Login)
 	mux.HandleFunc("GET /v1/auth/business/oauth/google", h.GoogleOAuthRedirect)
 	mux.HandleFunc("GET /v1/auth/business/oauth/google/callback", h.GoogleOAuthCallback)
-	return svc, h, mux
+	mux.HandleFunc("GET /v1/auth/business/me", middleware.AuthMiddleware(tokenMaker)(h.GetMe))
+	return svc, h, mux, tokenMaker
 }
 
 func TestFeatureBusinessLogin(t *testing.T) {
 	repo := &MockBusinessLoginRepository{}
-	_, _, mux := newLoginTestSvc(repo)
+	_, _, mux, _ := newLoginTestSvc(repo)
 
 	hashed, _ := bcrypt.GenerateFromPassword([]byte("secret123"), bcrypt.DefaultCost)
 	hashedStr := string(hashed)
@@ -168,7 +171,7 @@ func TestFeatureBusinessLogin(t *testing.T) {
 }
 
 func TestFeatureGoogleOAuthRedirect(t *testing.T) {
-	_, _, mux := newLoginTestSvc(&MockBusinessLoginRepository{})
+	_, _, mux, _ := newLoginTestSvc(&MockBusinessLoginRepository{})
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/auth/business/oauth/google", nil)
 	rr := httptest.NewRecorder()
@@ -205,7 +208,7 @@ func TestFeatureGoogleOAuthRedirect(t *testing.T) {
 }
 
 func TestFeatureGoogleOAuthCallbackValidation(t *testing.T) {
-	_, _, mux := newLoginTestSvc(&MockBusinessLoginRepository{})
+	_, _, mux, _ := newLoginTestSvc(&MockBusinessLoginRepository{})
 
 	t.Run("tanpa state cookie ditolak", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/v1/auth/business/oauth/google/callback?code=abc&state=xyz", nil)
@@ -255,6 +258,53 @@ func TestFeatureGoogleOAuthCallbackValidation(t *testing.T) {
 		}
 		if deleted == nil || deleted.MaxAge != -1 {
 			t.Error("expected oauth_state cookie dihapus (MaxAge=-1)")
+		}
+	})
+}
+
+func TestFeatureBusinessGetMe(t *testing.T) {
+	repo := &MockBusinessLoginRepository{}
+	_, _, mux, tokenMaker := newLoginTestSvc(repo)
+
+	repo.businesses = append(repo.businesses, &domain.Business{
+		ID:        "b-123",
+		Email:     "owner@example.com",
+		Name:      "Warung Kopi",
+		OwnerName: "Budi",
+	})
+
+	t.Run("berhasil mengambil profil dengan token valid", func(t *testing.T) {
+		token, _ := tokenMaker.CreateToken(token.Payload{
+			ID:    "b-123",
+			Email: "owner@example.com",
+			Type:  "access",
+		}, time.Hour)
+
+		req := httptest.NewRequest(http.MethodGet, "/v1/auth/business/me", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		var resp struct {
+			Data domain.Business `json:"data"`
+		}
+		_ = json.Unmarshal(rr.Body.Bytes(), &resp)
+		if resp.Data.ID != "b-123" || resp.Data.Name != "Warung Kopi" {
+			t.Fatalf("unexpected business profile data: %+v", resp.Data)
+		}
+	})
+
+	t.Run("ditolak tanpa token", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/auth/business/me", nil)
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401, got %d", rr.Code)
 		}
 	})
 }
