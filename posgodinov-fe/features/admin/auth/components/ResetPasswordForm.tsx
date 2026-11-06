@@ -1,5 +1,6 @@
 'use client'
 
+import { ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import * as React from 'react'
@@ -13,6 +14,8 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { toastApiError } from '@/components/ui/toaster'
 import { resetPassword } from '@/lib/api/endpoints/auth'
+
+const INPUT_CLASS = 'h-touch rounded-full px-4'
 
 const schema = z
   .object({
@@ -81,9 +84,9 @@ export function ResetPasswordForm() {
   })
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <p className="text-pos-base font-semibold text-fg">Buat Password Baru</p>
+    <form onSubmit={onSubmit} className="flex flex-col gap-5">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="text-pos-xl font-bold tracking-tight text-fg">Buat Password Baru</h1>
         <p className="text-pos-sm text-fg-muted">Masukkan password baru untuk akun Anda.</p>
       </div>
 
@@ -94,6 +97,7 @@ export function ResetPasswordForm() {
           autoComplete="new-password"
           autoFocus
           invalid={!!errors.new_password}
+          className={INPUT_CLASS}
           {...register('new_password')}
         />
       </Field>
@@ -109,12 +113,21 @@ export function ResetPasswordForm() {
           type="password"
           autoComplete="new-password"
           invalid={!!errors.confirmation_password}
+          className={INPUT_CLASS}
           {...register('confirmation_password')}
         />
       </Field>
 
-      <Button type="submit" variant="primary" size="lg" block disabled={pending}>
+      <Button
+        type="submit"
+        variant="primary"
+        size="lg"
+        block
+        disabled={pending}
+        className="rounded-full"
+      >
         {pending ? 'Menyimpan…' : 'Simpan Password Baru'}
+        {!pending ? <ArrowRight className="size-4" aria-hidden="true" /> : null}
       </Button>
     </form>
   )

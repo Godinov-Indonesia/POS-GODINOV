@@ -32,6 +32,10 @@ export type FieldProps = {
   error?: string
   children: React.ReactNode
   className?: string
+  /** Override tampilan label, mis. varian uppercase pada layar publik (auth). */
+  labelClassName?: string
+  /** Konten tambahan sejajar label, mis. tautan "Lupa password?". */
+  labelAction?: React.ReactNode
 }
 
 /**
@@ -48,15 +52,20 @@ export function Field({
   error,
   children,
   className,
+  labelClassName,
+  labelAction,
 }: FieldProps) {
   const errorId = `${htmlFor}-error`
   const hintId = `${htmlFor}-hint`
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <Label htmlFor={htmlFor} required={required}>
-        {label}
-      </Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor={htmlFor} required={required} className={labelClassName}>
+          {label}
+        </Label>
+        {labelAction}
+      </div>
 
       <div aria-describedby={cn(error && errorId, hint && hintId) || undefined}>{children}</div>
 

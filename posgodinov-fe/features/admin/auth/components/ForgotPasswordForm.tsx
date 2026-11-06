@@ -1,5 +1,6 @@
 'use client'
 
+import { ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import * as React from 'react'
 import { useForm } from 'react-hook-form'
@@ -56,9 +57,9 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <p className="text-pos-base font-semibold text-fg">Lupa Password</p>
+    <form onSubmit={onSubmit} className="flex flex-col gap-5">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="text-pos-xl font-bold tracking-tight text-fg">Lupa Kata Sandi</h1>
         <p className="text-pos-sm text-fg-muted">
           Masukkan email yang terdaftar. Kami akan mengirimkan tautan reset password.
         </p>
@@ -71,12 +72,21 @@ export function ForgotPasswordForm() {
           autoComplete="email"
           autoFocus
           invalid={!!errors.email}
+          className="h-touch rounded-full px-4"
           {...register('email')}
         />
       </Field>
 
-      <Button type="submit" variant="primary" size="lg" block disabled={pending}>
+      <Button
+        type="submit"
+        variant="primary"
+        size="lg"
+        block
+        disabled={pending}
+        className="rounded-full"
+      >
         {pending ? 'Mengirim…' : 'Kirim Tautan Reset'}
+        {!pending ? <ArrowRight className="size-4" aria-hidden="true" /> : null}
       </Button>
 
       <p className="text-center text-pos-sm text-fg-muted">

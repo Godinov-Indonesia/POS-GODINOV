@@ -76,12 +76,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <CampaignBanner />
 
       {/* 2. Navbar membentang penuh hingga ujung kiri paling awal */}
-      <AdminHeader
-        isMobileOpen={isMobileOpen}
-        isDesktopCollapsed={isDesktopCollapsed}
-        onToggleMobile={toggleMobileSidebar}
-        onToggleDesktop={toggleDesktopSidebar}
-      />
+      <AdminHeader isMobileOpen={isMobileOpen} onToggleMobile={toggleMobileSidebar} />
 
       {/* 3. Sidebar dan area konten berada tepat di bawah navbar */}
       <div className="relative flex min-h-0 flex-1 overflow-hidden">

@@ -1,29 +1,38 @@
 'use client'
 
-import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
+import { LogOut, Menu, X } from 'lucide-react'
 import * as React from 'react'
 
+import { Logo } from '@/components/brand/Logo'
 import { Button } from '@/components/ui/button'
 import { OutletSwitcher } from '@/features/admin/outlets/components/OutletSwitcher'
 import { hardLogout } from '@/lib/auth/session-manager'
 import { useSessionStore } from '@/lib/auth/session-store'
 
+/** Inisial 1-2 huruf dari nama pemilik, untuk avatar fallback di header. */
+function getInitials(name?: string | null): string {
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
+  return `${parts[0]![0]}${parts[parts.length - 1]![0]}`.toUpperCase()
+}
+
 export function AdminHeader({
   isMobileOpen = false,
-  isDesktopCollapsed = false,
   onToggleMobile,
-  onToggleDesktop,
 }: {
   isMobileOpen?: boolean
-  isDesktopCollapsed?: boolean
   onToggleMobile?: () => void
-  onToggleDesktop?: () => void
 }) {
   const business = useSessionStore((s) => s.business)
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-surface px-4 lg:px-6 w-full z-30">
-      {/* Mobile/tablet (< 1024px): drawer overlay — pola hamburger ↔ X standar. */}
+      {/* Zona 1: Navigasi mobile — drawer overlay, hanya tampil < 1024px.
+          Kontrol collapse desktop sengaja TIDAK diduplikasi di sini; ia
+          hidup satu tempat saja (dasar sidebar) agar tidak ada dua tombol
+          dengan ikon beda untuk aksi yang terasa serupa. */}
       {onToggleMobile ? (
         <Button
           variant="ghost"
@@ -41,46 +50,41 @@ export function AdminHeader({
         </Button>
       ) : null}
 
-      {/* Desktop (≥ 1024px): panel statis yang menyusut jadi rail ikon, bukan
-          drawer — ikon panel-left menghindari ambiguitas dengan hamburger. */}
-      {onToggleDesktop ? (
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={isDesktopCollapsed ? 'Perluas sidebar' : 'Perkecil sidebar'}
-          title={isDesktopCollapsed ? 'Perluas sidebar' : 'Perkecil sidebar'}
-          onClick={onToggleDesktop}
-          className="hidden shrink-0 lg:flex"
-        >
-          {isDesktopCollapsed ? (
-            <PanelLeftOpen className="size-5 text-fg" aria-hidden="true" />
-          ) : (
-            <PanelLeftClose className="size-5 text-fg" aria-hidden="true" />
-          )}
-        </Button>
-      ) : null}
-
-      <div className="flex items-center gap-2.5 mr-1 sm:mr-3 shrink-0">
-        <span className="text-pos-base sm:text-pos-md font-bold tracking-tight text-fg select-none">
-          POS GODINOV
-        </span>
+      {/* Zona 2: Identitas produk — logo mendapat ruang penuh di kiri header. */}
+      <div className="flex items-center shrink-0">
+        <Logo priority className="h-12 sm:h-17" />
       </div>
 
+      <div className="h-8 w-px shrink-0 bg-border" aria-hidden="true" />
+
+      {/* Zona 3: Konteks kerja aktif — outlet mana yang sedang dilihat. */}
       <OutletSwitcher />
 
+      {/* Zona 4: Akun — didorong penuh ke kanan, dipisah separator agar
+          tidak tercampur visual dengan konteks outlet di sebelahnya. */}
       <div className="ml-auto flex items-center gap-3">
-        <div className="hidden flex-col items-end sm:flex">
-          <span className="text-pos-sm font-medium text-fg">{business?.owner_name ?? '—'}</span>
-          <span className="font-mono text-pos-xs text-fg-subtle">
-            {business?.serial_business ?? ''}
-          </span>
+        <div className="hidden h-8 w-px shrink-0 bg-border sm:block" aria-hidden="true" />
+
+        <div className="hidden items-center gap-2.5 sm:flex">
+          <div
+            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-pos-xs font-semibold text-accent"
+            aria-hidden="true"
+          >
+            {getInitials(business?.owner_name)}
+          </div>
+          <div className="flex flex-col leading-tight">
+            <span className="text-pos-sm font-medium text-fg">{business?.owner_name ?? '—'}</span>
+            <span className="font-mono text-pos-xs text-fg-subtle">
+              {business?.serial_business ?? ''}
+            </span>
+          </div>
         </div>
 
         <Button
           variant="ghost"
           size="icon"
           aria-label="Keluar"
-          title="Keluar"
+          title="Keluar dari akun"
           onClick={() => hardLogout('logout')}
         >
           <LogOut className="size-5" aria-hidden="true" />

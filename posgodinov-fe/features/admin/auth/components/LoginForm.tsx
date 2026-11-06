@@ -1,7 +1,7 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Store } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Store } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import * as React from 'react'
@@ -21,6 +21,7 @@ export function LoginForm() {
   const searchParams = useSearchParams()
   const expired = searchParams.get('reason') === 'expired'
   const { login, pending, outletChoices, chooseOutlet } = useAuthFlow()
+  const [showPassword, setShowPassword] = React.useState(false)
 
   const {
     register,
@@ -49,7 +50,14 @@ export function LoginForm() {
   if (outletChoices) return <OutletChooser outlets={outletChoices} onChoose={chooseOutlet} />
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex flex-col gap-5">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="text-pos-xl font-bold tracking-tight text-fg">Masuk ke Akun</h1>
+        <p className="text-pos-sm text-fg-muted">
+          Akses portal manajemen dan operasional kasir bisnis Anda.
+        </p>
+      </div>
+
       {expired ? (
         <Banner tone="warning">Sesi Anda telah berakhir. Silakan masuk kembali.</Banner>
       ) : null}
@@ -58,7 +66,7 @@ export function LoginForm() {
       <button
         type="button"
         onClick={handleGoogleLogin}
-        className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-surface px-4 py-2.5 text-pos-sm font-medium text-fg hover:bg-accent-subtle transition-colors"
+        className="flex h-touch w-full items-center justify-center gap-3 rounded-full border border-border-strong bg-surface px-4 text-pos-sm font-medium text-fg transition-colors hover:bg-bg-muted"
       >
         {/* Google Logo SVG */}
         <svg className="size-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
@@ -73,43 +81,76 @@ export function LoginForm() {
       {/* Divider */}
       <div className="flex items-center gap-3">
         <div className="h-px flex-1 bg-border" />
-        <span className="text-pos-xs text-fg-subtle">atau</span>
+        <span className="text-pos-xs tracking-wide text-fg-subtle">ATAU</span>
         <div className="h-px flex-1 bg-border" />
       </div>
 
-      <Field label="Email" htmlFor="email" required error={errors.email?.message}>
+      <Field
+        label="Email bisnis"
+        htmlFor="email"
+        required
+        error={errors.email?.message}
+      >
         <Input
           id="email"
           type="email"
           autoComplete="email"
           autoFocus
+          placeholder="owner@kopicahaya.com"
           invalid={!!errors.email}
+          className="h-touch rounded-full px-4"
           {...register('email')}
         />
       </Field>
 
-      <Field label="Password" htmlFor="password" required error={errors.password?.message}>
-        <Input
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          invalid={!!errors.password}
-          {...register('password')}
-        />
+      <Field
+        label="Kata sandi"
+        htmlFor="password"
+        required
+        error={errors.password?.message}
+        labelAction={
+          <Link
+            href="/forgot-password"
+            className="text-pos-xs font-medium text-accent underline underline-offset-2"
+          >
+            Lupa kata sandi?
+          </Link>
+        }
+      >
+        <div className="relative">
+          <Input
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            invalid={!!errors.password}
+            className="h-touch rounded-full px-4 pr-11"
+            {...register('password')}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+            className="absolute inset-y-0 right-3 flex items-center text-fg-subtle hover:text-fg-muted"
+          >
+            {showPassword ? (
+              <EyeOff className="size-4" aria-hidden="true" />
+            ) : (
+              <Eye className="size-4" aria-hidden="true" />
+            )}
+          </button>
+        </div>
       </Field>
 
-      {/* Forgot password link */}
-      <div className="-mt-2 flex justify-end">
-        <Link
-          href="/forgot-password"
-          className="text-pos-xs text-fg-muted underline underline-offset-2 hover:text-accent"
-        >
-          Lupa password?
-        </Link>
-      </div>
-
-      <Button type="submit" variant="primary" size="lg" block disabled={pending}>
+      <Button
+        type="submit"
+        variant="primary"
+        size="lg"
+        block
+        disabled={pending}
+        className="rounded-full"
+      >
         {pending ? 'Memproses…' : 'Masuk'}
+        {!pending ? <ArrowRight className="size-4" aria-hidden="true" /> : null}
       </Button>
 
       <p className="text-center text-pos-sm text-fg-muted">

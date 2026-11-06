@@ -132,6 +132,31 @@ export function AdminSidebar({
           isCollapsed ? 'lg:w-18' : 'lg:w-64',
         )}
       >
+        {/* Tombol collapse — baris sendiri dengan label teks saat terbuka
+            (lebih jelas niatnya daripada ikon polos), menyusut jadi ikon
+            saja saat rail ikon ([06 §2.1]). Posisi di atas, bukan footer,
+            agar lebih mudah ditemukan saat scanning UI. */}
+        <div className="hidden border-b border-border-inverse p-3 lg:block">
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            aria-label={isCollapsed ? 'Perluas sidebar' : 'Perkecil sidebar'}
+            title={isCollapsed ? 'Perluas sidebar' : 'Perkecil sidebar'}
+            className={cn(
+              'flex min-h-touch w-full items-center gap-3 rounded-md px-3 text-pos-sm text-fg-inverse/70',
+              'hover:bg-fg-inverse/10 hover:text-fg-inverse',
+              isCollapsed && 'justify-center px-0',
+            )}
+          >
+            {isCollapsed ? (
+              <PanelLeftOpen className="size-5 shrink-0" aria-hidden="true" />
+            ) : (
+              <PanelLeftClose className="size-5 shrink-0" aria-hidden="true" />
+            )}
+            <span className={cn(isCollapsed && 'hidden')}>Perkecil Sidebar</span>
+          </button>
+        </div>
+
         <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
           {NAV.map((group, groupIndex) => (
             <div key={group.title ?? groupIndex} className="mb-4">
@@ -180,29 +205,6 @@ export function AdminSidebar({
             </div>
           ))}
         </nav>
-
-        {/* Tombol collapse kedua di dalam sidebar (pola Notion/Linear) — agar
-            discoverability tidak hanya bergantung pada tombol di header. */}
-        <div className="hidden border-t border-border-inverse p-3 lg:block">
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            aria-label={isCollapsed ? 'Perluas sidebar' : 'Perkecil sidebar'}
-            title={isCollapsed ? 'Perluas sidebar' : 'Perkecil sidebar'}
-            className={cn(
-              'flex min-h-touch w-full items-center gap-3 rounded-md px-3 text-pos-sm text-fg-inverse/70',
-              'hover:bg-fg-inverse/10 hover:text-fg-inverse',
-              isCollapsed && 'justify-center px-0',
-            )}
-          >
-            {isCollapsed ? (
-              <PanelLeftOpen className="size-5 shrink-0" aria-hidden="true" />
-            ) : (
-              <PanelLeftClose className="size-5 shrink-0" aria-hidden="true" />
-            )}
-            <span className={cn(isCollapsed && 'hidden')}>Perkecil sidebar</span>
-          </button>
-        </div>
       </aside>
     </>
   )
