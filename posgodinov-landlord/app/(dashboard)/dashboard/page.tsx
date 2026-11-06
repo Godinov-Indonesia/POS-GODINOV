@@ -9,12 +9,16 @@ import {
   RefreshCw,
   Layers,
   ArrowUpRight,
-  ShieldAlert,
+  Database,
+  ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api/client";
 import { formatIDR } from "@/lib/utils";
 import { LandlordMetricsOverview, ApiResponse } from "@/lib/types";
+import { Card, CardHeader, CardTitle, CardContent, StatCard } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/feedback";
 
 export default function DashboardOverviewPage() {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -28,167 +32,93 @@ export default function DashboardOverviewPage() {
   const metrics = data?.data;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-zinc-100">
+          <h1 className="text-xl font-bold tracking-tight text-fg">
             Executive SaaS Overview
           </h1>
-          <p className="text-xs text-zinc-400 mt-1">
-            Metrik agregat real-time performa bisnis multi-tenant POS-GODINOV
+          <p className="text-xs text-fg-muted mt-1">
+            Metrik agregat real-time performa bisnis multi-tenant POS-GODINOV.
           </p>
         </div>
 
-        <button
+        <Button
           onClick={() => refetch()}
           disabled={isFetching}
-          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-xs font-medium text-zinc-300 transition-colors disabled:opacity-50 cursor-pointer self-start sm:self-auto"
+          variant="neutral"
+          size="sm"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
+          <RefreshCw className={`size-3.5 ${isFetching ? "animate-spin" : ""}`} />
           <span>Segarkan Data</span>
-        </button>
+        </Button>
       </div>
 
       {isError && (
-        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-3">
-          <ShieldAlert className="w-5 h-5 shrink-0" />
-          <div>
-            <div className="font-semibold">Gagal memuat metrik landlord</div>
-            <div className="text-zinc-400 mt-0.5">
-              {(error as Error)?.message || "Koneksi backend tidak dapat diakses."}
-            </div>
+        <Banner tone="danger">
+          <div className="font-semibold">Gagal memuat metrik landlord</div>
+          <div className="text-fg-muted mt-0.5">
+            {(error as Error)?.message || "Koneksi backend tidak dapat diakses."}
           </div>
-        </div>
+        </Banner>
       )}
 
       {/* Grid KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Estimated MRR */}
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 relative overflow-hidden group hover:border-indigo-500/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-400">
-              Estimasi MRR SaaS
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono tracking-tight text-zinc-100">
-              {isLoading ? (
-                <div className="h-8 w-32 bg-zinc-800 animate-pulse rounded" />
-              ) : (
-                formatIDR(metrics?.estimated_mrr_minor || 0)
-              )}
-            </div>
-            <p className="text-[11px] text-zinc-500 mt-1">
-              Monthly Recurring Revenue aktif
-            </p>
-          </div>
-        </div>
-
-        {/* KPI 2: Total Businesses */}
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 relative overflow-hidden group hover:border-indigo-500/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-400">
-              Total Tenant Terdaftar
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
-              <Building2 className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono tracking-tight text-zinc-100">
-              {isLoading ? (
-                <div className="h-8 w-20 bg-zinc-800 animate-pulse rounded" />
-              ) : (
-                metrics?.total_businesses ?? 0
-              )}
-            </div>
-            <p className="text-[11px] text-zinc-500 mt-1">
-              Tenant merchant di seluruh outlet
-            </p>
-          </div>
-        </div>
-
-        {/* KPI 3: Active Tenants */}
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 relative overflow-hidden group hover:border-indigo-500/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-400">
-              Tenant Beroperasi Aktif
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono tracking-tight text-zinc-100">
-              {isLoading ? (
-                <div className="h-8 w-20 bg-zinc-800 animate-pulse rounded" />
-              ) : (
-                metrics?.active_businesses ?? 0
-              )}
-            </div>
-            <p className="text-[11px] text-zinc-500 mt-1">
-              Status langganan ACTIVE / TRIAL
-            </p>
-          </div>
-        </div>
-
-        {/* KPI 4: Suspended Tenants */}
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 relative overflow-hidden group hover:border-red-500/40 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-400">
-              Akun Dibekukan (Suspended)
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center">
-              <AlertOctagon className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold font-mono tracking-tight text-zinc-100">
-              {isLoading ? (
-                <div className="h-8 w-16 bg-zinc-800 animate-pulse rounded" />
-              ) : (
-                metrics?.suspended_businesses ?? 0
-              )}
-            </div>
-            <p className="text-[11px] text-zinc-500 mt-1">
-              Dibatasi karena dunning / pelanggaran
-            </p>
-          </div>
-        </div>
+        <StatCard
+          label="Estimasi MRR SaaS"
+          value={isLoading ? "..." : formatIDR(metrics?.estimated_mrr_minor || 0)}
+          hint="Monthly Recurring Revenue aktif"
+          icon={TrendingUp}
+        />
+        <StatCard
+          label="Total Tenant Terdaftar"
+          value={isLoading ? "..." : (metrics?.total_businesses ?? 0)}
+          hint="Tenant merchant terdaftar"
+          icon={Building2}
+        />
+        <StatCard
+          label="Tenant Beroperasi Aktif"
+          value={isLoading ? "..." : (metrics?.active_businesses ?? 0)}
+          hint="Status ACTIVE atau TRIAL"
+          icon={CheckCircle2}
+        />
+        <StatCard
+          label="Akun Ditangguhkan"
+          value={isLoading ? "..." : (metrics?.suspended_businesses ?? 0)}
+          hint="Dibatasi karena dunning / audit"
+          icon={AlertOctagon}
+        />
       </div>
 
       {/* Breakdown Tier & Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Tier Distribution */}
-        <div className="lg:col-span-2 bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-indigo-400" />
-              <h2 className="text-sm font-semibold text-zinc-100">
-                Distribusi Paket Tenant
-              </h2>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="size-4 text-accent" />
+                <CardTitle>Distribusi Paket Tenant</CardTitle>
+              </div>
+              <span className="text-xs text-fg-subtle">Live Breakdown</span>
             </div>
-            <span className="text-xs text-zinc-500">Live Breakdown</span>
-          </div>
-
-          {isLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-10 bg-zinc-800/60 animate-pulse rounded-lg" />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {Object.entries(metrics?.businesses_by_plan || {}).length === 0 ? (
-                <div className="py-8 text-center text-xs text-zinc-500">
-                  Belum ada data distribusi paket.
-                </div>
-              ) : (
-                Object.entries(metrics?.businesses_by_plan || {}).map(
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-10 bg-bg-muted animate-pulse rounded-lg" />
+                ))}
+              </div>
+            ) : Object.entries(metrics?.businesses_by_plan || {}).length === 0 ? (
+              <div className="py-8 text-center text-xs text-fg-subtle">
+                Belum ada data distribusi paket.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(metrics?.businesses_by_plan || {}).map(
                   ([planCode, count]) => {
                     const total = metrics?.total_businesses || 1;
                     const percentage = Math.round((count / total) * 100);
@@ -196,80 +126,78 @@ export default function DashboardOverviewPage() {
                     return (
                       <div key={planCode} className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-medium text-zinc-300 uppercase tracking-wider">
+                          <span className="font-semibold text-fg uppercase tracking-wider">
                             {planCode}
                           </span>
-                          <span className="font-mono text-zinc-400">
+                          <span className="font-mono text-fg-muted">
                             {count} tenant ({percentage}%)
                           </span>
                         </div>
-                        <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-2 w-full bg-bg-muted rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                            className="h-full bg-accent rounded-full transition-all duration-500"
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
                       </div>
                     );
                   }
-                )
-              )}
-            </div>
-          )}
-        </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Quick Operations Navigation */}
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-6 flex flex-col justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-zinc-100 mb-4">
-              Operasi Cepat Landlord
-            </h2>
-            <div className="space-y-2.5">
-              <Link
-                href="/tenants"
-                className="flex items-center justify-between p-3 rounded-lg bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/40 transition-colors group"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Building2 className="w-4 h-4 text-indigo-400" />
-                  <span className="text-xs font-medium text-zinc-200">
-                    Kelola Direktori Tenant
-                  </span>
-                </div>
-                <ArrowUpRight className="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-300" />
-              </Link>
+        <Card className="flex flex-col justify-between">
+          <CardHeader>
+            <CardTitle>Operasi Cepat Landlord</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2.5">
+            <Link
+              href="/tenants"
+              className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface hover:bg-bg-muted transition-colors group"
+            >
+              <div className="flex items-center gap-2.5">
+                <Building2 className="size-4 text-accent" />
+                <span className="text-xs font-medium text-fg">
+                  Direktori Tenant 360
+                </span>
+              </div>
+              <ArrowUpRight className="size-3.5 text-fg-subtle group-hover:text-fg" />
+            </Link>
 
-              <Link
-                href="/plans"
-                className="flex items-center justify-between p-3 rounded-lg bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/40 transition-colors group"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Layers className="w-4 h-4 text-blue-400" />
-                  <span className="text-xs font-medium text-zinc-200">
-                    Edit Kuota & Matriks Fitur
-                  </span>
-                </div>
-                <ArrowUpRight className="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-300" />
-              </Link>
+            <Link
+              href="/plans"
+              className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface hover:bg-bg-muted transition-colors group"
+            >
+              <div className="flex items-center gap-2.5">
+                <Layers className="size-4 text-accent" />
+                <span className="text-xs font-medium text-fg">
+                  Matriks Fitur & Harga Paket
+                </span>
+              </div>
+              <ArrowUpRight className="size-3.5 text-fg-subtle group-hover:text-fg" />
+            </Link>
 
-              <Link
-                href="/cms"
-                className="flex items-center justify-between p-3 rounded-lg bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/40 transition-colors group"
-              >
-                <div className="flex items-center gap-2.5">
-                  <TrendingUp className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-medium text-zinc-200">
-                    Revalidasi Cache Landing CMS
-                  </span>
-                </div>
-                <ArrowUpRight className="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-300" />
-              </Link>
-            </div>
+            <Link
+              href="/backups"
+              className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface hover:bg-bg-muted transition-colors group"
+            >
+              <div className="flex items-center gap-2.5">
+                <Database className="size-4 text-accent" />
+                <span className="text-xs font-medium text-fg">
+                  Database Backups & Snapshot
+                </span>
+              </div>
+              <ArrowUpRight className="size-3.5 text-fg-subtle group-hover:text-fg" />
+            </Link>
+          </CardContent>
+          <div className="p-5 pt-3 border-t border-border text-[11px] text-fg-subtle flex items-center gap-2">
+            <ShieldCheck className="size-3.5 text-success" />
+            <span>Multi-tenant ACID terjamin oleh Postgres landlord engine.</span>
           </div>
-
-          <div className="pt-6 border-t border-zinc-800/80 mt-6 text-[11px] text-zinc-500">
-            Sistem pengawasan landlord menjamin isolasi data antar tenant tetap ACID.
-          </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

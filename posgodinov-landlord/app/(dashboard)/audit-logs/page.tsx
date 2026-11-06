@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ScrollText, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { ScrollText, Clock, ChevronLeft, ChevronRight, Laptop } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { formatDate } from "@/lib/utils";
 import { ApiResponse, LandlordAuditLog } from "@/lib/types";
+import { Card } from "@/components/ui/card";
+import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { EmptyState, Skeleton } from "@/components/ui/feedback";
 
 export default function AuditLogsPage() {
   const [page, setPage] = useState(1);
@@ -20,126 +25,143 @@ export default function AuditLogsPage() {
   });
 
   const rawLogs = data?.data;
+  const rawLogsObj = rawLogs as Record<string, unknown> | undefined;
   const logs: LandlordAuditLog[] = Array.isArray(rawLogs)
     ? rawLogs
-    : Array.isArray((rawLogs as any)?.logs)
-    ? (rawLogs as any).logs
-    : Array.isArray((data as any)?.logs)
-    ? (data as any).logs
+    : Array.isArray(rawLogsObj?.logs)
+    ? (rawLogsObj.logs as LandlordAuditLog[])
     : [];
   const meta = data?.meta || {};
   const total =
     meta.total ??
-    (rawLogs as any)?.total ??
-    (data as any)?.total ??
+    (rawLogsObj?.total as number | undefined) ??
     logs.length;
   const totalPages = Math.ceil(total / limit) || 1;
 
+  const getActionTone = (action: string): "neutral" | "info" | "success" | "warning" | "danger" => {
+    const act = action.toUpperCase();
+    if (act.includes("DELETE") || act.includes("REVOKE") || act.includes("REMOVE")) return "danger";
+    if (act.includes("CREATE") || act.includes("ADD") || act.includes("TRIGGER")) return "success";
+    if (act.includes("UPDATE") || act.includes("EDIT") || act.includes("SET")) return "info";
+    return "neutral";
+  };
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-zinc-100">
-            Audit Trail & Log Superadmin
+          <h1 className="text-xl font-bold tracking-tight text-fg">
+            Audit Trail &amp; Log Superadmin
           </h1>
-          <p className="text-xs text-zinc-400 mt-1">
-            Riwayat seluruh tindakan administratif untuk kepatuhan dan keamanan
+          <p className="text-xs text-muted-fg mt-1">
+            Riwayat seluruh tindakan administratif untuk kepatuhan dan audit keamanan
           </p>
         </div>
       </div>
 
-      <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-zinc-950/80 text-zinc-400 uppercase tracking-wider text-[10px] border-b border-zinc-800">
-              <tr>
-                <th className="py-3 px-4 font-semibold">Tindakan</th>
-                <th className="py-3 px-4 font-semibold">Target (ID/Type)</th>
-                <th className="py-3 px-4 font-semibold">Metadata</th>
-                <th className="py-3 px-4 font-semibold">Waktu & IP</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/60 font-mono">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-zinc-500 font-sans">
-                    Memuat log audit...
-                  </td>
-                </tr>
-              ) : isError ? (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-red-400 font-sans">
-                    {(error as Error)?.message || "Gagal memuat log audit"}
-                  </td>
-                </tr>
-              ) : logs.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-12 text-center text-zinc-500 font-sans">
-                    <ScrollText className="w-8 h-8 mx-auto mb-2 text-zinc-600" />
-                    Tidak ada log audit tersedia.
-                  </td>
-                </tr>
-              ) : (
-                logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-zinc-850/50 transition-colors">
-                    <td className="py-3 px-4">
-                      <span className="font-semibold text-indigo-300">
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-zinc-300">
-                      <div>{log.target_type}</div>
-                      <div className="text-[10px] text-zinc-500 mt-0.5">
-                        {log.target_id}
+      {/* Main Table Card */}
+      <Card>
+        <Table>
+          <THead>
+            <TR>
+              <TH>Tindakan</TH>
+              <TH>Target (Type &amp; ID)</TH>
+              <TH>Metadata</TH>
+              <TH>Waktu &amp; IP</TH>
+            </TR>
+          </THead>
+          <TBody>
+            {isLoading ? (
+              <TR>
+                <TD colSpan={4} className="py-8 text-center text-muted-fg">
+                  <Skeleton className="h-6 w-1/2 mx-auto" />
+                </TD>
+              </TR>
+            ) : isError ? (
+              <TR>
+                <TD colSpan={4} className="py-8 text-center text-danger-text">
+                  {(error as Error)?.message || "Gagal memuat log audit"}
+                </TD>
+              </TR>
+            ) : logs.length === 0 ? (
+              <TR>
+                <TD colSpan={4} className="py-8">
+                  <EmptyState
+                    icon={ScrollText}
+                    title="Tidak ada log audit"
+                    description="Belum ada riwayat aktivitas administratif yang tercatat."
+                  />
+                </TD>
+              </TR>
+            ) : (
+              logs.map((log) => (
+                <TR key={log.id}>
+                  <TD>
+                    <Badge tone={getActionTone(log.action)}>
+                      {log.action}
+                    </Badge>
+                  </TD>
+                  <TD>
+                    <div className="font-medium text-fg">{log.target_type}</div>
+                    <div className="text-[11px] font-mono text-muted-fg mt-0.5 truncate max-w-[200px]" title={log.target_id}>
+                      {log.target_id}
+                    </div>
+                  </TD>
+                  <TD>
+                    <div
+                      className="text-[11px] font-mono text-muted-fg max-w-sm truncate bg-muted/60 px-2 py-1 rounded"
+                      title={JSON.stringify(log.metadata)}
+                    >
+                      {JSON.stringify(log.metadata || {})}
+                    </div>
+                  </TD>
+                  <TD>
+                    <div className="flex items-center gap-1.5 text-xs text-fg">
+                      <Clock className="w-3.5 h-3.5 text-muted-fg" />
+                      <span>{formatDate(log.created_at)}</span>
+                    </div>
+                    {log.ip_address && (
+                      <div className="flex items-center gap-1 text-[11px] font-mono text-muted-fg mt-1">
+                        <Laptop className="w-3 h-3" />
+                        <span>{log.ip_address}</span>
                       </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="text-[10px] text-zinc-400 max-w-xs truncate" title={JSON.stringify(log.metadata)}>
-                        {JSON.stringify(log.metadata || {})}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-zinc-500">
-                      <div className="flex items-center gap-1.5 text-zinc-400">
-                        <Clock className="w-3 h-3" />
-                        <span>{formatDate(log.created_at)}</span>
-                      </div>
-                      {log.ip_address && (
-                        <div className="mt-1">IP: {log.ip_address}</div>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    )}
+                  </TD>
+                </TR>
+              ))
+            )}
+          </TBody>
+        </Table>
 
         {/* Pagination Footer */}
-        <div className="p-3 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
+        <div className="p-3 border-t border-border flex items-center justify-between text-xs text-muted-fg">
           <div>
-            Total <span className="font-mono font-medium text-zinc-200">{total}</span> rekaman log
+            Total <span className="font-mono font-semibold text-fg">{total}</span> rekaman log
           </div>
           <div className="flex items-center gap-2">
             <span className="font-mono text-[11px]">
               Hal {page} dari {totalPages}
             </span>
-            <button
+            <Button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1 || isFetching}
-              className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 transition-colors cursor-pointer"
+              variant="neutral"
+              size="sm"
             >
               <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages || isFetching}
-              className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 transition-colors cursor-pointer"
+              variant="neutral"
+              size="sm"
             >
               <ChevronRight className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

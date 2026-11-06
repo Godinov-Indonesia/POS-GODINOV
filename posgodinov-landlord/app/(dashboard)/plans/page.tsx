@@ -8,11 +8,18 @@ import {
   XCircle,
   RefreshCw,
   Info,
+  Pencil,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
 import { formatIDR } from "@/lib/utils";
-import { Plan, ApiResponse } from "@/lib/types";
+import { Plan, ApiResponse, UpdatePlanPayload } from "@/lib/types";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Banner } from "@/components/ui/feedback";
+import { Input } from "@/components/ui/input";
 
 export default function PlanMatrixPage() {
   const queryClient = useQueryClient();
@@ -28,6 +35,59 @@ export default function PlanMatrixPage() {
   const [editedMatrix, setEditedMatrix] = useState<
     Record<string, Record<string, { is_enabled: boolean; limit_value: number }>>
   >({});
+
+  // Local state for editing plan price & info
+  const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
+  const [editPlanForm, setEditPlanForm] = useState<{
+    name: string;
+    description: string;
+    price_minor: number;
+    billing_cycle: string;
+    is_public: boolean;
+    is_active: boolean;
+  }>({
+    name: "",
+    description: "",
+    price_minor: 0,
+    billing_cycle: "MONTHLY",
+    is_public: true,
+    is_active: true,
+  });
+
+  const handleOpenEditPlan = (plan: Plan) => {
+    setEditingPlan(plan);
+    setEditPlanForm({
+      name: plan.name,
+      description: plan.description || "",
+      price_minor: plan.price_minor,
+      billing_cycle: plan.billing_cycle || "MONTHLY",
+      is_public: plan.is_public,
+      is_active: plan.is_active,
+    });
+  };
+
+  const updatePlanMutation = useMutation({
+    mutationFn: async ({
+      planId,
+      payload,
+    }: {
+      planId: string;
+      payload: UpdatePlanPayload;
+    }) => {
+      return apiClient<ApiResponse<Plan>>(`/api/landlord/plans/${planId}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+    },
+    onSuccess: () => {
+      toast.success("Harga dan konfigurasi paket berhasil diperbarui!");
+      setEditingPlan(null);
+      queryClient.invalidateQueries({ queryKey: ["landlord-plans"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Gagal memperbarui harga paket");
+    },
+  });
 
   const updateMutation = useMutation({
     mutationFn: async ({
@@ -65,7 +125,6 @@ export default function PlanMatrixPage() {
     plan.features?.forEach((f) => allFeatureKeysSet.add(f.feature_key));
   });
 
-  // Default common SaaS features if none returned yet
   const fallbackKeys = [
     "max_outlets",
     "max_products",
@@ -138,158 +197,364 @@ export default function PlanMatrixPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-zinc-100">
+          <h1 className="text-xl font-bold tracking-tight text-fg">
             SaaS Plan & Feature Matrix Editor
           </h1>
-          <p className="text-xs text-zinc-400 mt-1">
-            Konfigurasi batas kuota limit numerik dan toggle flag fitur di seluruh tier paket
+          <p className="text-xs text-fg-muted mt-1">
+            Konfigurasi batas kuota numerik, toggle flag fitur, dan tarif harga di seluruh tier paket.
           </p>
         </div>
 
-        <button
+        <Button
           onClick={() => refetch()}
           disabled={isFetching}
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-xs text-zinc-300 transition-colors disabled:opacity-50 cursor-pointer self-start sm:self-auto"
+          variant="neutral"
+          size="sm"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
+          <RefreshCw className={`size-3.5 ${isFetching ? "animate-spin" : ""}`} />
           <span>Muat Ulang</span>
-        </button>
+        </Button>
       </div>
 
-      <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs flex items-start gap-3">
-        <Info className="w-4 h-4 shrink-0 mt-0.5" />
-        <div>
-          <span className="font-semibold">Catatan Kebijakan:</span> Limit bernilai{" "}
-          <code className="px-1.5 py-0.5 rounded bg-zinc-950 font-mono text-[11px] text-white">
-            -1
-          </code>{" "}
-          merepresentasikan kuota Unlimited (∞). Perubahan pada paket akan langsung terpropagasi ke in-memory policy cache backend.
+      <Banner tone="info">
+        <div className="flex items-start gap-2.5">
+          <Info className="size-4 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-semibold">Catatan Kebijakan:</span> Limit bernilai{" "}
+            <code className="px-1.5 py-0.5 rounded bg-surface border border-border font-mono text-[11px] text-fg font-semibold">
+              -1
+            </code>{" "}
+            merepresentasikan kuota Unlimited (∞). Perubahan pada paket akan langsung terpropagasi ke in-memory policy cache backend.
+          </div>
         </div>
-      </div>
+      </Banner>
 
       {isLoading ? (
-        <div className="py-20 text-center text-zinc-500 text-xs">
+        <div className="py-20 text-center text-fg-muted text-xs">
           Memuat matriks paket & fitur...
         </div>
       ) : isError ? (
-        <div className="p-6 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+        <Banner tone="danger">
           {(error as Error)?.message || "Gagal memuat daftar paket"}
-        </div>
+        </Banner>
       ) : plans.length === 0 ? (
-        <div className="py-20 text-center text-zinc-500 text-xs">
+        <Card className="py-20 text-center text-fg-subtle text-xs">
           Belum ada paket langganan yang terdaftar.
-        </div>
+        </Card>
       ) : (
-        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-zinc-950/80 border-b border-zinc-800">
-                  <th className="py-4 px-4 font-semibold text-zinc-300 w-64">
-                    Fitur & Kuota SaaS
-                  </th>
-                  {plans.map((plan) => (
-                    <th
-                      key={plan.id}
-                      className="py-4 px-4 font-semibold text-center min-w-[200px]"
-                    >
-                      <div className="text-zinc-100 font-bold uppercase tracking-wider">
+        <div className="w-full overflow-x-auto rounded-xl border border-border bg-surface shadow-card">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-bg-muted border-b border-border">
+                <th className="py-4 px-4 font-semibold text-fg-muted w-64 uppercase tracking-wider text-[11px]">
+                  Fitur & Kuota SaaS
+                </th>
+                {plans.map((plan) => (
+                  <th
+                    key={plan.id}
+                    className="py-4 px-4 font-semibold text-center min-w-[220px]"
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="text-fg font-bold uppercase tracking-wider">
                         {plan.name}
-                      </div>
-                      <div className="text-[11px] font-mono text-indigo-400 mt-0.5">
-                        {formatIDR(plan.price_minor)} / {plan.billing_cycle}
-                      </div>
+                      </span>
+                      {!plan.is_active && (
+                        <Badge tone="danger">Nonaktif</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-center gap-1.5 mt-1">
+                      <span className="text-xs font-mono text-accent font-semibold">
+                        {formatIDR(plan.price_minor)}
+                      </span>
+                      <span className="text-[10px] text-fg-subtle font-normal">
+                        / {plan.billing_cycle?.toLowerCase()}
+                      </span>
                       <button
+                        type="button"
+                        onClick={() => handleOpenEditPlan(plan)}
+                        className="p-1 text-fg-subtle hover:text-accent hover:bg-bg-muted rounded transition-colors cursor-pointer"
+                        title="Ubah harga & informasi paket"
+                      >
+                        <Pencil className="size-3" />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-center gap-1.5 mt-2.5">
+                      <Button
+                        variant="neutral"
+                        size="sm"
+                        onClick={() => handleOpenEditPlan(plan)}
+                      >
+                        <Pencil className="size-3" />
+                        <span>Edit Harga</span>
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
                         onClick={() => handleSavePlan(plan.id)}
                         disabled={updateMutation.isPending}
-                        className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50"
                       >
-                        <Save className="w-3 h-3" />
-                        <span>Simpan Tier</span>
-                      </button>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/60">
-                {featureKeys.map((key) => {
-                  const isNumeric = key.startsWith("max_") || key.includes("limit") || key.includes("storage");
+                        <Save className="size-3" />
+                        <span>Simpan Fitur</span>
+                      </Button>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {featureKeys.map((key) => {
+                const isNumeric = key.startsWith("max_") || key.includes("limit") || key.includes("storage");
 
-                  return (
-                    <tr
-                      key={key}
-                      className="hover:bg-zinc-850/40 transition-colors"
-                    >
-                      <td className="py-3.5 px-4">
-                        <div className="font-mono font-medium text-zinc-200">
-                          {key}
-                        </div>
-                        <div className="text-[10px] text-zinc-500">
-                          {isNumeric ? "Batas kuota numerik" : "Fitur saklar (boolean)"}
-                        </div>
-                      </td>
+                return (
+                  <tr
+                    key={key}
+                    className="hover:bg-bg-muted/50 transition-colors"
+                  >
+                    <td className="py-3 px-4">
+                      <div className="font-mono font-medium text-fg">
+                        {key}
+                      </div>
+                      <div className="text-[10px] text-fg-subtle">
+                        {isNumeric ? "Batas kuota numerik" : "Fitur saklar (boolean)"}
+                      </div>
+                    </td>
 
-                      {plans.map((plan) => {
-                        const val = getFeatureValue(plan, key);
+                    {plans.map((plan) => {
+                      const val = getFeatureValue(plan, key);
 
-                        return (
-                          <td
-                            key={`${plan.id}-${key}`}
-                            className="py-3.5 px-4 text-center"
-                          >
-                            {isNumeric ? (
-                              <div className="flex items-center justify-center gap-2">
-                                <input
-                                  type="number"
-                                  value={val.limit_value}
-                                  onChange={(e) =>
-                                    handleLimitChange(
-                                      plan.id,
-                                      key,
-                                      parseInt(e.target.value, 10) || 0
-                                    )
-                                  }
-                                  className="w-20 px-2 py-1 bg-zinc-950 border border-zinc-800 rounded text-center text-xs font-mono text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                />
-                                {val.limit_value === -1 && (
-                                  <span className="text-[10px] text-emerald-400 font-mono">
-                                    (∞)
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleToggle(plan.id, key, val.is_enabled)
+                      return (
+                        <td
+                          key={`${plan.id}-${key}`}
+                          className="py-3 px-4 text-center align-middle"
+                        >
+                          {isNumeric ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <Input
+                                type="number"
+                                value={val.limit_value}
+                                onChange={(e) =>
+                                  handleLimitChange(
+                                    plan.id,
+                                    key,
+                                    parseInt(e.target.value, 10) || 0
+                                  )
                                 }
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer ${
-                                  val.is_enabled
-                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20"
-                                    : "bg-zinc-950 text-zinc-500 border border-zinc-800 hover:text-zinc-400"
-                                }`}
-                              >
-                                {val.is_enabled ? (
-                                  <>
-                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                    <span>Aktif</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <XCircle className="w-3.5 h-3.5" />
-                                    <span>Nonaktif</span>
-                                  </>
-                                )}
-                              </button>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                                className="w-24 text-center font-mono"
+                              />
+                              <span className="text-[10px] text-fg-subtle font-mono">
+                                {val.limit_value === -1 ? "(∞)" : ""}
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleToggle(plan.id, key, val.is_enabled)
+                              }
+                              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                                val.is_enabled
+                                  ? "bg-success-subtle text-success-text border-success-text/30 hover:bg-success/20"
+                                  : "bg-bg-muted text-fg-subtle border-border hover:bg-bg-muted/80"
+                              }`}
+                            >
+                              {val.is_enabled ? (
+                                <>
+                                  <CheckCircle2 className="size-3.5 text-success" />
+                                  <span>Aktif</span>
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="size-3.5 text-fg-subtle" />
+                                  <span>Nonaktif</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modal Edit Harga & Konfigurasi Paket */}
+      {editingPlan && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-surface border border-border rounded-2xl w-full max-w-md overflow-hidden shadow-elevated animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-fg flex items-center gap-2">
+                  <span>Edit Harga & Konfigurasi Paket</span>
+                  <Badge tone="info">
+                    {editingPlan.code}
+                  </Badge>
+                </h2>
+                <p className="text-[11px] text-fg-muted mt-0.5">
+                  Perubahan harga dan status tier paket SaaS
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingPlan(null)}
+                className="text-fg-subtle hover:text-fg p-1 rounded-lg hover:bg-bg-muted transition-colors cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                updatePlanMutation.mutate({
+                  planId: editingPlan.id,
+                  payload: editPlanForm,
+                });
+              }}
+              className="p-5 space-y-4 text-xs"
+            >
+              <div>
+                <label className="block text-fg font-medium mb-1">
+                  Nama Paket
+                </label>
+                <Input
+                  type="text"
+                  required
+                  value={editPlanForm.name}
+                  onChange={(e) =>
+                    setEditPlanForm({ ...editPlanForm, name: e.target.value })
+                  }
+                  placeholder="Contoh: Pro Tier"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-fg font-medium">
+                    Harga Paket (Rupiah)
+                  </label>
+                  <span className="text-accent font-mono font-semibold text-[11px]">
+                    {formatIDR(editPlanForm.price_minor)}
+                  </span>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-fg-subtle font-mono text-xs">
+                    Rp
+                  </span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    required
+                    value={editPlanForm.price_minor}
+                    onChange={(e) =>
+                      setEditPlanForm({
+                        ...editPlanForm,
+                        price_minor: Math.max(0, parseInt(e.target.value, 10) || 0),
+                      })
+                    }
+                    className="pl-9 font-mono"
+                    placeholder="0"
+                  />
+                </div>
+                <p className="text-[10px] text-fg-subtle mt-1">
+                  Isi 0 untuk paket gratis / perkenalan.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-fg font-medium mb-1">
+                  Siklus Tagihan (Billing Cycle)
+                </label>
+                <select
+                  value={editPlanForm.billing_cycle}
+                  onChange={(e) =>
+                    setEditPlanForm({
+                      ...editPlanForm,
+                      billing_cycle: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-fg text-xs focus:outline-none focus:border-accent"
+                >
+                  <option value="MONTHLY">Bulanan (MONTHLY)</option>
+                  <option value="YEARLY">Tahunan (YEARLY)</option>
+                  <option value="LIFETIME">Seumur Hidup (LIFETIME)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-fg font-medium mb-1">
+                  Deskripsi Ringkas
+                </label>
+                <textarea
+                  rows={2}
+                  value={editPlanForm.description}
+                  onChange={(e) =>
+                    setEditPlanForm({
+                      ...editPlanForm,
+                      description: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-fg text-xs focus:outline-none focus:border-accent resize-none"
+                  placeholder="Keterangan tier paket..."
+                />
+              </div>
+
+              <div className="pt-3 flex items-center justify-between border-t border-border">
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editPlanForm.is_public}
+                      onChange={(e) =>
+                        setEditPlanForm({
+                          ...editPlanForm,
+                          is_public: e.target.checked,
+                        })
+                      }
+                      className="rounded border-border text-accent focus:ring-0 cursor-pointer"
+                    />
+                    <span className="text-fg text-xs">Publik</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editPlanForm.is_active}
+                      onChange={(e) =>
+                        setEditPlanForm({
+                          ...editPlanForm,
+                          is_active: e.target.checked,
+                        })
+                      }
+                      className="rounded border-border text-accent focus:ring-0 cursor-pointer"
+                    />
+                    <span className="text-fg text-xs">Aktif</span>
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="neutral"
+                    size="sm"
+                    onClick={() => setEditingPlan(null)}
+                  >
+                    Batal
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    disabled={updatePlanMutation.isPending}
+                  >
+                    {updatePlanMutation.isPending ? "Menyimpan..." : "Simpan Perubahan"}
+                  </Button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -5,17 +5,23 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Megaphone,
   Plus,
-  BarChart,
   Eye,
   MousePointerClick,
   Pencil,
   Trash2,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
 import { formatDate } from "@/lib/utils";
 import { ApiResponse, SaaSCampaign } from "@/lib/types";
+import { Card } from "@/components/ui/card";
+import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { EmptyState, Skeleton } from "@/components/ui/feedback";
 
 type CampaignFormat = "POPUP_MODAL" | "CAROUSEL_SLIDE" | "HEADER_BANNER";
 type CampaignActionType = "INTERNAL_UPGRADE" | "EXTERNAL_URL" | "INFO_ONLY";
@@ -38,7 +44,6 @@ const DEFAULT_FORM = {
   is_active: true,
 };
 
-// Format ISO → "yyyy-MM-ddThh:mm" yang dipahami input datetime-local
 function toDatetimeLocal(iso?: string): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -189,177 +194,186 @@ export default function CampaignsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-zinc-100">
+          <h1 className="text-xl font-bold tracking-tight text-fg">
             In-App Campaigns &amp; Promosi
           </h1>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-muted-fg mt-1">
             Manajemen banner iklan dan pop-up in-app untuk tenant merchant
           </p>
         </div>
 
-        <button
-          onClick={openCreateModal}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-md shadow-indigo-600/20 transition-colors cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" />
+        <Button onClick={openCreateModal} variant="primary" size="sm">
+          <Plus className="w-3.5 h-3.5 mr-1" />
           <span>Buat Kampanye Baru</span>
-        </button>
+        </Button>
       </div>
 
-      <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-zinc-950/80 text-zinc-400 uppercase tracking-wider text-[10px] border-b border-zinc-800">
-              <tr>
-                <th className="py-3 px-4 font-semibold">Judul &amp; Format</th>
-                <th className="py-3 px-4 font-semibold">Target Tier</th>
-                <th className="py-3 px-4 font-semibold">Performa (Imp/Click)</th>
-                <th className="py-3 px-4 font-semibold">Status &amp; Waktu</th>
-                <th className="py-3 px-4 font-semibold text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/60">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-zinc-500">
-                    Memuat daftar kampanye...
-                  </td>
-                </tr>
-              ) : isError ? (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-red-400">
-                    {(error as Error)?.message || "Gagal memuat kampanye"}
-                  </td>
-                </tr>
-              ) : campaigns.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-zinc-500">
-                    <Megaphone className="w-8 h-8 mx-auto mb-2 text-zinc-600" />
-                    Belum ada kampanye in-app yang berjalan.
-                  </td>
-                </tr>
-              ) : (
-                campaigns.map((c) => {
-                  const ctr =
-                    c.impression_count > 0
-                      ? ((c.click_count / c.impression_count) * 100).toFixed(2)
-                      : "0.00";
-                  return (
-                    <tr key={c.id} className="hover:bg-zinc-850/50 transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-zinc-100">{c.title}</div>
-                        <div className="text-[10px] font-mono text-indigo-400 mt-0.5">
-                          {c.format} &bull; {c.placement}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-zinc-300">
+      {/* Main Table Card */}
+      <Card>
+        <Table>
+          <THead>
+            <TR>
+              <TH>Judul &amp; Format</TH>
+              <TH>Target Tier</TH>
+              <TH>Performa (Imp/Click)</TH>
+              <TH>Status &amp; Waktu</TH>
+              <TH className="text-right">Aksi</TH>
+            </TR>
+          </THead>
+          <TBody>
+            {isLoading ? (
+              <TR>
+                <TD colSpan={5} className="py-8 text-center text-muted-fg">
+                  <Skeleton className="h-6 w-1/2 mx-auto" />
+                </TD>
+              </TR>
+            ) : isError ? (
+              <TR>
+                <TD colSpan={5} className="py-8 text-center text-danger-text">
+                  {(error as Error)?.message || "Gagal memuat kampanye"}
+                </TD>
+              </TR>
+            ) : campaigns.length === 0 ? (
+              <TR>
+                <TD colSpan={5} className="py-8">
+                  <EmptyState
+                    icon={Megaphone}
+                    title="Belum ada kampanye in-app"
+                    description="Buat kampanye promosi untuk mengumumkan fitur baru atau upgrade paket tenant."
+                    action={
+                      <Button onClick={openCreateModal} variant="primary" size="sm">
+                        <Plus className="w-3.5 h-3.5 mr-1" /> Buat Kampanye
+                      </Button>
+                    }
+                  />
+                </TD>
+              </TR>
+            ) : (
+              campaigns.map((c) => {
+                const ctr =
+                  c.impression_count > 0
+                    ? ((c.click_count / c.impression_count) * 100).toFixed(2)
+                    : "0.00";
+                return (
+                  <TR key={c.id}>
+                    <TD>
+                      <div className="font-medium text-fg">{c.title}</div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Badge tone="info">{c.format}</Badge>
+                        <span className="text-[11px] text-muted-fg">
+                          &bull; {c.placement}
+                        </span>
+                      </div>
+                    </TD>
+                    <TD>
+                      <Badge tone={c.target_tier === "FREE_ONLY" ? "warning" : "neutral"}>
                         {c.target_tier === "FREE_ONLY" ? "Hanya FREE" : c.target_tier}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          <span className="flex items-center gap-1 text-zinc-400">
-                            <Eye className="w-3.5 h-3.5 text-zinc-500" /> {c.impression_count}
-                          </span>
-                          <span className="flex items-center gap-1 text-zinc-400">
-                            <MousePointerClick className="w-3.5 h-3.5 text-zinc-500" /> {c.click_count}
-                          </span>
-                          <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-[10px] text-zinc-300">
-                            {ctr}% CTR
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
+                      </Badge>
+                    </TD>
+                    <TD>
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="flex items-center gap-1 text-muted-fg" title="Tayangan (Impression)">
+                          <Eye className="w-3.5 h-3.5 text-muted-fg" /> {c.impression_count}
+                        </span>
+                        <span className="flex items-center gap-1 text-muted-fg" title="Klik">
+                          <MousePointerClick className="w-3.5 h-3.5 text-muted-fg" /> {c.click_count}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono font-medium text-fg">
+                          {ctr}% CTR
+                        </span>
+                      </div>
+                    </TD>
+                    <TD>
+                      <div className="flex items-center gap-2">
                         {c.is_active ? (
-                          <span className="text-emerald-400 font-medium">Aktif</span>
+                          <Badge tone="success">Aktif</Badge>
                         ) : (
-                          <span className="text-zinc-500">Selesai</span>
+                          <Badge tone="neutral">Nonaktif</Badge>
                         )}
-                        <div className="text-[10px] text-zinc-500 mt-0.5">
+                        <span className="text-[11px] text-muted-fg">
                           {formatDate(c.starts_at)}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors cursor-pointer">
-                            <BarChart className="w-3 h-3" /> Report
-                          </button>
-                          <button
-                            onClick={() => openEditModal(c)}
-                            title="Edit kampanye"
-                            aria-label="Edit kampanye"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors cursor-pointer"
-                          >
-                            <Pencil className="w-3 h-3" /> Edit
-                          </button>
-                          <button
-                            onClick={() => setDeletingId(c.id)}
-                            title="Hapus kampanye"
-                            aria-label="Hapus kampanye"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-red-900/60 hover:text-red-300 text-zinc-300 transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                        </span>
+                      </div>
+                    </TD>
+                    <TD className="text-right">
+                      <div className="inline-flex items-center gap-1.5">
+                        <Button
+                          onClick={() => openEditModal(c)}
+                          variant="neutral"
+                          size="sm"
+                          title="Edit kampanye"
+                          aria-label="Edit kampanye"
+                        >
+                          <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
+                        </Button>
+                        <Button
+                          onClick={() => setDeletingId(c.id)}
+                          variant="danger"
+                          size="sm"
+                          title="Hapus kampanye"
+                          aria-label="Hapus kampanye"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TD>
+                  </TR>
+                );
+              })
+            )}
+          </TBody>
+        </Table>
+      </Card>
 
       {/* Create/Edit Campaign Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl my-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-zinc-100">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-lg space-y-5 shadow-elevated my-4">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <h2 className="text-base font-bold text-fg">
                 {editingId ? "Edit Kampanye" : "Buat Kampanye Baru"}
               </h2>
               <button
                 type="button"
                 onClick={closeModal}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+                className="p-1 rounded-md text-muted-fg hover:text-fg hover:bg-muted transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-3 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="block text-zinc-300 font-medium mb-1">Judul *</label>
-                  <input
+                  <Input
+                    label="Judul Kampanye *"
                     type="text"
                     value={form.title}
                     onChange={(e) => set("title", e.target.value)}
                     required
-                    placeholder="Upgrade ke Pro untuk fitur lengkap"
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    placeholder="Contoh: Upgrade ke Pro untuk fitur lengkap"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-zinc-300 font-medium mb-1">Subtitle</label>
-                  <input
+                  <Input
+                    label="Subtitle (Opsional)"
                     type="text"
                     value={form.subtitle}
                     onChange={(e) => set("subtitle", e.target.value)}
                     placeholder="Deskripsi singkat kampanye"
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Format</label>
+                  <label className="block text-xs font-medium text-fg mb-1.5">Format Tampilan</label>
                   <select
                     value={form.format}
                     onChange={(e) => set("format", e.target.value)}
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full h-9 px-3 bg-surface border border-border rounded-md text-xs text-fg focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-subtle"
                   >
                     <option value="CAROUSEL_SLIDE">CAROUSEL_SLIDE</option>
                     <option value="HEADER_BANNER">HEADER_BANNER</option>
@@ -368,33 +382,31 @@ export default function CampaignsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Placement</label>
-                  <input
+                  <Input
+                    label="Placement"
                     type="text"
                     value={form.placement}
                     onChange={(e) => set("placement", e.target.value)}
                     placeholder="dashboard, reports, products..."
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-zinc-300 font-medium mb-1">URL Gambar</label>
-                  <input
+                  <Input
+                    label="URL Gambar Banner"
                     type="url"
                     value={form.image_url}
                     onChange={(e) => set("image_url", e.target.value)}
                     placeholder="https://cdn.example.com/banner.png"
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Tipe Aksi</label>
+                  <label className="block text-xs font-medium text-fg mb-1.5">Tipe Aksi</label>
                   <select
                     value={form.action_type}
                     onChange={(e) => set("action_type", e.target.value)}
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full h-9 px-3 bg-surface border border-border rounded-md text-xs text-fg focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-subtle"
                   >
                     <option value="INFO_ONLY">INFO_ONLY</option>
                     <option value="INTERNAL_UPGRADE">INTERNAL_UPGRADE</option>
@@ -403,107 +415,98 @@ export default function CampaignsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Label Tombol</label>
-                  <input
+                  <Input
+                    label="Label Tombol"
                     type="text"
                     value={form.action_label}
                     onChange={(e) => set("action_label", e.target.value)}
                     placeholder="Upgrade Sekarang"
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 {form.action_type !== "INFO_ONLY" && (
                   <div className="sm:col-span-2">
-                    <label className="block text-zinc-300 font-medium mb-1">URL Aksi</label>
-                    <input
+                    <Input
+                      label="URL Aksi"
                       type="text"
                       value={form.action_url}
                       onChange={(e) => set("action_url", e.target.value)}
                       placeholder="/subscription atau https://..."
-                      className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Target Tier</label>
+                  <label className="block text-xs font-medium text-fg mb-1.5">Target Tier</label>
                   <select
                     value={form.target_tier}
                     onChange={(e) => set("target_tier", e.target.value)}
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full h-9 px-3 bg-surface border border-border rounded-md text-xs text-fg focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-subtle"
                   >
-                    <option value="ALL">ALL (semua tier)</option>
-                    <option value="FREE_ONLY">FREE_ONLY (hanya paket gratis)</option>
+                    <option value="ALL">Semua Tier (ALL)</option>
+                    <option value="FREE_ONLY">Hanya Tier Free (FREE_ONLY)</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Prioritas</label>
-                  <input
+                  <Input
+                    label="Prioritas Urutan"
                     type="number"
                     value={form.priority}
                     onChange={(e) => set("priority", parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Skip Delay (detik)</label>
-                  <input
+                  <Input
+                    label="Skip Delay (Detik)"
                     type="number"
                     value={form.skip_delay_seconds}
                     onChange={(e) => set("skip_delay_seconds", parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Mulai (opsional)</label>
-                  <input
+                  <Input
+                    label="Mulai Tayang (Opsional)"
                     type="datetime-local"
                     value={form.starts_at}
                     onChange={(e) => set("starts_at", e.target.value)}
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-zinc-300 font-medium mb-1">Berakhir (opsional)</label>
-                  <input
+                <div className="sm:col-span-2">
+                  <Input
+                    label="Selesai Tayang (Opsional)"
                     type="datetime-local"
                     value={form.ends_at}
                     onChange={(e) => set("ends_at", e.target.value)}
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
-                <div className="sm:col-span-2 flex items-center gap-2">
+                <div className="sm:col-span-2 flex items-center gap-2 pt-1">
                   <input
                     type="checkbox"
                     id="is_active"
                     checked={form.is_active}
                     onChange={(e) => set("is_active", e.target.checked)}
-                    className="rounded border-zinc-700 text-indigo-600 focus:ring-indigo-500"
+                    className="rounded border-border text-accent focus:ring-accent"
                   />
-                  <label htmlFor="is_active" className="text-zinc-300 cursor-pointer">
+                  <label htmlFor="is_active" className="text-xs text-fg cursor-pointer select-none">
                     Aktifkan kampanye segera
                   </label>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs transition-colors cursor-pointer"
-                >
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-border">
+                <Button type="button" onClick={closeModal} variant="neutral" size="sm">
                   Batal
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
+                  variant="primary"
+                  size="sm"
                 >
                   {isSubmitting
                     ? editingId
@@ -512,38 +515,46 @@ export default function CampaignsPage() {
                     : editingId
                     ? "Simpan Perubahan"
                     : "Buat Kampanye"}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Konfirmasi Hapus Kampanye */}
+      {/* Konfirmasi Hapus Kampanye Modal */}
       {deletingId && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
-            <h2 className="text-base font-bold text-zinc-100">Hapus Kampanye?</h2>
-            <p className="text-xs text-zinc-400">
-              Tindakan ini tidak dapat dibatalkan. Kampanye akan langsung hilang dari
-              seluruh placement in-app.
-            </p>
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-elevated">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-full bg-danger-subtle text-danger-text">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-fg">Hapus Kampanye?</h2>
+                <p className="text-xs text-muted-fg mt-0.5">
+                  Tindakan ini permanen dan tidak dapat dibatalkan.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <Button
                 type="button"
                 onClick={() => setDeletingId(null)}
-                className="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs transition-colors cursor-pointer"
+                variant="neutral"
+                size="sm"
               >
                 Batal
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(deletingId)}
-                className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
+                variant="danger"
+                size="sm"
               >
                 {deleteMutation.isPending ? "Menghapus..." : "Ya, Hapus"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

@@ -30,6 +30,10 @@ import {
   Plan,
   SaaSFeature,
 } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Banner } from "@/components/ui/feedback";
 
 const FALLBACK_FEATURES: SaaSFeature[] = [
   { key: "max_outlets", name: "Maksimal Outlet", description: "", category: "CORE", value_type: "NUMERIC_LIMIT", unit: "Outlet", sort_order: 1, is_active: true, created_at: "" },
@@ -343,7 +347,7 @@ export default function TenantDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="py-16 text-center text-zinc-500 text-xs">
+      <div className="py-16 text-center text-fg-muted text-xs">
         Memuat detail tenant 360...
       </div>
     );
@@ -354,13 +358,13 @@ export default function TenantDetailPage() {
       <div className="space-y-4">
         <Link
           href="/tenants"
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200"
+          className="inline-flex items-center gap-1.5 text-xs text-fg-muted hover:text-fg"
         >
-          <ArrowLeft className="w-4 h-4" /> Kembali ke Direktori
+          <ArrowLeft className="size-4" /> Kembali ke Direktori
         </Link>
-        <div className="p-6 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+        <Banner tone="danger">
           {(error as Error)?.message || "Bisnis tidak ditemukan atau terjadi kesalahan"}
-        </div>
+        </Banner>
       </div>
     );
   }
@@ -391,72 +395,71 @@ export default function TenantDetailPage() {
       <div className="flex items-center justify-between">
         <Link
           href="/tenants"
-          className="inline-flex items-center gap-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+          className="inline-flex items-center gap-2 text-xs font-medium text-fg-muted hover:text-fg transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="size-4" />
           <span>Kembali ke Direktori</span>
         </Link>
 
         {/* Action Controls */}
         <div className="flex items-center gap-2.5">
-          <button
+          <Button
             onClick={() => impersonateMutation.mutate()}
             disabled={impersonateMutation.isPending}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-md shadow-indigo-600/20 transition-colors cursor-pointer"
+            variant="primary"
+            size="sm"
           >
-            <UserCheck className="w-3.5 h-3.5" />
+            <UserCheck className="size-3.5" />
             <span>
               {impersonateMutation.isPending
                 ? "Menerbitkan Token..."
                 : "Impersonate (Masuk sebagai Merchant)"}
             </span>
-          </button>
+          </Button>
 
           {isSuspended ? (
-            <button
+            <Button
               onClick={() => unsuspendMutation.mutate()}
               disabled={unsuspendMutation.isPending}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 text-xs font-medium transition-colors cursor-pointer"
+              variant="success"
+              size="sm"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="size-3.5" />
               <span>
                 {unsuspendMutation.isPending
                   ? "Memulihkan..."
                   : "Pulihkan Akun (Unsuspend)"}
               </span>
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               onClick={() => setSuspendModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 text-xs font-medium transition-colors cursor-pointer"
+              variant="danger"
+              size="sm"
             >
-              <Ban className="w-3.5 h-3.5" />
+              <Ban className="size-3.5" />
               <span>Bekukan Akun (Suspend)</span>
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {/* Hero Profile Card */}
-      <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <Card className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
-            <Building2 className="w-7 h-7" />
+          <div className="size-12 rounded-xl bg-accent-subtle text-accent flex items-center justify-center font-bold">
+            <Building2 className="size-6" />
           </div>
           <div>
             <div className="flex items-center gap-2.5">
-              <h1 className="text-xl font-bold text-zinc-100">{business.name}</h1>
+              <h1 className="text-xl font-bold text-fg">{business.name}</h1>
               {isSuspended ? (
-                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-red-500/10 text-red-400 border border-red-500/20">
-                  SUSPENDED
-                </span>
+                <Badge tone="danger">SUSPENDED</Badge>
               ) : (
-                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  {currentStatus}
-                </span>
+                <Badge tone="success">{currentStatus}</Badge>
               )}
             </div>
-            <div className="flex items-center gap-4 text-xs text-zinc-400 mt-1 font-mono">
+            <div className="flex items-center gap-3 text-xs text-fg-muted mt-1 font-mono">
               <span>Serial: {business.serial_business}</span>
               <span>•</span>
               <span>
@@ -466,54 +469,48 @@ export default function TenantDetailPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-6 border-t md:border-t-0 md:border-l border-zinc-800 pt-4 md:pt-0 md:pl-6">
+        <div className="flex items-center gap-6 border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-6">
           <div>
-            <div className="text-[11px] text-zinc-500">Paket Aktif</div>
-            <div className="text-sm font-semibold uppercase text-indigo-400 mt-0.5">
+            <div className="text-[11px] text-fg-subtle">Paket Aktif</div>
+            <div className="text-sm font-semibold uppercase text-accent mt-0.5">
               {subscription?.plan?.name || effective_policy?.plan_name || "FREE PLAN"}
             </div>
-            <div className="text-[10px] text-zinc-500 mt-0.5">
+            <div className="text-[10px] text-fg-subtle mt-0.5">
               Siklus: {subscription?.plan?.billing_cycle || "LIFETIME"} • Kadaluwarsa:{" "}
               {formatDate(subscription?.expires_at)}
             </div>
           </div>
 
           <div>
-            <div className="text-[11px] text-zinc-500">Saldo Wallet Merchant</div>
-            <div className="text-sm font-mono font-semibold text-emerald-400 mt-0.5">
+            <div className="text-[11px] text-fg-subtle">Saldo Wallet Merchant</div>
+            <div className="text-sm font-mono font-semibold text-success mt-0.5">
               {formatIDR(wallet?.balance_minor || 0)}
             </div>
-            <div className="text-[10px] text-zinc-500 mt-0.5 font-mono">
+            <div className="text-[10px] text-fg-subtle mt-0.5 font-mono">
               Held: {formatIDR(wallet?.held_balance_minor || 0)}
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Grid: Effective Policy & Plan/Feature Override */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Effective Policy */}
-        <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-4">
+        <Card className="p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-              <Sliders className="w-4 h-4 text-indigo-400" />
+            <div className="flex items-center gap-2 text-sm font-semibold text-fg">
+              <Sliders className="size-4 text-accent" />
               <span>Effective SaaS Policy (Evaluated)</span>
             </div>
-            <span
-              className={`px-2 py-0.5 rounded font-mono text-[10px] font-semibold ${
-                isSuspended
-                  ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                  : "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
-              }`}
-            >
+            <Badge tone={isSuspended ? "danger" : "info"}>
               {effective_policy?.plan_code || activePlanCode} • {currentStatus}
-            </span>
+            </Badge>
           </div>
 
           <div className="space-y-4 text-xs">
             {/* Numeric Limits */}
             <div>
-              <div className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-2">
+              <div className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider mb-2">
                 Batas Kuota Numerik
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -521,12 +518,12 @@ export default function TenantDetailPage() {
                   ([key, val]) => (
                     <div
                       key={key}
-                      className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800/80 flex items-center justify-between"
+                      className="p-2.5 rounded-lg bg-bg-muted border border-border flex items-center justify-between"
                     >
-                      <span className="font-mono text-zinc-400 text-[11px]">
+                      <span className="font-mono text-fg-muted text-[11px]">
                         {key}
                       </span>
-                      <span className="font-mono font-semibold text-zinc-100">
+                      <span className="font-mono font-semibold text-fg">
                         {val === -1 ? "Unlimited (∞)" : val}
                       </span>
                     </div>
@@ -537,7 +534,7 @@ export default function TenantDetailPage() {
 
             {/* Boolean Flags */}
             <div>
-              <div className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-2">
+              <div className="text-[11px] font-semibold text-fg-muted uppercase tracking-wider mb-2">
                 Status Fitur Boolean
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -545,15 +542,15 @@ export default function TenantDetailPage() {
                   ([key, enabled]) => (
                     <div
                       key={key}
-                      className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800/80 flex items-center justify-between"
+                      className="p-2.5 rounded-lg bg-bg-muted border border-border flex items-center justify-between"
                     >
-                      <span className="font-mono text-zinc-400 text-[11px]">
+                      <span className="font-mono text-fg-muted text-[11px]">
                         {key}
                       </span>
                       {enabled ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <CheckCircle2 className="size-4 text-success" />
                       ) : (
-                        <XCircle className="w-4 h-4 text-zinc-600" />
+                        <XCircle className="size-4 text-fg-subtle" />
                       )}
                     </div>
                   )
@@ -561,22 +558,22 @@ export default function TenantDetailPage() {
               </div>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Plan, Billing Cycle, Status & Enterprise Key Overrides */}
-        <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-6">
+        <Card className="p-6 space-y-6">
           {/* 1. Plan & Status Selector */}
           <form onSubmit={handleSaveSubscription} className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-                <Layers className="w-4 h-4 text-indigo-400" />
+              <div className="flex items-center gap-2 text-sm font-semibold text-fg">
+                <Layers className="size-4 text-accent" />
                 <span>Override Paket Langganan & Status Tenant</span>
               </div>
             </div>
 
             {/* Tier Selector */}
             <div>
-              <label className="block text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-2">
+              <label className="block text-[11px] font-semibold text-fg-muted uppercase tracking-wider mb-2">
                 1. Pilih Tier Paket
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -587,10 +584,10 @@ export default function TenantDetailPage() {
                       key={tier}
                       type="button"
                       onClick={() => setSelectedTier(tier)}
-                      className={`py-2.5 px-3 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
+                      className={`py-2 px-3 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
                         active
-                          ? "bg-indigo-600/20 border-indigo-500 text-indigo-300"
-                          : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                          ? "bg-accent-subtle border-accent text-accent"
+                          : "bg-surface border-border text-fg-muted hover:text-fg hover:bg-bg-muted"
                       }`}
                     >
                       {tier === "FREE"
@@ -604,25 +601,25 @@ export default function TenantDetailPage() {
               </div>
             </div>
 
-            {/* Billing Cycle (Monthly vs Annually) & Status */}
+            {/* Billing Cycle & Status */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-1.5">
-                  2. Siklus Tagihan (Billing Cycle)
+                <label className="block text-[11px] font-semibold text-fg-muted uppercase tracking-wider mb-1.5">
+                  2. Siklus Tagihan
                 </label>
                 {selectedTier === "FREE" ? (
-                  <div className="px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono text-zinc-400">
+                  <div className="px-3 py-2 rounded-lg bg-bg-muted border border-border text-xs font-mono text-fg-muted">
                     LIFETIME (Gratis Permanen)
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg bg-zinc-950 border border-zinc-800">
+                  <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg bg-bg-muted border border-border">
                     <button
                       type="button"
                       onClick={() => setSelectedCycle("MONTHLY")}
-                      className={`py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                      className={`py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                         selectedCycle === "MONTHLY"
-                          ? "bg-indigo-600 text-white"
-                          : "text-zinc-400 hover:text-zinc-200"
+                          ? "bg-accent text-fg-inverse shadow-card"
+                          : "text-fg-muted hover:text-fg"
                       }`}
                     >
                       Monthly
@@ -630,10 +627,10 @@ export default function TenantDetailPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedCycle("YEARLY")}
-                      className={`py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                      className={`py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                         selectedCycle === "YEARLY"
-                          ? "bg-indigo-600 text-white"
-                          : "text-zinc-400 hover:text-zinc-200"
+                          ? "bg-accent text-fg-inverse shadow-card"
+                          : "text-fg-muted hover:text-fg"
                       }`}
                     >
                       Annually (Yearly)
@@ -643,35 +640,35 @@ export default function TenantDetailPage() {
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-semibold text-fg-muted uppercase tracking-wider mb-1.5">
                   3. Status Operasional
                 </label>
                 <select
                   value={selectedStatus}
                   onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-xs text-fg font-medium focus:outline-none focus:border-accent"
                 >
                   <option value="ACTIVE">ACTIVE (Aktif Normal)</option>
                   <option value="TRIAL">TRIAL (Masa Uji Coba)</option>
-                  <option value="PAST_DUE">PAST_DUE (Menunggak / Grace Period)</option>
-                  <option value="SUSPENDED">SUSPENDED (Dibekukan / Blokir Login)</option>
+                  <option value="PAST_DUE">PAST_DUE (Menunggak)</option>
+                  <option value="SUSPENDED">SUSPENDED (Dibekukan)</option>
                   <option value="EXPIRED">EXPIRED (Kadaluwarsa)</option>
                 </select>
               </div>
             </div>
 
             {/* Selected Plan Summary & Reason */}
-            <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between text-xs">
+            <div className="p-3 rounded-lg bg-bg-muted border border-border flex items-center justify-between text-xs">
               <div>
-                <span className="text-zinc-400">Target Plan: </span>
-                <span className="font-semibold text-zinc-100">
+                <span className="text-fg-muted">Target Plan: </span>
+                <span className="font-semibold text-fg">
                   {resolvedPlan.name}
                 </span>
-                <span className="ml-2 font-mono text-[11px] text-indigo-400">
+                <span className="ml-2 font-mono text-[11px] text-accent">
                   ({resolvedPlan.id})
                 </span>
               </div>
-              <div className="font-mono font-semibold text-emerald-400">
+              <div className="font-mono font-semibold text-success">
                 {resolvedPlan.price_minor > 0
                   ? `${formatIDR(resolvedPlan.price_minor)} / ${resolvedPlan.billing_cycle}`
                   : resolvedPlan.code === "ENTERPRISE"
@@ -686,74 +683,76 @@ export default function TenantDetailPage() {
                 placeholder="Catatan perubahan paket/status (opsional)..."
                 value={subReason}
                 onChange={(e) => setSubReason(e.target.value)}
-                className="flex-1 px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="flex-1 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-fg focus:outline-none focus:border-accent"
               />
-              <button
+              <Button
                 type="submit"
                 disabled={updateSubMutation.isPending}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
+                variant="primary"
+                size="sm"
               >
-                <Save className="w-3.5 h-3.5" />
+                <Save className="size-3.5" />
                 <span>
                   {updateSubMutation.isPending
                     ? "Menyimpan..."
                     : "Simpan Paket & Status"}
                 </span>
-              </button>
+              </Button>
             </div>
           </form>
 
           {/* 2. Custom Feature Overrides By Key (Khusus Enterprise) */}
-          <div className="pt-4 border-t border-zinc-800 space-y-3">
+          <div className="pt-4 border-t border-border space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
-                <KeyRound className="w-4 h-4 text-indigo-400" />
-                <span>Custom Feature Overrides (By Key — Khusus Enterprise)</span>
+              <div className="flex items-center gap-2 text-xs font-semibold text-fg">
+                <KeyRound className="size-4 text-accent" />
+                <span>Custom Feature Overrides (Khusus Enterprise)</span>
               </div>
               {isEnterpriseMode ? (
-                <button
+                <Button
                   type="button"
                   onClick={() => setOverrideModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-600/20 border border-indigo-500/30 hover:bg-indigo-600/30 text-indigo-300 text-xs font-medium transition-colors cursor-pointer"
+                  variant="neutral"
+                  size="sm"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="size-3.5" />
                   <span>Tambah Override Key</span>
-                </button>
+                </Button>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+                <span className="inline-flex items-center gap-1 text-[11px] text-fg-subtle">
                   <Lock className="w-3 h-3" /> Khusus Enterprise
                 </span>
               )}
             </div>
 
             {!isEnterpriseMode && (
-              <div className="p-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80 text-[11px] text-zinc-400">
-                Kustomisasi granular per <code className="text-indigo-300 font-mono">feature_key</code> hanya aktif apabila tier paket diatur ke{" "}
-                <span className="font-semibold text-zinc-200">ENTERPRISE</span>. Untuk tier{" "}
-                <span className="font-semibold text-zinc-200">FREE</span> dan{" "}
-                <span className="font-semibold text-zinc-200">PRO</span>, batas kuota mengikuti matriks paket yang dipilih di atas.
+              <div className="p-3 rounded-lg bg-bg-muted border border-border text-[11px] text-fg-muted">
+                Kustomisasi granular per <code className="text-accent font-mono">feature_key</code> hanya aktif apabila tier paket diatur ke{" "}
+                <span className="font-semibold text-fg">ENTERPRISE</span>. Untuk tier{" "}
+                <span className="font-semibold text-fg">FREE</span> dan{" "}
+                <span className="font-semibold text-fg">PRO</span>, batas kuota mengikuti matriks paket yang dipilih di atas.
               </div>
             )}
 
             <div className="space-y-2 text-xs">
               {!overrides || overrides.length === 0 ? (
-                <div className="py-6 text-center text-zinc-500 text-xs">
+                <div className="py-6 text-center text-fg-subtle text-xs">
                   Tidak ada override kustom per key untuk tenant ini.
                 </div>
               ) : (
                 overrides.map((ov) => (
                   <div
                     key={ov.id}
-                    className="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between gap-3"
+                    className="p-3 rounded-lg bg-bg-muted border border-border flex items-center justify-between gap-3"
                   >
                     <div>
-                      <div className="font-mono font-semibold text-indigo-300">
+                      <div className="font-mono font-semibold text-accent">
                         {ov.feature_key}
                       </div>
-                      <div className="text-[11px] text-zinc-500 mt-0.5">
-                        Tipe: <span className="text-zinc-300">{ov.override_type}</span>{" "}
+                      <div className="text-[11px] text-fg-muted mt-0.5">
+                        Tipe: <span className="text-fg">{ov.override_type}</span>{" "}
                         • Nilai:{" "}
-                        <span className="font-mono font-semibold text-zinc-200">
+                        <span className="font-mono font-semibold text-fg">
                           {ov.value_numeric !== undefined
                             ? ov.value_numeric === -1
                               ? "Unlimited (-1)"
@@ -764,67 +763,71 @@ export default function TenantDetailPage() {
                         </span>
                       </div>
                       {ov.reason && (
-                        <div className="text-[10px] text-zinc-500 italic mt-0.5">
+                        <div className="text-[10px] text-fg-subtle italic mt-0.5">
                           Catatan: {ov.reason}
                         </div>
                       )}
                     </div>
 
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => deleteOverrideMutation.mutate(ov.id)}
                       disabled={deleteOverrideMutation.isPending}
-                      className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors cursor-pointer"
+                      className="text-danger hover:bg-danger-subtle/50"
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      <Trash2 className="size-3.5" />
+                    </Button>
                   </div>
                 ))
               )}
             </div>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Modal Suspend */}
       {suspendModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
-            <div className="flex items-center gap-3 text-red-400">
-              <ShieldAlert className="w-6 h-6 shrink-0" />
-              <h2 className="text-base font-bold text-zinc-100">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-surface border border-border rounded-2xl p-6 max-w-md w-full space-y-4 shadow-elevated animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 text-danger">
+              <ShieldAlert className="size-6 shrink-0" />
+              <h2 className="text-base font-bold text-fg">
                 Bekukan Akun Tenant
               </h2>
             </div>
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-fg-muted">
               Tenant yang dibekukan tidak akan dapat memproses transaksi POS atau mengakses dasbor merchant hingga status dipulihkan.
             </p>
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+              <label className="block text-xs font-medium text-fg mb-1.5">
                 Alasan Pembekuan
               </label>
               <textarea
                 value={suspendReason}
                 onChange={(e) => setSuspendReason(e.target.value)}
-                placeholder="Contoh: Menunggak pembayaran invoice dunning atau pelanggaran TOS..."
-                className="w-full h-24 p-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-red-500"
+                placeholder="Contoh: Menunggak pembayaran invoice dunning atau audit TOS..."
+                className="w-full h-24 p-2.5 bg-surface border border-border rounded-lg text-xs text-fg focus:outline-none focus:border-danger"
               />
             </div>
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <Button
                 type="button"
+                variant="neutral"
+                size="sm"
                 onClick={() => setSuspendModalOpen(false)}
-                className="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-300 transition-colors cursor-pointer"
               >
                 Batal
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="danger"
+                size="sm"
                 onClick={() => suspendMutation.mutate(suspendReason)}
                 disabled={suspendMutation.isPending}
-                className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
               >
                 {suspendMutation.isPending ? "Membekukan..." : "Konfirmasi Pembekuan"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -832,14 +835,14 @@ export default function TenantDetailPage() {
 
       {/* Modal Add Override By Key (Enterprise) */}
       {overrideModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
-            <h2 className="text-base font-bold text-zinc-100">
-              Tambah Override Fitur Enterprise (By Key)
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-surface border border-border rounded-2xl p-6 max-w-md w-full space-y-4 shadow-elevated animate-in fade-in zoom-in-95 duration-150">
+            <h2 className="text-base font-bold text-fg">
+              Tambah Override Fitur Enterprise
             </h2>
             <form onSubmit={handleSaveOverride} className="space-y-4 text-xs">
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                <label className="block text-xs font-medium text-fg mb-1">
                   Pilih Feature Key
                 </label>
                 <select
@@ -854,7 +857,7 @@ export default function TenantDetailPage() {
                       setOverrideType("SET_LIMIT");
                     }
                   }}
-                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-xs text-fg font-mono focus:outline-none focus:border-accent"
                 >
                   {availableFeatures.map((f) => (
                     <option key={f.key} value={f.key}>
@@ -863,7 +866,7 @@ export default function TenantDetailPage() {
                   ))}
                 </select>
                 {selectedFeatureMeta && (
-                  <div className="text-[10px] text-zinc-500 mt-1">
+                  <div className="text-[10px] text-fg-subtle mt-1">
                     Kategori: {selectedFeatureMeta.category}
                     {selectedFeatureMeta.unit ? ` • Satuan: ${selectedFeatureMeta.unit}` : ""}
                   </div>
@@ -871,13 +874,13 @@ export default function TenantDetailPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                <label className="block text-xs font-medium text-fg mb-1">
                   Tipe Override
                 </label>
                 <select
                   value={overrideType}
                   onChange={(e) => setOverrideType(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-xs text-fg focus:outline-none focus:border-accent"
                 >
                   <option value="SET_LIMIT">SET_LIMIT (Tetapkan nilai kuota pasti)</option>
                   <option value="ADD_LIMIT">ADD_LIMIT (Tambah dari kuota paket)</option>
@@ -888,7 +891,7 @@ export default function TenantDetailPage() {
 
               {overrideType === "ADD_LIMIT" || overrideType === "SET_LIMIT" ? (
                 <div>
-                  <label className="block text-xs font-medium text-zinc-300 mb-1">
+                  <label className="block text-xs font-medium text-fg mb-1">
                     Nilai Numerik (-1 untuk Unlimited)
                   </label>
                   <input
@@ -896,13 +899,13 @@ export default function TenantDetailPage() {
                     value={overrideValue}
                     onChange={(e) => setOverrideValue(e.target.value)}
                     required
-                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-fg font-mono focus:outline-none focus:border-accent"
                   />
                 </div>
               ) : null}
 
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                <label className="block text-xs font-medium text-fg mb-1">
                   Catatan / Kontrak Enterprise
                 </label>
                 <input
@@ -910,25 +913,27 @@ export default function TenantDetailPage() {
                   placeholder="Contoh: Kontrak SLA Enterprise 25 cabang"
                   value={overrideNotes}
                   onChange={(e) => setOverrideNotes(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-xs text-fg focus:outline-none focus:border-accent"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                <Button
                   type="button"
+                  variant="neutral"
+                  size="sm"
                   onClick={() => setOverrideModalOpen(false)}
-                  className="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs transition-colors cursor-pointer"
                 >
                   Batal
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="primary"
+                  size="sm"
                   disabled={addOverrideMutation.isPending}
-                  className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {addOverrideMutation.isPending ? "Menyimpan..." : "Simpan Override"}
-                </button>
+                </Button>
               </div>
             </form>
           </div>

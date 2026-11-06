@@ -94,6 +94,16 @@ export interface Plan {
   features?: PlanFeature[];
 }
 
+export interface UpdatePlanPayload {
+  name?: string;
+  description?: string;
+  price_minor?: number;
+  billing_cycle?: string;
+  is_public?: boolean;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
 export interface TenantFeatureOverride {
   id: string;
   business_id: string;

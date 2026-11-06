@@ -10,7 +10,7 @@ import {
   ChevronRight,
   Eye,
   Filter,
-  CheckCircle,
+  CheckCircle2,
   AlertTriangle,
   XCircle,
   Clock,
@@ -18,39 +18,40 @@ import {
 import { apiClient } from "@/lib/api/client";
 import { formatDate } from "@/lib/utils";
 import { BusinessWithSubscription, ApiResponse } from "@/lib/types";
+import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 function getStatusBadge(status: string) {
   switch (status?.toUpperCase()) {
     case "ACTIVE":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-          <CheckCircle className="w-3 h-3" /> Active
-        </span>
+        <Badge tone="success" icon={CheckCircle2}>
+          Active
+        </Badge>
       );
     case "SUSPENDED":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-          <XCircle className="w-3 h-3" /> Suspended
-        </span>
+        <Badge tone="danger" icon={XCircle}>
+          Suspended
+        </Badge>
       );
     case "PAST_DUE":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-          <AlertTriangle className="w-3 h-3" /> Past Due
-        </span>
+        <Badge tone="warning" icon={AlertTriangle}>
+          Past Due
+        </Badge>
       );
     case "TRIAL":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-          <Clock className="w-3 h-3" /> Trial
-        </span>
+        <Badge tone="info" icon={Clock}>
+          Trial
+        </Badge>
       );
     default:
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-800 text-zinc-400 border border-zinc-700">
-          {status || "UNKNOWN"}
-        </span>
-      );
+      return <Badge tone="neutral">{status || "UNKNOWN"}</Badge>;
   }
 }
 
@@ -94,22 +95,20 @@ export default function TenantsDirectoryPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-zinc-100">
-            Tenant 360 Directory
-          </h1>
-          <p className="text-xs text-zinc-400 mt-1">
-            Manajemen direktori seluruh tenant, kepemilikan, paket aktif, dan status operasional
-          </p>
-        </div>
+      <div>
+        <h1 className="text-xl font-bold tracking-tight text-fg">
+          Tenant 360 Directory
+        </h1>
+        <p className="text-xs text-fg-muted mt-1">
+          Manajemen direktori seluruh tenant, kepemilikan, paket aktif, dan status operasional.
+        </p>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex flex-col md:flex-row gap-3 items-center justify-between">
+      <Card className="p-4 flex flex-col md:flex-row gap-3 items-center justify-between">
         <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
+          <Search className="size-4 text-fg-subtle absolute left-3 top-1/2 -translate-y-1/2" />
+          <Input
             type="text"
             placeholder="Cari nama bisnis, serial, email..."
             value={search}
@@ -117,13 +116,13 @@ export default function TenantsDirectoryPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full pl-9 pr-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="pl-9"
           />
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-2 text-xs text-zinc-400">
-            <Filter className="w-3.5 h-3.5 text-zinc-500" />
+          <div className="flex items-center gap-2 text-xs text-fg-muted">
+            <Filter className="size-3.5 text-fg-subtle" />
             <span>Status:</span>
           </div>
           <select
@@ -132,7 +131,7 @@ export default function TenantsDirectoryPage() {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="h-9 rounded-lg border border-border bg-surface px-3 py-1 text-xs text-fg focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           >
             <option value="">Semua Status</option>
             <option value="ACTIVE">ACTIVE</option>
@@ -141,112 +140,104 @@ export default function TenantsDirectoryPage() {
             <option value="TRIAL">TRIAL</option>
           </select>
         </div>
-      </div>
+      </Card>
 
-      {/* Table Card */}
-      <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-zinc-950/80 text-zinc-400 uppercase tracking-wider text-[10px] border-b border-zinc-800">
-              <tr>
-                <th className="py-3 px-4 font-semibold">Bisnis / Serial</th>
-                <th className="py-3 px-4 font-semibold">Owner & Email</th>
-                <th className="py-3 px-4 font-semibold">Paket SaaS</th>
-                <th className="py-3 px-4 font-semibold">Status Operasi</th>
-                <th className="py-3 px-4 font-semibold">Tgl Terdaftar</th>
-                <th className="py-3 px-4 font-semibold text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/60">
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, idx) => (
-                  <tr key={idx}>
-                    <td colSpan={6} className="py-4 px-4">
-                      <div className="h-5 bg-zinc-800/50 animate-pulse rounded" />
-                    </td>
-                  </tr>
-                ))
-              ) : isError ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-red-400">
-                    {(error as Error)?.message || "Gagal memuat direktori tenant"}
-                  </td>
-                </tr>
-              ) : businesses.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-zinc-500">
-                    <Building2 className="w-8 h-8 mx-auto mb-2 text-zinc-600" />
-                    <div>Tidak ada tenant yang sesuai dengan kriteria pencarian.</div>
-                  </td>
-                </tr>
-              ) : (
-                businesses.map((b) => (
-                  <tr
-                    key={b.id}
-                    className="hover:bg-zinc-850/50 transition-colors group"
-                  >
-                    <td className="py-3 px-4">
-                      <div className="font-medium text-zinc-100">{b.name}</div>
-                      <div className="font-mono text-[11px] text-zinc-500">
-                        {b.serial_business}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="text-zinc-300">{b.owner_name}</div>
-                      <div className="text-[11px] text-zinc-500">{b.email}</div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="font-mono uppercase px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-800 text-indigo-300 border border-indigo-500/20">
-                        {b.plan_code || "FREE"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      {getStatusBadge(b.subscription_status)}
-                    </td>
-                    <td className="py-3 px-4 text-zinc-400 font-mono text-[11px]">
-                      {formatDate(b.created_at)}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <Link
-                        href={`/tenants/${b.id}`}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-indigo-600 hover:text-white text-zinc-300 text-xs font-medium transition-colors"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Detail 360</span>
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {/* Table */}
+      <Table>
+        <THead>
+          <tr>
+            <TH>Bisnis / Serial</TH>
+            <TH>Owner & Email</TH>
+            <TH>Paket SaaS</TH>
+            <TH>Status Operasi</TH>
+            <TH>Tgl Terdaftar</TH>
+            <TH numeric>Aksi</TH>
+          </tr>
+        </THead>
+        <TBody>
+          {isLoading ? (
+            Array.from({ length: 5 }).map((_, idx) => (
+              <TR key={idx}>
+                <TD colSpan={6}>
+                  <div className="h-5 bg-bg-muted animate-pulse rounded" />
+                </TD>
+              </TR>
+            ))
+          ) : isError ? (
+            <TR>
+              <TD colSpan={6} className="py-8 text-center text-danger">
+                {(error as Error)?.message || "Gagal memuat direktori tenant"}
+              </TD>
+            </TR>
+          ) : businesses.length === 0 ? (
+            <TR>
+              <TD colSpan={6} className="py-12 text-center text-fg-subtle">
+                <Building2 className="size-8 mx-auto mb-2 text-fg-subtle/50" />
+                <div>Tidak ada tenant yang sesuai dengan kriteria pencarian.</div>
+              </TD>
+            </TR>
+          ) : (
+            businesses.map((b) => (
+              <TR key={b.id}>
+                <TD>
+                  <div className="font-semibold text-fg">{b.name}</div>
+                  <div className="font-mono text-[11px] text-fg-subtle">
+                    {b.serial_business}
+                  </div>
+                </TD>
+                <TD>
+                  <div className="text-fg">{b.owner_name}</div>
+                  <div className="text-[11px] text-fg-subtle">{b.email}</div>
+                </TD>
+                <TD>
+                  <Badge tone="info">
+                    {b.plan_code || "FREE"}
+                  </Badge>
+                </TD>
+                <TD>{getStatusBadge(b.subscription_status)}</TD>
+                <TD className="text-fg-muted font-mono text-[11px]">
+                  {formatDate(b.created_at)}
+                </TD>
+                <TD numeric>
+                  <Link href={`/tenants/${b.id}`}>
+                    <Button variant="neutral" size="sm">
+                      <Eye className="size-3.5" />
+                      <span>Detail 360</span>
+                    </Button>
+                  </Link>
+                </TD>
+              </TR>
+            ))
+          )}
+        </TBody>
+      </Table>
+
+      {/* Pagination Footer */}
+      <div className="px-2 flex items-center justify-between text-xs text-fg-muted">
+        <div>
+          Total <span className="font-mono font-semibold text-fg">{total}</span> tenant terdaftar
         </div>
 
-        {/* Pagination Footer */}
-        <div className="p-3 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
-          <div>
-            Total <span className="font-mono font-medium text-zinc-200">{total}</span> tenant terdaftar
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[11px]">
-              Hal {page} dari {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1 || isFetching}
-              className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:hover:bg-zinc-800 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages || isFetching}
-              className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:hover:bg-zinc-800 transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[11px]">
+            Hal {page} dari {totalPages}
+          </span>
+          <Button
+            variant="neutral"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || isFetching}
+          >
+            <ChevronLeft className="size-3.5" />
+          </Button>
+          <Button
+            variant="neutral"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages || isFetching}
+          >
+            <ChevronRight className="size-3.5" />
+          </Button>
         </div>
       </div>
     </div>

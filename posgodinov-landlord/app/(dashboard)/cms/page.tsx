@@ -13,6 +13,9 @@ import {
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
 import { ApiResponse } from "@/lib/types";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function LandingCMSPage() {
   const queryClient = useQueryClient();
@@ -25,18 +28,31 @@ export default function LandingCMSPage() {
       ),
   });
 
-  // State form
-  const [heroTagline, setHeroTagline] = useState(() => (data?.data?.hero_banner?.tagline as string) ?? "Aplikasi POS Kasir Modern #1 di Indonesia");
-  const [heroTitle, setHeroTitle] = useState(() => (data?.data?.hero_banner?.title as string) ?? "Kelola Bisnis Ritel & F&B Lebih Efisien & Cepat");
-  const [heroSubtitle, setHeroSubtitle] = useState(() => (data?.data?.hero_banner?.subtitle as string) ?? "Sistem Point of Sale terintegrasi multi-outlet, offline-first, dan manajemen stok inventori otomatis.");
-  const [contactWhatsApp, setContactWhatsApp] = useState(() => (data?.data?.contacts?.whatsapp as string) ?? "6281234567890");
-  const [contactEmail, setContactEmail] = useState(() => (data?.data?.contacts?.email as string) ?? "support@godinov.com");
-  const [announcementText, setAnnouncementText] = useState(() => (data?.data?.announcement?.text as string) ?? "🚀 Promo Spesial Diskon 30% Paket Pro Tahunan! Berlaku hingga akhir bulan.");
-  const [announcementActive, setAnnouncementActive] = useState(() => (data?.data?.announcement?.is_active as boolean) ?? true);
-  const [apkPosUrl, setApkPosUrl] = useState(() => (data?.data?.apk_pos_url as string) ?? "");
-  const [apkSoUrl, setApkSoUrl] = useState(() => (data?.data?.apk_so_url as string) ?? "");
+  const [heroTagline, setHeroTagline] = useState("Aplikasi POS Kasir Modern #1 di Indonesia");
+  const [heroTitle, setHeroTitle] = useState("Kelola Bisnis Ritel & F&B Lebih Efisien & Cepat");
+  const [heroSubtitle, setHeroSubtitle] = useState("Sistem Point of Sale terintegrasi multi-outlet, offline-first, dan manajemen stok inventori otomatis.");
+  const [contactWhatsApp, setContactWhatsApp] = useState("6281234567890");
+  const [contactEmail, setContactEmail] = useState("support@godinov.com");
+  const [announcementText, setAnnouncementText] = useState("🚀 Promo Spesial Diskon 30% Paket Pro Tahunan! Berlaku hingga akhir bulan.");
+  const [announcementActive, setAnnouncementActive] = useState(true);
+  const [apkPosUrl, setApkPosUrl] = useState("");
+  const [apkSoUrl, setApkSoUrl] = useState("");
 
-  // Save Settings Mutation — each key is saved individually via PUT /settings/{key}
+  useEffect(() => {
+    if (data?.data) {
+      if (data.data.hero_banner?.tagline !== undefined) setHeroTagline(data.data.hero_banner.tagline);
+      if (data.data.hero_banner?.title !== undefined) setHeroTitle(data.data.hero_banner.title);
+      if (data.data.hero_banner?.subtitle !== undefined) setHeroSubtitle(data.data.hero_banner.subtitle);
+      if (data.data.contacts?.whatsapp !== undefined) setContactWhatsApp(data.data.contacts.whatsapp);
+      if (data.data.contacts?.email !== undefined) setContactEmail(data.data.contacts.email);
+      if (data.data.announcement?.text !== undefined) setAnnouncementText(data.data.announcement.text);
+      if (data.data.announcement?.is_active !== undefined) setAnnouncementActive(Boolean(data.data.announcement.is_active));
+      if (data.data.apk_pos_url !== undefined) setApkPosUrl(data.data.apk_pos_url);
+      if (data.data.apk_so_url !== undefined) setApkSoUrl(data.data.apk_so_url);
+    }
+  }, [data]);
+
+  // Save Settings Mutation
   const saveMutation = useMutation({
     mutationFn: async (settings: Record<string, unknown>) => {
       await Promise.all(
@@ -94,202 +110,202 @@ export default function LandingCMSPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 max-w-4xl">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-zinc-100">
-            Landing Page CMS & On-Demand Revalidation
+          <h1 className="text-xl font-bold tracking-tight text-fg">
+            Landing Page CMS &amp; On-Demand Revalidation
           </h1>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-muted-fg mt-1">
             Kelola konten promosi publik, FAQ, banner hero, dan pemicu invalidasi cache ISR landing page
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
+        <div className="flex items-center gap-2">
+          <Button
             onClick={() => revalidateMutation.mutate()}
             disabled={revalidateMutation.isPending}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-md shadow-emerald-600/20 transition-colors cursor-pointer disabled:opacity-50"
+            variant="primary"
+            size="sm"
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            <Sparkles className="w-3.5 h-3.5 mr-1.5" />
             <span>
               {revalidateMutation.isPending
-                ? "Merevalidasi Cache..."
+                ? "Merevalidasi..."
                 : "Purge & Revalidate Landing"}
             </span>
-          </button>
+          </Button>
 
-          <button
+          <Button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer disabled:opacity-50"
+            variant="neutral"
+            size="sm"
+            title="Segarkan data"
           >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-          </button>
+            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
+          </Button>
         </div>
       </div>
 
       <form onSubmit={handleSaveAll} className="space-y-6">
         {/* Hero Banner Section */}
-        <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-            <Globe className="w-4 h-4 text-indigo-400" />
-            <span>Hero Header & Tagline</span>
-          </div>
-
-          <div className="space-y-4 text-xs">
-            <div>
-              <label className="block text-zinc-300 font-medium mb-1">
-                Badge / Tagline Atas
-              </label>
-              <input
-                type="text"
-                value={heroTagline}
-                onChange={(e) => setHeroTagline(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-accent" />
+              <CardTitle>Hero Header &amp; Tagline</CardTitle>
             </div>
+            <CardDescription>
+              Teks utama yang tampil di area hero landing page depan
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Input
+              label="Badge / Tagline Atas"
+              type="text"
+              value={heroTagline}
+              onChange={(e) => setHeroTagline(e.target.value)}
+            />
+
+            <Input
+              label="Judul Utama (Headline H1)"
+              type="text"
+              value={heroTitle}
+              onChange={(e) => setHeroTitle(e.target.value)}
+            />
 
             <div>
-              <label className="block text-zinc-300 font-medium mb-1">
-                Judul Utama (Headline H1)
-              </label>
-              <input
-                type="text"
-                value={heroTitle}
-                onChange={(e) => setHeroTitle(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-zinc-300 font-medium mb-1">
+              <label className="block text-xs font-medium text-fg mb-1.5">
                 Sub-Headline Deskripsi
               </label>
               <textarea
                 value={heroSubtitle}
                 onChange={(e) => setHeroSubtitle(e.target.value)}
-                className="w-full h-20 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                rows={3}
+                className="w-full px-3 py-2 bg-surface border border-border rounded-md text-xs text-fg focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-subtle resize-none"
               />
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Announcement Bar Section */}
-        <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>Announcement Bar (Top Bar Landing)</span>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-warning" />
+                <CardTitle>Announcement Bar (Top Bar)</CardTitle>
+              </div>
+              <label className="flex items-center gap-2 text-xs text-fg cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={announcementActive}
+                  onChange={(e) => setAnnouncementActive(e.target.checked)}
+                  className="rounded border-border text-accent focus:ring-accent"
+                />
+                <span>Tampilkan Pengumuman</span>
+              </label>
             </div>
-            <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={announcementActive}
-                onChange={(e) => setAnnouncementActive(e.target.checked)}
-                className="rounded border-zinc-700 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span>Tampilkan Pengumuman</span>
-            </label>
-          </div>
-
-          <div className="text-xs">
-            <input
+            <CardDescription>
+              Banner notifikasi berjalan di bagian paling atas seluruh halaman landing
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Input
+              label="Isi Pengumuman"
               type="text"
               value={announcementText}
               onChange={(e) => setAnnouncementText(e.target.value)}
               placeholder="Teks berjalan promosi..."
-              className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Contact Support Section */}
-        <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-            <Phone className="w-4 h-4 text-emerald-400" />
-            <span>Kontak Customer Care & CS</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div>
-              <label className="block text-zinc-300 font-medium mb-1">
-                WhatsApp CS (Format 62...)
-              </label>
-              <input
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Phone className="w-4 h-4 text-success" />
+              <CardTitle>Kontak Customer Care &amp; CS</CardTitle>
+            </div>
+            <CardDescription>
+              Saluran resmi bantuan untuk merchant calon tenant
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="WhatsApp CS (Format: 628...)"
                 type="text"
                 value={contactWhatsApp}
                 onChange={(e) => setContactWhatsApp(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
-            </div>
 
-            <div>
-              <label className="block text-zinc-300 font-medium mb-1">
-                Email CS Support
-              </label>
-              <input
+              <Input
+                label="Email CS Support"
                 type="email"
                 value={contactEmail}
                 onChange={(e) => setContactEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* APK Download Links Section */}
-        <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-            <Download className="w-4 h-4 text-sky-400" />
-            <span>Link Download Aplikasi Android</span>
-          </div>
-          <p className="text-xs text-zinc-400">
-            URL file APK yang dapat diunduh langsung. Akan ditampilkan sebagai tombol download di dashboard merchant.
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div>
-              <label className="block text-zinc-300 font-medium mb-1">
-                URL APK Kasir (POS)
-              </label>
-              <input
-                type="url"
-                value={apkPosUrl}
-                onChange={(e) => setApkPosUrl(e.target.value)}
-                placeholder="https://cdn.example.com/pos-godinov-kasir.apk"
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-              <p className="text-[10px] text-zinc-500 mt-1">App kasir untuk petugas counter / frontline</p>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Download className="w-4 h-4 text-info" />
+              <CardTitle>Link Download Aplikasi Android</CardTitle>
             </div>
+            <CardDescription>
+              URL file APK yang dapat diunduh langsung dari dashboard tenant
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Input
+                  label="URL APK Kasir (POS)"
+                  type="url"
+                  value={apkPosUrl}
+                  onChange={(e) => setApkPosUrl(e.target.value)}
+                  placeholder="https://cdn.example.com/pos-godinov-kasir.apk"
+                />
+                <p className="text-[11px] text-muted-fg mt-1">
+                  App kasir frontline untuk kasir counter
+                </p>
+              </div>
 
-            <div>
-              <label className="block text-zinc-300 font-medium mb-1">
-                URL APK Sales Order (SO)
-              </label>
-              <input
-                type="url"
-                value={apkSoUrl}
-                onChange={(e) => setApkSoUrl(e.target.value)}
-                placeholder="https://cdn.example.com/pos-godinov-so.apk"
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-              <p className="text-[10px] text-zinc-500 mt-1">App SO untuk tim sales di lapangan</p>
+              <div>
+                <Input
+                  label="URL APK Sales Order (SO)"
+                  type="url"
+                  value={apkSoUrl}
+                  onChange={(e) => setApkSoUrl(e.target.value)}
+                  placeholder="https://cdn.example.com/pos-godinov-so.apk"
+                />
+                <p className="text-[11px] text-muted-fg mt-1">
+                  App sales order untuk tim sales lapangan
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Save Bar */}
-        <div className="flex items-center justify-end">
-          <button
+        <div className="flex items-center justify-end pt-2">
+          <Button
             type="submit"
             disabled={saveMutation.isPending}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-lg shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-50"
+            variant="primary"
+            size="md"
           >
-            <Save className="w-4 h-4" />
+            <Save className="w-4 h-4 mr-1.5" />
             <span>{saveMutation.isPending ? "Menyimpan..." : "Simpan Pengaturan CMS"}</span>
-          </button>
+          </Button>
         </div>
       </form>
     </div>
