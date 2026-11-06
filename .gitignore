@@ -35,6 +35,10 @@ Thumbs.db
 /backups/
 *.sql.gz
 
+# AI / Graphify
+graphify-out/
+.agents/
+
 .idea
 
 */.maestro
