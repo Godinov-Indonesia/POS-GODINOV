@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"posgodinov-backend/internal/database"
+	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/pkg/response"
 	"posgodinov-backend/pkg/token"
 )
@@ -13,7 +14,12 @@ import (
 // BusinessMiddleware extracts the Tenant ID from the Auth Payload (or X-Business-ID header),
 // verifies tenant isolation, acquires the business DB connection from the connection pool,
 // and injects it into the request context.
-func BusinessMiddleware(businessManager *database.BusinessDBManager) func(http.HandlerFunc) http.HandlerFunc {
+func BusinessMiddleware(businessManager *database.BusinessDBManager, policyEngines ...domain.PolicyEngine) func(http.HandlerFunc) http.HandlerFunc {
+	var pe domain.PolicyEngine
+	if len(policyEngines) > 0 {
+		pe = policyEngines[0]
+	}
+
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			businessID := strings.TrimSpace(r.Header.Get("X-Business-ID"))
@@ -41,6 +47,13 @@ func BusinessMiddleware(businessManager *database.BusinessDBManager) func(http.H
 			if businessID == "" {
 				response.Error(w, http.StatusBadRequest, "X-Business-ID header is required for this endpoint", nil)
 				return
+			}
+
+			if pe != nil && (payload == nil || !payload.IsImpersonated) {
+				if policy, pErr := pe.GetEffectivePolicy(r.Context(), businessID); pErr == nil && policy != nil && policy.Status == "SUSPENDED" {
+					response.Error(w, http.StatusForbidden, "Akun bisnis Anda ditangguhkan (SUSPENDED), silakan hubungi customer support", nil)
+					return
+				}
 			}
 
 			businessDB, err := businessManager.GetBusinessDB(r.Context(), businessID)

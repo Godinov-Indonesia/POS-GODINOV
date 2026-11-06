@@ -445,7 +445,7 @@ func setupLandlordFeatureTest(opts ...service.LandlordOption) (
 	staffHandler := handler.NewStaffHandler(staffSvc)
 
 	landlordMw := middleware.LandlordAuthMiddleware(tokenMaker)
-	merchantMw := middleware.AuthMiddleware(tokenMaker)
+	merchantMw := middleware.AuthMiddleware(tokenMaker, policyEngine)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/landlord/auth/login", landlordHandler.Login)
@@ -461,6 +461,7 @@ func setupLandlordFeatureTest(opts ...service.LandlordOption) (
 	mux.HandleFunc("PUT /v1/landlord/landing/settings/{key}", landlordMw(landlordHandler.UpdateLandingSetting))
 	mux.HandleFunc("POST /v1/landlord/landing/revalidate", landlordMw(landlordHandler.RevalidateLandingPage))
 
+	mux.HandleFunc("GET /v1/business/outlets", merchantMw(outletHandler.GetAll))
 	mux.HandleFunc("POST /v1/business/outlets", merchantMw(outletHandler.Register))
 	mux.HandleFunc("GET /v1/business/subscription", merchantMw(landlordHandler.GetTenantSubscription))
 	mux.HandleFunc("POST /v1/business/subscription/checkout", merchantMw(landlordHandler.CheckoutSubscription))
@@ -688,6 +689,34 @@ func TestFeature_SuspendAndUnsuspendBusiness(t *testing.T) {
 
 	if actRR.Code != http.StatusForbidden {
 		t.Fatalf("expected 403 Forbidden for action on SUSPENDED business, got %d", actRR.Code)
+	}
+
+	// 2b. Merchant mencoba GET /v1/business/outlets -> Ditolak oleh middleware karena SUSPENDED (403)
+	getOutletsReq := httptest.NewRequest(http.MethodGet, "/v1/business/outlets", nil)
+	getOutletsReq.Header.Set("Authorization", "Bearer "+merchantToken)
+	getOutletsRR := httptest.NewRecorder()
+	mux.ServeHTTP(getOutletsRR, getOutletsReq)
+
+	if getOutletsRR.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden on GET /v1/business/outlets when SUSPENDED, got %d", getOutletsRR.Code)
+	}
+
+	// 2c. Sesi impersonate Landlord tetap bisa akses GET /v1/business/outlets meskipun SUSPENDED (200)
+	impToken, _ := tokenMaker.CreateToken(token.Payload{
+		ID:             "b1",
+		Email:          "merchant@godinov.com",
+		Type:           "access",
+		BusinessID:     "b1",
+		IsImpersonated: true,
+		ImpersonatedBy: "admin-1",
+	}, 30*time.Minute)
+	impOutletsReq := httptest.NewRequest(http.MethodGet, "/v1/business/outlets", nil)
+	impOutletsReq.Header.Set("Authorization", "Bearer "+impToken)
+	impOutletsRR := httptest.NewRecorder()
+	mux.ServeHTTP(impOutletsRR, impOutletsReq)
+
+	if impOutletsRR.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for impersonated token on SUSPENDED business, got %d", impOutletsRR.Code)
 	}
 
 	// 3. Unsuspend bisnis

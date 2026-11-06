@@ -151,6 +151,10 @@ func (s *businessService) Login(ctx context.Context, req *domain.LoginBusinessRe
 		return nil, errors.New("email atau password salah")
 	}
 
+	if err := s.assertNotSuspended(ctx, business.ID); err != nil {
+		return nil, err
+	}
+
 	resp, err := s.buildAuthResponse(business)
 	if err != nil {
 		return nil, err
@@ -177,16 +181,36 @@ func (s *businessService) RefreshToken(ctx context.Context, req *domain.RefreshT
 		return nil, errors.New("bisnis tidak ditemukan")
 	}
 
+	if !payload.IsImpersonated {
+		if err := s.assertNotSuspended(ctx, business.ID); err != nil {
+			return nil, err
+		}
+	}
+
 	accessToken, err := s.tokenMaker.CreateToken(token.Payload{
-		ID:    business.ID,
-		Email: business.Email,
-		Type:  "access",
+		ID:             business.ID,
+		Email:          business.Email,
+		Type:           "access",
+		BusinessID:     business.ID,
+		IsImpersonated: payload.IsImpersonated,
+		ImpersonatedBy: payload.ImpersonatedBy,
 	}, 24*time.Hour)
 	if err != nil {
 		return nil, errors.New("gagal membuat access token baru")
 	}
 
 	return &domain.RefreshTokenResponse{AccessToken: accessToken}, nil
+}
+
+func (s *businessService) assertNotSuspended(ctx context.Context, businessID string) error {
+	if s.saasRepo == nil {
+		return nil
+	}
+	sub, err := s.saasRepo.GetSubscriptionByBusinessID(ctx, businessID)
+	if err == nil && sub != nil && sub.Status == "SUSPENDED" {
+		return errors.New("akun bisnis Anda ditangguhkan (SUSPENDED), silakan hubungi customer support")
+	}
+	return nil
 }
 
 func (s *businessService) GoogleOAuthURL(_ context.Context, state string) string {
@@ -263,6 +287,10 @@ func (s *businessService) GoogleOAuthCallback(ctx context.Context, code, _ strin
 		}); err != nil {
 			return nil, err
 		}
+	}
+
+	if err := s.assertNotSuspended(ctx, business.ID); err != nil {
+		return nil, err
 	}
 
 	resp, err := s.buildAuthResponse(business)

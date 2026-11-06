@@ -227,6 +227,7 @@ func main() {
 		tokenMaker,
 		auditRepo,
 		businessManager,
+		policyEngine,
 	)
 
 	// Apply Middlewares (Recovery, CORS, Security Headers, and Logger)

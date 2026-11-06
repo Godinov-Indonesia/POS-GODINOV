@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/pkg/response"
 	"posgodinov-backend/pkg/token"
 )
@@ -15,7 +16,12 @@ const (
 	AuthPayloadKey contextKey = "auth_payload"
 )
 
-func AuthMiddleware(tokenMaker token.TokenMaker) func(http.HandlerFunc) http.HandlerFunc {
+func AuthMiddleware(tokenMaker token.TokenMaker, policyEngines ...domain.PolicyEngine) func(http.HandlerFunc) http.HandlerFunc {
+	var pe domain.PolicyEngine
+	if len(policyEngines) > 0 {
+		pe = policyEngines[0]
+	}
+
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -40,6 +46,19 @@ func AuthMiddleware(tokenMaker token.TokenMaker) func(http.HandlerFunc) http.Han
 			if payload.Type != "access" {
 				response.Error(w, http.StatusUnauthorized, "Akses ditolak: Jenis token tidak valid untuk autentikasi", nil)
 				return
+			}
+
+			if pe != nil && !payload.IsImpersonated {
+				bizID := payload.ID
+				if bizID == "" {
+					bizID = payload.BusinessID
+				}
+				if bizID != "" {
+					if policy, pErr := pe.GetEffectivePolicy(r.Context(), bizID); pErr == nil && policy != nil && policy.Status == "SUSPENDED" {
+						response.Error(w, http.StatusForbidden, "Akun bisnis Anda ditangguhkan (SUSPENDED), silakan hubungi customer support", nil)
+						return
+					}
+				}
 			}
 
 			// Masukkan payload ke dalam context

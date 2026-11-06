@@ -74,6 +74,10 @@ func (h *BusinessHandler) Login(w http.ResponseWriter, r *http.Request) {
 	res, err := h.svc.Login(r.Context(), &req)
 	if err != nil {
 		logger.Error("gagal login bisnis", "error", err)
+		if strings.Contains(err.Error(), "SUSPENDED") {
+			response.Error(w, http.StatusForbidden, err.Error(), map[string]string{"credentials": err.Error()})
+			return
+		}
 		response.Error(w, http.StatusUnauthorized, "Gagal login", map[string]string{"credentials": err.Error()})
 		return
 	}
@@ -97,6 +101,10 @@ func (h *BusinessHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		logger.Error("gagal melakukan refresh token", "error", err)
 		errs := make(map[string]string)
 		errs["token"] = err.Error()
+		if strings.Contains(err.Error(), "SUSPENDED") {
+			response.Error(w, http.StatusForbidden, err.Error(), errs)
+			return
+		}
 		response.Error(w, http.StatusUnauthorized, "Gagal memperbarui token", errs)
 		return
 	}
@@ -156,9 +164,18 @@ func (h *BusinessHandler) GoogleOAuthCallback(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+
 	res, err := h.svc.GoogleOAuthCallback(r.Context(), code, stateCookie.Value)
 	if err != nil {
 		logger.Error("gagal callback Google OAuth", "error", err)
+		if strings.Contains(err.Error(), "SUSPENDED") {
+			http.Redirect(w, r, fmt.Sprintf("%s/login?reason=suspended", frontendURL), http.StatusFound)
+			return
+		}
 		response.Error(w, http.StatusInternalServerError, "Gagal login dengan Google", map[string]string{"server": err.Error()})
 		return
 	}
@@ -167,10 +184,6 @@ func (h *BusinessHandler) GoogleOAuthCallback(w http.ResponseWriter, r *http.Req
 
 	// Encode business sebagai JSON lalu URL-encode untuk query param.
 	bizJSON, _ := json.Marshal(res.Business)
-	frontendURL := os.Getenv("FRONTEND_URL")
-	if frontendURL == "" {
-		frontendURL = "http://localhost:3000"
-	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	redirectTarget := fmt.Sprintf(

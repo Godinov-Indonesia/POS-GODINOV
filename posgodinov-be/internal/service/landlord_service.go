@@ -492,17 +492,29 @@ func (s *landlordService) GetPublicLandingPage(ctx context.Context) (map[string]
 
 func (s *landlordService) GetTenantSubscription(ctx context.Context, businessID string) (map[string]any, error) {
 	sub, err := s.saasRepo.GetSubscriptionByBusinessID(ctx, businessID)
-	if err != nil {
-		return nil, err
+	if err != nil || sub == nil {
+		freePlan, _ := s.saasRepo.GetPlanByID(ctx, "plan_free")
+		sub = &domain.Subscription{
+			BusinessID: businessID,
+			PlanID:     "plan_free",
+			Plan:       freePlan,
+			Status:     "ACTIVE",
+			StartedAt:  time.Now(),
+		}
 	}
 	policy, err := s.policyEngine.GetEffectivePolicy(ctx, businessID)
 	if err != nil {
 		return nil, err
 	}
+	plans, _ := s.saasRepo.ListPlans(ctx, true)
+	wallet, _ := s.saasRepo.GetWalletByBusinessID(ctx, businessID)
 
 	return map[string]any{
-		"subscription": sub,
-		"policy":       policy,
+		"subscription":     sub,
+		"policy":           policy,
+		"effective_policy": policy,
+		"plans":            plans,
+		"wallet":           wallet,
 	}, nil
 }
 
@@ -518,7 +530,16 @@ func (s *landlordService) CheckoutSubscription(ctx context.Context, businessID s
 
 	sub, err := s.saasRepo.GetSubscriptionByBusinessID(ctx, businessID)
 	if err != nil || sub == nil {
-		return nil, errors.New("langganan bisnis tidak ditemukan")
+		sub = &domain.Subscription{
+			ID:         utils.NewUUID(),
+			BusinessID: businessID,
+			PlanID:     "plan_free",
+			Status:     "ACTIVE",
+			StartedAt:  time.Now(),
+		}
+		if createErr := s.saasRepo.CreateSubscription(ctx, sub); createErr != nil {
+			return nil, errors.New("langganan bisnis tidak ditemukan")
+		}
 	}
 
 	amount := plan.PriceMinor

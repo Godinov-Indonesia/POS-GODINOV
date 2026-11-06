@@ -29,14 +29,15 @@ func SetupRouter(
 	tokenMaker token.TokenMaker,
 	auditRepo domain.AuditRepository,
 	tenantManager *database.BusinessDBManager,
+	policyEngines ...domain.PolicyEngine,
 ) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	authMiddleware := middleware.AuthMiddleware(tokenMaker)
+	authMiddleware := middleware.AuthMiddleware(tokenMaker, policyEngines...)
 	landlordMiddleware := middleware.LandlordAuthMiddleware(tokenMaker)
 	deviceMiddleware := middleware.POSDeviceMiddleware(tokenMaker)
 	auditMiddleware := middleware.AuditMiddleware(auditRepo)
-	tenantMiddleware := middleware.BusinessMiddleware(tenantManager)
+	tenantMiddleware := middleware.BusinessMiddleware(tenantManager, policyEngines...)
 	
 	// Helper to chain middlewares: Auth first, then Tenant, then Audit
 	chain := func(handler http.HandlerFunc) http.HandlerFunc {

@@ -183,7 +183,13 @@ func (r *postgresLandlordRepository) GetBusinessDetail(ctx context.Context, busi
 	}
 
 	var subscription domain.Subscription
-	_ = db.WithContext(ctx).Preload("Plan.Features").Where("business_id = ?", businessID).First(&subscription).Error
+	if err := db.WithContext(ctx).Preload("Plan.Features").Where("business_id = ?", businessID).First(&subscription).Error; err != nil {
+		subscription = domain.Subscription{
+			BusinessID: businessID,
+			PlanID:     "plan_free",
+			Status:     "ACTIVE",
+		}
+	}
 
 	var wallet domain.MerchantWallet
 	_ = db.WithContext(ctx).Where("business_id = ?", businessID).First(&wallet).Error
@@ -197,9 +203,22 @@ func (r *postgresLandlordRepository) GetBusinessDetail(ctx context.Context, busi
 
 func (r *postgresLandlordRepository) SetBusinessSubscriptionStatus(ctx context.Context, businessID string, status string) error {
 	db := database.GetDB(ctx, r.db)
-	return db.WithContext(ctx).Model(&domain.Subscription{}).
+	res := db.WithContext(ctx).Model(&domain.Subscription{}).
 		Where("business_id = ?", businessID).
-		Update("status", status).Error
+		Update("status", status)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		sub := &domain.Subscription{
+			BusinessID: businessID,
+			PlanID:     "plan_free",
+			Status:     status,
+			StartedAt:  time.Now(),
+		}
+		return db.WithContext(ctx).Create(sub).Error
+	}
+	return nil
 }
 
 func (r *postgresLandlordRepository) GetMetricsOverview(ctx context.Context) (*domain.LandlordMetricsOverview, error) {
