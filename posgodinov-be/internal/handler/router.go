@@ -101,6 +101,7 @@ func SetupRouter(
 	mux.HandleFunc("POST /v1/landlord/landing/revalidate", landlordChain(landlordHandler.RevalidateLandingPage))
 	mux.HandleFunc("GET /v1/landlord/businesses", landlordChain(landlordHandler.ListBusinesses))
 	mux.HandleFunc("GET /v1/landlord/businesses/{id}", landlordChain(landlordHandler.GetBusinessDetail))
+	mux.HandleFunc("PUT /v1/landlord/businesses/{id}/subscription", landlordChain(landlordHandler.UpdateBusinessSubscription))
 	mux.HandleFunc("POST /v1/landlord/businesses/{id}/suspend", landlordChain(landlordHandler.SuspendBusiness))
 	mux.HandleFunc("POST /v1/landlord/businesses/{id}/unsuspend", landlordChain(landlordHandler.UnsuspendBusiness))
 	mux.HandleFunc("GET /v1/landlord/metrics/overview", landlordChain(landlordHandler.GetMetricsOverview))

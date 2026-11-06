@@ -116,6 +116,12 @@ type BusinessDetailResponse struct {
 	Policy       *EffectivePolicy        `json:"effective_policy"`
 }
 
+type UpdateBusinessSubscriptionRequest struct {
+	PlanID string `json:"plan_id"`
+	Status string `json:"status"`
+	Reason string `json:"reason,omitempty"`
+}
+
 type LandlordMetricsOverview struct {
 	TotalBusinesses     int64            `json:"total_businesses"`
 	ActiveBusinesses    int64            `json:"active_businesses"`

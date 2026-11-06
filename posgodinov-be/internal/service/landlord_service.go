@@ -61,6 +61,7 @@ type LandlordService interface {
 	// Manajemen Direktori Tenant & Suspensi
 	ListBusinesses(ctx context.Context, search, status, planID string, page, limit int) ([]*domain.BusinessWithSubscription, int64, error)
 	GetBusinessDetail(ctx context.Context, businessID string) (*domain.BusinessDetailResponse, error)
+	UpdateBusinessSubscription(ctx context.Context, adminID, businessID string, req *domain.UpdateBusinessSubscriptionRequest) error
 	SuspendBusiness(ctx context.Context, adminID, businessID, reason string) error
 	UnsuspendBusiness(ctx context.Context, adminID, businessID string) error
 	GetMetricsOverview(ctx context.Context) (*domain.LandlordMetricsOverview, error)
@@ -281,6 +282,9 @@ func (s *landlordService) ListOverrides(ctx context.Context, businessID string) 
 }
 
 func (s *landlordService) CreateOverride(ctx context.Context, adminID string, override *domain.TenantFeatureOverride) error {
+	if override.ID == "" {
+		override.ID = utils.NewUUID()
+	}
 	override.CreatedBy = &adminID
 	if err := s.saasRepo.CreateOverride(ctx, override); err != nil {
 		return err
@@ -808,6 +812,13 @@ func (s *landlordService) GetBusinessDetail(ctx context.Context, businessID stri
 	}
 
 	policy, _ := s.policyEngine.GetEffectivePolicy(ctx, businessID)
+	if biz != nil {
+		if sub != nil && sub.Status != "" {
+			biz.Status = sub.Status
+		} else if policy != nil && policy.Status != "" {
+			biz.Status = policy.Status
+		}
+	}
 
 	return &domain.BusinessDetailResponse{
 		Business:     biz,
@@ -816,6 +827,100 @@ func (s *landlordService) GetBusinessDetail(ctx context.Context, businessID stri
 		Overrides:    overrides,
 		Policy:       policy,
 	}, nil
+}
+
+func (s *landlordService) UpdateBusinessSubscription(ctx context.Context, adminID, businessID string, req *domain.UpdateBusinessSubscriptionRequest) error {
+	if _, err := s.businessRepo.GetByID(ctx, businessID); err != nil {
+		return errors.New("bisnis tidak ditemukan")
+	}
+
+	status := strings.ToUpper(strings.TrimSpace(req.Status))
+	if status != "" {
+		switch status {
+		case "ACTIVE", "TRIAL", "PAST_DUE", "SUSPENDED", "EXPIRED":
+		default:
+			return errors.New("status langganan tidak valid")
+		}
+	}
+
+	var targetPlan *domain.Plan
+	if strings.TrimSpace(req.PlanID) != "" {
+		plan, err := s.saasRepo.GetPlanByID(ctx, strings.TrimSpace(req.PlanID))
+		if err != nil || plan == nil {
+			return errors.New("paket tidak ditemukan")
+		}
+		targetPlan = plan
+	}
+
+	now := time.Now()
+	sub, err := s.saasRepo.GetSubscriptionByBusinessID(ctx, businessID)
+	if err != nil || sub == nil {
+		planID := "plan_free"
+		var exp *time.Time
+		if targetPlan != nil {
+			planID = targetPlan.ID
+			exp = calcSubscriptionExpiry(now, nil, targetPlan.BillingCycle)
+		}
+		st := status
+		if st == "" {
+			st = "ACTIVE"
+		}
+		newSub := &domain.Subscription{
+			ID:         utils.NewUUID(),
+			BusinessID: businessID,
+			PlanID:     planID,
+			Status:     st,
+			StartedAt:  now,
+			ExpiresAt:  exp,
+			UpdatedAt:  now,
+		}
+		if err := s.saasRepo.CreateSubscription(ctx, newSub); err != nil {
+			return err
+		}
+		sub = newSub
+	} else {
+		oldPlanID := sub.PlanID
+		if targetPlan != nil {
+			sub.PlanID = targetPlan.ID
+			sub.ExpiresAt = calcSubscriptionExpiry(now, nil, targetPlan.BillingCycle)
+		}
+		if status != "" {
+			sub.Status = status
+		}
+		sub.UpdatedAt = now
+		if err := s.saasRepo.UpdateSubscription(ctx, sub); err != nil {
+			return err
+		}
+		_ = s.saasRepo.CreateSubscriptionLog(ctx, &domain.SubscriptionLog{
+			ID:             utils.NewUUID(),
+			SubscriptionID: sub.ID,
+			BusinessID:     businessID,
+			Event:          "LANDLORD_OVERRIDE",
+			FromPlanID:     &oldPlanID,
+			ToPlanID:       sub.PlanID,
+			Remarks:        req.Reason,
+			CreatedAt:      now,
+		})
+	}
+
+	s.policyEngine.InvalidateCache(businessID)
+
+	meta, _ := json.Marshal(map[string]string{
+		"plan_id": sub.PlanID,
+		"status":  sub.Status,
+		"reason":  req.Reason,
+	})
+	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
+		ID:         utils.NewUUID(),
+		UserID:     adminID,
+		Action:     "UPDATE_SUBSCRIPTION",
+		TargetType: "BUSINESS",
+		TargetID:   businessID,
+		Metadata:   domain.JSONB(meta),
+		CreatedAt:  now,
+	})
+
+	return nil
 }
 
 func (s *landlordService) SuspendBusiness(ctx context.Context, adminID, businessID, reason string) error {

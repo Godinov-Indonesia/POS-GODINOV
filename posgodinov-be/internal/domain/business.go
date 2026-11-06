@@ -13,6 +13,7 @@ type Business struct {
 	GoogleID         *string   `json:"-" gorm:"column:google_id"`
 	Name             string    `json:"name" gorm:"column:name"`
 	OwnerName        string    `json:"owner_name" gorm:"column:owner_name"`
+	Status           string    `json:"status,omitempty" gorm:"-"`
 	StorageUsedBytes int64     `json:"storage_used_bytes" gorm:"column:storage_used_bytes;default:0"`
 	IsDeleted        bool      `json:"-" gorm:"column:is_deleted;default:false"`
 	CreatedAt        time.Time `json:"created_at,omitzero" gorm:"column:created_at"`

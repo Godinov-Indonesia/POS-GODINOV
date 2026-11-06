@@ -534,6 +534,33 @@ func (h *LandlordHandler) GetBusinessDetail(w http.ResponseWriter, r *http.Reque
 	response.Success(w, http.StatusOK, "Detail bisnis berhasil dimuat", detail)
 }
 
+func (h *LandlordHandler) UpdateBusinessSubscription(w http.ResponseWriter, r *http.Request) {
+	adminPayload, ok := r.Context().Value(middleware.LandlordPayloadKey).(*token.Payload)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "Token landlord tidak valid", nil)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		response.Error(w, http.StatusBadRequest, "ID bisnis diperlukan", nil)
+		return
+	}
+
+	var req domain.UpdateBusinessSubscriptionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Permintaan tidak valid", nil)
+		return
+	}
+
+	if err := h.svc.UpdateBusinessSubscription(r.Context(), adminPayload.ID, id, &req); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error(), map[string]string{"error": err.Error()})
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Langganan bisnis berhasil diperbarui", nil)
+}
+
 func (h *LandlordHandler) SuspendBusiness(w http.ResponseWriter, r *http.Request) {
 	adminPayload, ok := r.Context().Value(middleware.LandlordPayloadKey).(*token.Payload)
 	if !ok {

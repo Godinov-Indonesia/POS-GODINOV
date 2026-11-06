@@ -94,6 +94,9 @@ func (r *postgresSaaSRepository) GetSubscriptionByBusinessID(ctx context.Context
 }
 
 func (r *postgresSaaSRepository) CreateSubscription(ctx context.Context, sub *domain.Subscription) error {
+	if sub.ID == "" {
+		sub.ID = utils.NewUUID()
+	}
 	db := database.GetDB(ctx, r.db)
 	return db.WithContext(ctx).Create(sub).Error
 }
@@ -130,6 +133,9 @@ func (r *postgresSaaSRepository) ListActiveOverrides(ctx context.Context, busine
 }
 
 func (r *postgresSaaSRepository) CreateOverride(ctx context.Context, override *domain.TenantFeatureOverride) error {
+	if override.ID == "" {
+		override.ID = utils.NewUUID()
+	}
 	db := database.GetDB(ctx, r.db)
 	return db.WithContext(ctx).Create(override).Error
 }
@@ -140,6 +146,9 @@ func (r *postgresSaaSRepository) DeleteOverride(ctx context.Context, id string) 
 }
 
 func (r *postgresSaaSRepository) CreateWallet(ctx context.Context, wallet *domain.MerchantWallet) error {
+	if wallet.ID == "" {
+		wallet.ID = utils.NewUUID()
+	}
 	db := database.GetDB(ctx, r.db)
 	return db.WithContext(ctx).Create(wallet).Error
 }

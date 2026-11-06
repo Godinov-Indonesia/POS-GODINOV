@@ -184,12 +184,19 @@ func (r *postgresLandlordRepository) GetBusinessDetail(ctx context.Context, busi
 
 	var subscription domain.Subscription
 	if err := db.WithContext(ctx).Preload("Plan.Features").Where("business_id = ?", businessID).First(&subscription).Error; err != nil {
+		var defaultPlan domain.Plan
+		var planPtr *domain.Plan
+		if pErr := db.WithContext(ctx).Preload("Features").Where("id = ?", "plan_free").First(&defaultPlan).Error; pErr == nil {
+			planPtr = &defaultPlan
+		}
 		subscription = domain.Subscription{
 			BusinessID: businessID,
 			PlanID:     "plan_free",
 			Status:     "ACTIVE",
+			Plan:       planPtr,
 		}
 	}
+	business.Status = subscription.Status
 
 	var wallet domain.MerchantWallet
 	_ = db.WithContext(ctx).Where("business_id = ?", businessID).First(&wallet).Error
@@ -211,6 +218,7 @@ func (r *postgresLandlordRepository) SetBusinessSubscriptionStatus(ctx context.C
 	}
 	if res.RowsAffected == 0 {
 		sub := &domain.Subscription{
+			ID:         utils.NewUUID(),
 			BusinessID: businessID,
 			PlanID:     "plan_free",
 			Status:     status,
