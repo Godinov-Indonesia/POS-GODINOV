@@ -133,12 +133,14 @@ func main() {
 		service.WithLandlordTxManager(txManager),
 		service.WithLandlordRevalidateConfig(cfg.LandingPageRevalidateURL, cfg.LandingPageRevalidateSecret),
 	)
-	posAuthSvc := service.NewPOSAuthService(businessRepo, outletRepo, tokenMaker, businessManager)
+	posAuthSvc := service.NewPOSAuthService(businessRepo, outletRepo, tokenMaker, businessManager, policyEngine)
 	// Aturan retur hidup di layanannya sendiri ([11 §M13.6]) dan dipakai DUA
 	// pemanggil: jalur sinkronisasi dan endpoint `returnable`. Satu instance
 	// untuk keduanya memastikan tidak ada versi aturan yang menyimpang.
 	returnSvc := service.NewReturnService(
 		returnRepo, posRepo, productRepo, rawMaterialRepo, txManager,
+		service.WithReturnStaffRepository(staffRepo),
+		service.WithReturnPolicyEngine(policyEngine),
 	)
 
 	// Rekonsiliasi shift hidup di layanannya sendiri ([11 §M15.3]): angka
@@ -162,6 +164,7 @@ func main() {
 		service.WithSecurityEventRepository(securityEventRepo),
 		service.WithMasterVersionRepository(masterVersionRepo),
 		service.WithShiftReconcileService(shiftReconcileSvc),
+		service.WithPOSPolicyEngine(policyEngine),
 	)
 	reportSvc := service.NewReportService(
 		reportRepo,

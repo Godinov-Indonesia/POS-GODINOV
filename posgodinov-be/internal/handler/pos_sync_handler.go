@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"posgodinov-backend/internal/domain"
@@ -138,10 +139,20 @@ func (h *POSSyncHandler) GetTransactions(w http.ResponseWriter, r *http.Request)
 
 	limit := 50
 	offset := 0
-	
-	// Optional: parse limit and offset from query params
-	// if l := r.URL.Query().Get("limit"); l != "" { ... }
-	// if o := r.URL.Query().Get("offset"); o != "" { ... }
+
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			if parsed > 200 {
+				parsed = 200
+			}
+			limit = parsed
+		}
+	}
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
 
 	res, err := h.service.GetTransactions(r.Context(), outletID, limit, offset)
 	if err != nil {

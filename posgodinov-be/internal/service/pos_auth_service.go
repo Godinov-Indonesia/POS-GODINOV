@@ -13,10 +13,11 @@ import (
 )
 
 type posAuthService struct {
-	businessRepo domain.BusinessRepository
+	businessRepo    domain.BusinessRepository
 	outletRepo      domain.OutletRepository
 	tokenMaker      token.TokenMaker
 	businessManager *database.BusinessDBManager
+	policyEngine    domain.PolicyEngine
 }
 
 func NewPOSAuthService(
@@ -24,12 +25,18 @@ func NewPOSAuthService(
 	outletRepo domain.OutletRepository,
 	tokenMaker token.TokenMaker,
 	businessManager *database.BusinessDBManager,
+	policyEngines ...domain.PolicyEngine,
 ) domain.POSAuthService {
+	var pe domain.PolicyEngine
+	if len(policyEngines) > 0 {
+		pe = policyEngines[0]
+	}
 	return &posAuthService{
 		businessRepo:    businessRepo,
 		outletRepo:      outletRepo,
 		tokenMaker:      tokenMaker,
 		businessManager: businessManager,
+		policyEngine:    pe,
 	}
 }
 
@@ -47,6 +54,12 @@ func (s *posAuthService) BindDevice(ctx context.Context, req *domain.DeviceBindR
 	err = bcrypt.CompareHashAndPassword([]byte(*business.Password), []byte(req.Password))
 	if err != nil {
 		return nil, errors.New("kredensial bisnis tidak valid")
+	}
+
+	if s.policyEngine != nil {
+		if policy, pErr := s.policyEngine.GetEffectivePolicy(ctx, business.ID); pErr == nil && policy != nil && policy.Status == "SUSPENDED" {
+			return nil, errors.New("akun bisnis Anda ditangguhkan (SUSPENDED), silakan hubungi customer support")
+		}
 	}
 
 	businessCtx := ctx
@@ -78,13 +91,14 @@ func (s *posAuthService) BindDevice(ctx context.Context, req *domain.DeviceBindR
 		return nil, errors.New("scope perangkat tidak dikenal: harus 'POS' atau 'OPNAME'")
 	}
 
-	// 5. Generate Device Token (Long lived token, e.g. 10 years ~ 87600 hours)
+	// 5. Generate Device Token (90 days ~ 2160 hours)
 	deviceToken, err := s.tokenMaker.CreateToken(token.Payload{
-		ID:    outlet.ID,
-		Email: business.ID, // We store BusinessID in Email field for convenience in middleware
-		Type:  "device",
-		Scope: scope,
-	}, 87600*time.Hour)
+		ID:         outlet.ID,
+		Email:      business.ID, // We store BusinessID in Email field for convenience in middleware
+		BusinessID: business.ID,
+		Type:       "device",
+		Scope:      scope,
+	}, 2160*time.Hour)
 	
 	if err != nil {
 		return nil, errors.New("gagal membuat device token")

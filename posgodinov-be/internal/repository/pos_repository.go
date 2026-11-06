@@ -38,6 +38,9 @@ func (r *posRepository) SaveShift(ctx context.Context, shift *domain.Shift) erro
 	db := database.GetDB(ctx, r.db)
 	return db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "id"}},
+		Where: clause.Where{Exprs: []clause.Expression{
+			clause.Expr{SQL: "shifts.outlet_id = EXCLUDED.outlet_id AND (shifts.status <> ? OR EXCLUDED.status = ?)", Vars: []any{domain.ShiftStatusClosed, domain.ShiftStatusClosed}},
+		}},
 		DoUpdates: clause.AssignmentColumns([]string{
 			"closing_balance", "status", "client_closed_at",
 

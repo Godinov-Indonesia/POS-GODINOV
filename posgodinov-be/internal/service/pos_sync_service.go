@@ -97,6 +97,10 @@ func WithShiftReconcileService(r domain.ShiftReconcileService) POSSyncOption {
 	return func(s *posSyncService) { s.shiftReconcile = r }
 }
 
+func WithPOSPolicyEngine(pe domain.PolicyEngine) POSSyncOption {
+	return func(s *posSyncService) { s.stock.policyEngine = pe }
+}
+
 func (s *posSyncService) GetMasterData(ctx context.Context, businessID, outletID string) (*domain.SyncMasterDataResponse, error) {
 	// Peringatan: Kita harus memastikan Outlet ini benar milik BusinessID yang melakukan request.
 	// Namun pengecekan ownership ini idealnya dilakukan di middleware/handler menggunakan token.
@@ -163,6 +167,22 @@ func (s *posSyncService) GetMasterData(ctx context.Context, businessID, outletID
 		}
 	}
 
+	cfg := domain.DefaultPOSConfig()
+	for _, st := range staffs {
+		if st.HasPermission(domain.PermissionKioskExit) && st.PINHash != "" {
+			cfg.KioskExitPINHash = st.PINHash
+			break
+		}
+	}
+	if cfg.KioskExitPINHash == "" {
+		for _, st := range posStaffs {
+			if st.PINHash != "" {
+				cfg.KioskExitPINHash = st.PINHash
+				break
+			}
+		}
+	}
+
 	return &domain.SyncMasterDataResponse{
 		Version:    version,
 		Staffs:     posStaffs,
@@ -170,7 +190,7 @@ func (s *posSyncService) GetMasterData(ctx context.Context, businessID, outletID
 		Products:   posProducts,
 		// ⚠️ Payload ini SENGAJA tidak memuat stok apa pun. Butir 3 gugur
 		// seketika bila stok sistem hadir di perangkat kasir atau opname.
-		Config: domain.DefaultPOSConfig(),
+		Config: cfg,
 	}, nil
 }
 
@@ -276,6 +296,14 @@ func (s *posSyncService) syncShifts(ctx context.Context, businessID, outletID st
 		}
 
 		err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
+			if existing, gerr := s.posRepo.GetShiftByID(txCtx, shift.ID); gerr == nil && existing != nil {
+				if existing.OutletID != "" && existing.OutletID != outletID {
+					return errors.New("shift milik outlet lain")
+				}
+				if existing.Status == domain.ShiftStatusClosed && shift.Status == domain.ShiftStatusOpen {
+					return errors.New("shift yang sudah ditutup tidak dapat dibuka kembali")
+				}
+			}
 			return s.posRepo.SaveShift(txCtx, shift)
 		})
 		if err != nil {
@@ -324,6 +352,19 @@ func (s *posSyncService) syncTransactions(ctx context.Context, businessID, outle
 		// Agregat retur DIHITUNG SERVER dari tabel `returns` (M13.6). Nilai
 		// kiriman klien hanya cache tampilan dan tidak boleh dipercaya.
 		trx.ReturnState = domain.ReturnStateNone
+
+		hasInvalidItem := false
+		for _, item := range trx.Items {
+			if item.Quantity <= 0 || item.UnitPrice < 0 {
+				hasInvalidItem = true
+				break
+			}
+		}
+		if hasInvalidItem {
+			resp.AddError(domain.EntityTransaction, trx.ID, domain.ErrCodeInvalidPayload,
+				"kuantitas item transaksi harus > 0 dan harga >= 0", false)
+			continue
+		}
 
 		payments, verr := s.prepareTenders(trx)
 		if verr != nil {
@@ -562,6 +603,15 @@ func (s *posSyncService) syncVoidLogs(ctx context.Context, businessID, outletID 
 			resp.AddError(domain.EntityVoidLog, log.ID, domain.ErrCodeInvalidPayload, err.Error(), false)
 			continue
 		}
+		if log.AuthorizedBy != nil && *log.AuthorizedBy != "" && s.staffRepo != nil {
+			if approver, serr := s.staffRepo.GetByID(ctx, *log.AuthorizedBy); serr == nil && approver != nil {
+				if (approver.OutletID != "" && approver.OutletID != outletID) || !approver.HasPermission(domain.PermissionVoidApprove) {
+					resp.AddError(domain.EntityVoidLog, log.ID, domain.ErrCodeInvalidPayload,
+						"otorisasi void ditolak: staf bukan supervisor atau tidak memiliki izin VOID_APPROVE", false)
+					continue
+				}
+			}
+		}
 		err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 			return s.voidLogRepo.Save(txCtx, log)
 		})
@@ -579,6 +629,12 @@ func (s *posSyncService) syncWastes(ctx context.Context, businessID, outletID st
 	for _, waste := range req.Wastes {
 		waste.BusinessID = businessID
 		waste.OutletID = outletID
+
+		if waste.Quantity <= 0 {
+			resp.AddError(domain.EntityWaste, waste.ID, domain.ErrCodeInvalidPayload,
+				"kuantitas waste harus lebih besar dari nol", false)
+			continue
+		}
 
 		err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
 			existingWaste, err := s.posRepo.GetProductWasteByID(txCtx, waste.ID)
@@ -687,8 +743,8 @@ func (s *posSyncService) GetTransactions(ctx context.Context, outletID string, l
 	if limit <= 0 {
 		limit = 50 // default limit
 	}
-	if limit > 100 {
-		limit = 100 // max limit
+	if limit > 200 {
+		limit = 200 // max limit
 	}
 	
 	return s.posRepo.GetTransactions(ctx, outletID, limit, offset)

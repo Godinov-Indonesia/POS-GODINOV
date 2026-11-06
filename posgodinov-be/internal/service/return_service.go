@@ -32,6 +32,7 @@ import (
 type returnService struct {
 	returnRepo domain.ReturnRepository
 	posRepo    domain.POSRepository
+	staffRepo  domain.StaffRepository
 	stock      bomStockAdjuster
 	txManager  database.TransactionManager
 	now        func() time.Time
@@ -75,6 +76,14 @@ func WithReturnIDGenerator(gen func() string) ReturnServiceOption {
 	return func(s *returnService) { s.newID = gen }
 }
 
+func WithReturnStaffRepository(r domain.StaffRepository) ReturnServiceOption {
+	return func(s *returnService) { s.staffRepo = r }
+}
+
+func WithReturnPolicyEngine(pe domain.PolicyEngine) ReturnServiceOption {
+	return func(s *returnService) { s.stock.policyEngine = pe }
+}
+
 /* ── Create ───────────────────────────────────────────────────────────────── */
 
 func (s *returnService) Create(ctx context.Context, businessID, outletID string, ret *domain.Return) error {
@@ -83,6 +92,14 @@ func (s *returnService) Create(ctx context.Context, businessID, outletID string,
 
 	if err := ret.Validate(); err != nil {
 		return err
+	}
+	if s.staffRepo != nil && ret.AuthorizedBy != nil && *ret.AuthorizedBy != "" {
+		if approver, serr := s.staffRepo.GetByID(ctx, *ret.AuthorizedBy); serr == nil && approver != nil {
+			if (approver.OutletID != "" && approver.OutletID != outletID) || !approver.HasPermission(domain.PermissionReturnApprove) {
+				return domain.NewSyncFieldError("authorized_by",
+					"otorisasi retur ditolak: staf bukan supervisor atau tidak memiliki izin RETURN_APPROVE")
+			}
+		}
 	}
 
 	return s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
@@ -252,7 +269,7 @@ func (s *returnService) applyStockMovement(ctx context.Context, ret *domain.Retu
 
 		if item.Restock {
 			// `+1`: barang kembali ke rak, bahan bakunya kembali ke stok.
-			if err := s.stock.applyToProduct(ctx, item.ProductID, item.Quantity, +1); err != nil {
+			if err := s.stock.applyToProduct(ctx, item.ProductID, item.Quantity, +1, ret.OutletID, ret.BusinessID); err != nil {
 				return err
 			}
 			continue

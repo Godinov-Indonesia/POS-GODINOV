@@ -53,6 +53,24 @@ func (Staff) TableName() string {
 	return "users"
 }
 
+// HasPermission memeriksa apakah staf memiliki peran supervisor/manajer/admin
+// atau izin granular tertentu.
+func (s *Staff) HasPermission(perm string) bool {
+	if s == nil || !s.IsActive || s.IsDeleted {
+		return false
+	}
+	switch s.Role {
+	case RoleSupervisor, RoleManager, RoleAdmin:
+		return true
+	}
+	for _, p := range s.Permissions {
+		if p == perm {
+			return true
+		}
+	}
+	return false
+}
+
 type CreateStaffRequest struct {
 	OutletID        string     `json:"outlet_id"`
 	StaffIdentifier string     `json:"staff_identifier"`

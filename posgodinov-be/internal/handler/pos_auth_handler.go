@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/pkg/response"
@@ -30,6 +31,10 @@ func (h *POSAuthHandler) BindDevice(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.service.BindDevice(r.Context(), &req)
 	if err != nil {
+		if strings.Contains(err.Error(), "SUSPENDED") {
+			response.Error(w, http.StatusForbidden, err.Error(), nil)
+			return
+		}
 		response.Error(w, http.StatusUnauthorized, err.Error(), nil)
 		return
 	}

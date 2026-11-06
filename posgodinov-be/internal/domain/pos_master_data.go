@@ -51,8 +51,9 @@ type POSConfig struct {
 	BlindCloseEnabled  bool `json:"blind_close_enabled"`  // butir 9
 	BlindOpnameEnabled bool `json:"blind_opname_enabled"` // butir 3
 
-	KioskExitPermission string `json:"kiosk_exit_permission"` // butir 14
-	HistoryScope        string `json:"history_scope"`         // butir 16
+	KioskExitPermission string `json:"kiosk_exit_permission"`            // butir 14
+	KioskExitPINHash    string `json:"kiosk_exit_pin_hash,omitempty"` // hash PIN keluar kiosk
+	HistoryScope        string `json:"history_scope"`                  // butir 16
 
 	MasterDataMaxAgeMinutes int `json:"master_data_max_age_minutes"` // butir 10
 }

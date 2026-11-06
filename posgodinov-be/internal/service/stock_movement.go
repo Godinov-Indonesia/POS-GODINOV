@@ -3,6 +3,7 @@ package service
 import (
 	"cmp"
 	"context"
+	"errors"
 	"math"
 	"slices"
 
@@ -26,8 +27,9 @@ import (
 // selesai. Dipanggil di luar transaksi, kuncinya dilepas begitu kueri selesai
 // dan dua sinkronisasi bersamaan dapat saling menimpa.
 type bomStockAdjuster struct {
-	productRepo domain.ProductRepository
-	rawMatRepo  domain.RawMaterialRepository
+	productRepo  domain.ProductRepository
+	rawMatRepo   domain.RawMaterialRepository
+	policyEngine domain.PolicyEngine
 }
 
 // applyToProduct menambah (`sign = +1`) atau mengurangi (`sign = -1`) stok
@@ -45,14 +47,26 @@ func (a bomStockAdjuster) applyToProduct(
 	productID string,
 	quantity int,
 	sign float64,
+	scope ...string,
 ) error {
 	if quantity == 0 {
 		return nil
 	}
+	if quantity < 0 {
+		return errors.New("kuantitas item harus lebih besar dari nol")
+	}
 
 	product, err := a.productRepo.GetByID(ctx, productID)
-	if err != nil {
+	if err != nil || product == nil {
 		return nil // produk sudah tidak ada — lihat catatan di atas
+	}
+	if len(scope) > 0 && scope[0] != "" && product.OutletID != "" && product.OutletID != scope[0] {
+		return errors.New("produk bukan milik outlet ini")
+	}
+
+	allowAutoUnpack := true
+	if a.policyEngine != nil && len(scope) > 1 && scope[1] != "" {
+		allowAutoUnpack = a.policyEngine.AssertFeature(ctx, scope[1], "dual_stock_auto_unpack") == nil
 	}
 
 	recipes := slices.Clone(product.Recipes)
@@ -71,8 +85,8 @@ func (a bomStockAdjuster) applyToProduct(
 		delta := recipe.Quantity * float64(quantity)
 
 		if sign < 0 {
-			// Pengurangan stok: potong dari loose_stock dulu, auto-unpack jika kurang
-			if rm.LooseStock < delta && rm.PackageStock > 0 && rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
+			// Pengurangan stok: potong dari loose_stock dulu, auto-unpack jika kurang & fitur diizinkan paket
+			if allowAutoUnpack && rm.LooseStock < delta && rm.PackageStock > 0 && rm.QuantityPerPackage != nil && *rm.QuantityPerPackage > 0 {
 				deficit := delta - rm.LooseStock
 				qtyPerPkg := *rm.QuantityPerPackage
 				packagesNeeded := int(math.Ceil(deficit / qtyPerPkg))
@@ -114,7 +128,7 @@ func (a bomStockAdjuster) applyTransaction(
 	sign float64,
 ) error {
 	for _, item := range trx.Items {
-		if err := a.applyToProduct(ctx, item.ProductID, item.Quantity, sign); err != nil {
+		if err := a.applyToProduct(ctx, item.ProductID, item.Quantity, sign, trx.OutletID, trx.BusinessID); err != nil {
 			return err
 		}
 	}
@@ -127,5 +141,5 @@ func (a bomStockAdjuster) applyTransaction(
 // stoknya memang sudah terpotong saat penjualan; memotongnya lagi akan
 // menghitung barang yang sama dua kali. Lihat `returnService.applyStockMovement`.
 func (a bomStockAdjuster) deductWaste(ctx context.Context, waste *domain.ProductWaste) error {
-	return a.applyToProduct(ctx, waste.ProductID, waste.Quantity, -1)
+	return a.applyToProduct(ctx, waste.ProductID, waste.Quantity, -1, waste.OutletID, waste.BusinessID)
 }
