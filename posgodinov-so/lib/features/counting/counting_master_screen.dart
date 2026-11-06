@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/di/injection.dart';
@@ -205,6 +206,9 @@ class _CountingMasterScreenState extends State<CountingMasterScreen> {
         packageQty,
         notes,
       }) {
+        final previous = existing == null
+            ? null
+            : Map<String, dynamic>.from(existing);
         setState(() {
           _myCounts[matId] = {
             'actual_stock': actualStock,
@@ -216,7 +220,7 @@ class _CountingMasterScreenState extends State<CountingMasterScreen> {
         });
 
         // Trigger sync in background with exact backend payload
-        _syncCountEntry(matId, actualPackages, actualLoose, notes);
+        _syncCountEntry(matId, actualPackages, actualLoose, notes, previous);
       },
     );
   }
@@ -226,6 +230,7 @@ class _CountingMasterScreenState extends State<CountingMasterScreen> {
     int actualPackages,
     double actualLoose,
     String? notes,
+    Map<String, dynamic>? previous,
   ) async {
     setState(() => _isSyncing = true);
     try {
@@ -241,8 +246,26 @@ class _CountingMasterScreenState extends State<CountingMasterScreen> {
           }
         ],
       );
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 403 || status == 409) {
+        if (!mounted) return;
+        setState(() {
+          if (previous != null) {
+            _myCounts[matId] = previous;
+          } else {
+            _myCounts.remove(matId);
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppTheme.dangerColor,
+            content: Text(ErrorFormatter.format(e)),
+          ),
+        );
+      }
     } catch (_) {
-      // Offline: kept locally in memory and local SQLite
+      // Offline: kept locally in memory
     } finally {
       if (mounted) setState(() => _isSyncing = false);
     }
