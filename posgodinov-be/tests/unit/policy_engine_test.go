@@ -38,6 +38,13 @@ func (m *mockSaaSRepository) GetPlanByCode(ctx context.Context, code string) (*d
 	return nil, nil
 }
 
+func (m *mockSaaSRepository) UpdatePlan(ctx context.Context, plan *domain.Plan) error {
+	if m.sub != nil {
+		m.sub.Plan = plan
+	}
+	return nil
+}
+
 func (m *mockSaaSRepository) UpdatePlanFeature(ctx context.Context, pf *domain.PlanFeature) error {
 	return nil
 }

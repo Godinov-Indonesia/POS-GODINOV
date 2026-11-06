@@ -143,6 +143,14 @@ func (m *mockFeatureSaaSRepo) GetPlanByCode(ctx context.Context, code string) (*
 	return nil, nil
 }
 
+func (m *mockFeatureSaaSRepo) UpdatePlan(ctx context.Context, plan *domain.Plan) error {
+	if m.plans == nil {
+		m.plans = make(map[string]*domain.Plan)
+	}
+	m.plans[plan.ID] = plan
+	return nil
+}
+
 func (m *mockFeatureSaaSRepo) UpdatePlanFeature(ctx context.Context, pf *domain.PlanFeature) error {
 	if m.sub != nil && m.sub.Plan != nil && m.sub.Plan.ID == pf.PlanID {
 		for i, f := range m.sub.Plan.Features {
@@ -452,6 +460,7 @@ func setupLandlordFeatureTest(opts ...service.LandlordOption) (
 	mux.HandleFunc("GET /v1/landlord/auth/me", landlordMw(landlordHandler.GetMe))
 	mux.HandleFunc("POST /v1/landlord/businesses/{id}/impersonate", landlordMw(landlordHandler.Impersonate))
 	mux.HandleFunc("POST /v1/landlord/businesses/{id}/overrides", landlordMw(landlordHandler.CreateOverride))
+	mux.HandleFunc("PUT /v1/landlord/plans/{id}", landlordMw(landlordHandler.UpdatePlan))
 	mux.HandleFunc("PUT /v1/landlord/plans/{id}/features/{feature_key}", landlordMw(landlordHandler.UpdatePlanFeature))
 	mux.HandleFunc("POST /v1/landlord/businesses/{id}/suspend", landlordMw(landlordHandler.SuspendBusiness))
 	mux.HandleFunc("POST /v1/landlord/businesses/{id}/unsuspend", landlordMw(landlordHandler.UnsuspendBusiness))
@@ -851,6 +860,100 @@ func TestLandlordUpdatePlanFeature_InvalidatesPlanCache(t *testing.T) {
 	}
 	if pol2.NumericLimit["max_outlets"] != 3 {
 		t.Fatalf("expected updated max_outlets to be 3 after InvalidatePlan, got %d", pol2.NumericLimit["max_outlets"])
+	}
+}
+
+func TestLandlordUpdatePlanPrice_Success(t *testing.T) {
+	mux, tokenMaker, landlordRepo, saasRepo, _, _, _ := setupLandlordFeatureTest()
+
+	landlordToken, _ := tokenMaker.CreateToken(token.Payload{
+		ID:    "admin-1",
+		Email: "admin@godinov.com",
+		Type:  "landlord",
+		Role:  "SUPERADMIN",
+	}, time.Hour)
+
+	saasRepo.plans = map[string]*domain.Plan{
+		"plan_pro": {
+			ID:         "plan_pro",
+			Code:       "PRO",
+			Name:       "Pro Tier",
+			PriceMinor: 100000,
+		},
+	}
+
+	// Update price of plan_pro
+	newPrice := int64(175000)
+	newName := "Pro Tier Premium"
+	updateBody, _ := json.Marshal(domain.UpdatePlanRequest{
+		PriceMinor: &newPrice,
+		Name:       &newName,
+	})
+
+	req := httptest.NewRequest(http.MethodPut, "/v1/landlord/plans/plan_pro", bytes.NewBuffer(updateBody))
+	req.SetPathValue("id", "plan_pro")
+	req.Header.Set("Authorization", "Bearer "+landlordToken)
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for update plan, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Verify plan was updated in saasRepo
+	plan, err := saasRepo.GetPlanByID(context.Background(), "plan_pro")
+	if err != nil {
+		t.Fatalf("unexpected error fetching plan: %v", err)
+	}
+	if plan.PriceMinor != 175000 {
+		t.Errorf("expected price_minor to be 175000, got %d", plan.PriceMinor)
+	}
+	if plan.Name != "Pro Tier Premium" {
+		t.Errorf("expected name to be Pro Tier Premium, got %s", plan.Name)
+	}
+
+	// Verify audit log created
+	if len(landlordRepo.auditLogs) == 0 {
+		t.Fatalf("expected audit log to be recorded")
+	}
+	lastLog := landlordRepo.auditLogs[len(landlordRepo.auditLogs)-1]
+	if lastLog.Action != "UPDATE_PLAN" || lastLog.TargetID != "plan_pro" {
+		t.Errorf("expected audit log UPDATE_PLAN for plan_pro, got action=%s target=%s", lastLog.Action, lastLog.TargetID)
+	}
+}
+
+func TestLandlordUpdatePlanPrice_NegativePrice(t *testing.T) {
+	mux, tokenMaker, _, saasRepo, _, _, _ := setupLandlordFeatureTest()
+
+	landlordToken, _ := tokenMaker.CreateToken(token.Payload{
+		ID:    "admin-1",
+		Email: "admin@godinov.com",
+		Type:  "landlord",
+		Role:  "SUPERADMIN",
+	}, time.Hour)
+
+	saasRepo.plans = map[string]*domain.Plan{
+		"plan_pro": {
+			ID:         "plan_pro",
+			Code:       "PRO",
+			Name:       "Pro Tier",
+			PriceMinor: 100000,
+		},
+	}
+
+	negPrice := int64(-5000)
+	updateBody, _ := json.Marshal(domain.UpdatePlanRequest{
+		PriceMinor: &negPrice,
+	})
+
+	req := httptest.NewRequest(http.MethodPut, "/v1/landlord/plans/plan_pro", bytes.NewBuffer(updateBody))
+	req.SetPathValue("id", "plan_pro")
+	req.Header.Set("Authorization", "Bearer "+landlordToken)
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request for negative price, got %d", rr.Code)
 	}
 }
 

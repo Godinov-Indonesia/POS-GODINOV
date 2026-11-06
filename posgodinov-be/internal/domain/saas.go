@@ -34,6 +34,16 @@ type Plan struct {
 	Features     []PlanFeature `json:"features,omitempty" gorm:"foreignKey:PlanID"`
 }
 
+type UpdatePlanRequest struct {
+	Name         *string `json:"name,omitempty"`
+	Description  *string `json:"description,omitempty"`
+	PriceMinor   *int64  `json:"price_minor,omitempty"`
+	BillingCycle *string `json:"billing_cycle,omitempty"`
+	IsPublic     *bool   `json:"is_public,omitempty"`
+	IsActive     *bool   `json:"is_active,omitempty"`
+	SortOrder    *int    `json:"sort_order,omitempty"`
+}
+
 type PlanFeature struct {
 	ID          string       `json:"id" gorm:"primaryKey;column:id"`
 	PlanID      string       `json:"plan_id" gorm:"column:plan_id"`
@@ -171,6 +181,7 @@ type SaaSRepository interface {
 	ListPlans(ctx context.Context, publicOnly bool) ([]Plan, error)
 	GetPlanByID(ctx context.Context, id string) (*Plan, error)
 	GetPlanByCode(ctx context.Context, code string) (*Plan, error)
+	UpdatePlan(ctx context.Context, plan *Plan) error
 	UpdatePlanFeature(ctx context.Context, pf *PlanFeature) error
 	GetBusinessIDsByPlanID(ctx context.Context, planID string) ([]string, error)
 

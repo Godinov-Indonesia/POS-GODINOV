@@ -44,6 +44,10 @@ func (m *mockDunningSaaSRepo) GetPlanByCode(ctx context.Context, code string) (*
 	}
 	return nil, nil
 }
+func (m *mockDunningSaaSRepo) UpdatePlan(ctx context.Context, plan *domain.Plan) error {
+	m.freePlan = plan
+	return nil
+}
 func (m *mockDunningSaaSRepo) UpdatePlanFeature(ctx context.Context, pf *domain.PlanFeature) error {
 	return nil
 }

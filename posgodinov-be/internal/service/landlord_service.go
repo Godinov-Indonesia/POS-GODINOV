@@ -29,6 +29,7 @@ type LandlordService interface {
 	// Manajemen Fitur & Paket
 	ListFeatures(ctx context.Context) ([]domain.SaaSFeature, error)
 	ListPlans(ctx context.Context) ([]domain.Plan, error)
+	UpdatePlan(ctx context.Context, adminID, planID string, req *domain.UpdatePlanRequest) (*domain.Plan, error)
 	UpdatePlanFeature(ctx context.Context, adminID, planID, featureKey string, isEnabled bool, limitValue int64, extraConfig domain.JSONB) error
 
 	// Tenant Overrides
@@ -246,6 +247,67 @@ func (s *landlordService) ListFeatures(ctx context.Context) ([]domain.SaaSFeatur
 
 func (s *landlordService) ListPlans(ctx context.Context) ([]domain.Plan, error) {
 	return s.saasRepo.ListPlans(ctx, false)
+}
+
+func (s *landlordService) UpdatePlan(ctx context.Context, adminID, planID string, req *domain.UpdatePlanRequest) (*domain.Plan, error) {
+	if req == nil {
+		return nil, errors.New("permintaan tidak valid")
+	}
+
+	plan, err := s.saasRepo.GetPlanByID(ctx, planID)
+	if err != nil {
+		return nil, fmt.Errorf("paket tidak ditemukan: %w", err)
+	}
+	if plan == nil {
+		return nil, errors.New("paket tidak ditemukan")
+	}
+
+	if req.PriceMinor != nil {
+		if *req.PriceMinor < 0 {
+			return nil, errors.New("harga paket tidak boleh negatif")
+		}
+		plan.PriceMinor = *req.PriceMinor
+	}
+	if req.Name != nil && strings.TrimSpace(*req.Name) != "" {
+		plan.Name = strings.TrimSpace(*req.Name)
+	}
+	if req.Description != nil {
+		plan.Description = *req.Description
+	}
+	if req.BillingCycle != nil && strings.TrimSpace(*req.BillingCycle) != "" {
+		plan.BillingCycle = strings.ToUpper(strings.TrimSpace(*req.BillingCycle))
+	}
+	if req.IsPublic != nil {
+		plan.IsPublic = *req.IsPublic
+	}
+	if req.IsActive != nil {
+		plan.IsActive = *req.IsActive
+	}
+	if req.SortOrder != nil {
+		plan.SortOrder = *req.SortOrder
+	}
+
+	if err := s.saasRepo.UpdatePlan(ctx, plan); err != nil {
+		return nil, fmt.Errorf("gagal memperbarui paket: %w", err)
+	}
+
+	if err := s.policyEngine.InvalidatePlan(ctx, planID); err != nil {
+		s.policyEngine.InvalidateCache("")
+	}
+
+	meta, _ := json.Marshal(map[string]interface{}{
+		"plan_code":   plan.Code,
+		"price_minor": plan.PriceMinor,
+	})
+	_ = s.landlordRepo.CreateAuditLog(ctx, &domain.LandlordAuditLog{
+		UserID:     adminID,
+		Action:     "UPDATE_PLAN",
+		TargetType: "PLAN",
+		TargetID:   planID,
+		Metadata:   domain.JSONB(meta),
+	})
+
+	return plan, nil
 }
 
 func (s *landlordService) UpdatePlanFeature(ctx context.Context, adminID, planID, featureKey string, isEnabled bool, limitValue int64, extraConfig domain.JSONB) error {

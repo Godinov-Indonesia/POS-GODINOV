@@ -45,6 +45,7 @@ func (m *mockACIDSaaSRepo) ListFeatures(ctx context.Context) ([]domain.SaaSFeatu
 func (m *mockACIDSaaSRepo) ListPlans(ctx context.Context, publicOnly bool) ([]domain.Plan, error) { return nil, nil }
 func (m *mockACIDSaaSRepo) GetPlanByID(ctx context.Context, id string) (*domain.Plan, error) { return m.plan, nil }
 func (m *mockACIDSaaSRepo) GetPlanByCode(ctx context.Context, code string) (*domain.Plan, error) { return m.plan, nil }
+func (m *mockACIDSaaSRepo) UpdatePlan(ctx context.Context, plan *domain.Plan) error { m.plan = plan; return nil }
 func (m *mockACIDSaaSRepo) UpdatePlanFeature(ctx context.Context, pf *domain.PlanFeature) error { return nil }
 func (m *mockACIDSaaSRepo) GetBusinessIDsByPlanID(ctx context.Context, planID string) ([]string, error) { return nil, nil }
 

@@ -87,6 +87,7 @@ func SetupRouter(
 	mux.HandleFunc("POST /v1/landlord/businesses/{id}/impersonate", landlordChain(landlordHandler.Impersonate))
 	mux.HandleFunc("GET /v1/landlord/features", landlordChain(landlordHandler.ListFeatures))
 	mux.HandleFunc("GET /v1/landlord/plans", landlordChain(landlordHandler.ListPlans))
+	mux.HandleFunc("PUT /v1/landlord/plans/{id}", landlordChain(landlordHandler.UpdatePlan))
 	mux.HandleFunc("PUT /v1/landlord/plans/{id}/features/{feature_key}", landlordChain(landlordHandler.UpdatePlanFeature))
 	mux.HandleFunc("GET /v1/landlord/businesses/{id}/overrides", landlordChain(landlordHandler.ListOverrides))
 	mux.HandleFunc("POST /v1/landlord/businesses/{id}/overrides", landlordChain(landlordHandler.CreateOverride))

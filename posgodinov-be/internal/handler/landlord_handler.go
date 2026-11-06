@@ -103,6 +103,34 @@ func (h *LandlordHandler) ListPlans(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, "Daftar paket berhasil diambil", plans)
 }
 
+func (h *LandlordHandler) UpdatePlan(w http.ResponseWriter, r *http.Request) {
+	payload, _ := r.Context().Value(middleware.LandlordPayloadKey).(*token.Payload)
+	planID := r.PathValue("id")
+	if planID == "" {
+		response.Error(w, http.StatusBadRequest, "ID paket harus diisi", nil)
+		return
+	}
+
+	var req domain.UpdatePlanRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Permintaan tidak valid", nil)
+		return
+	}
+
+	adminID := ""
+	if payload != nil {
+		adminID = payload.ID
+	}
+
+	updatedPlan, err := h.svc.UpdatePlan(r.Context(), adminID, planID, &req)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Paket berhasil diperbarui", updatedPlan)
+}
+
 type updatePlanFeatureReq struct {
 	IsEnabled   bool         `json:"is_enabled"`
 	LimitValue  int64        `json:"limit_value"`

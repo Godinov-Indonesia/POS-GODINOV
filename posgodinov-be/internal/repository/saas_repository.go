@@ -63,6 +63,23 @@ func (r *postgresSaaSRepository) GetPlanByCode(ctx context.Context, code string)
 	return &plan, nil
 }
 
+func (r *postgresSaaSRepository) UpdatePlan(ctx context.Context, plan *domain.Plan) error {
+	db := database.GetDB(ctx, r.db)
+	plan.UpdatedAt = time.Now()
+	return db.WithContext(ctx).Model(&domain.Plan{}).
+		Where("id = ?", plan.ID).
+		Updates(map[string]interface{}{
+			"name":          plan.Name,
+			"description":   plan.Description,
+			"price_minor":   plan.PriceMinor,
+			"billing_cycle": plan.BillingCycle,
+			"is_public":     plan.IsPublic,
+			"is_active":     plan.IsActive,
+			"sort_order":    plan.SortOrder,
+			"updated_at":    plan.UpdatedAt,
+		}).Error
+}
+
 func (r *postgresSaaSRepository) UpdatePlanFeature(ctx context.Context, pf *domain.PlanFeature) error {
 	db := database.GetDB(ctx, r.db)
 	pf.UpdatedAt = time.Now()
