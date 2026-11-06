@@ -62,6 +62,7 @@ export default function TenantDetailPage() {
     onSuccess: () => {
       toast.success("Akun bisnis berhasil dibekukan");
       queryClient.invalidateQueries({ queryKey: ["tenant-detail", businessId] });
+      queryClient.invalidateQueries({ queryKey: ["landlord-tenants"] });
       setSuspendModalOpen(false);
       setSuspendReason("");
     },
@@ -79,6 +80,7 @@ export default function TenantDetailPage() {
     onSuccess: () => {
       toast.success("Akun bisnis berhasil diaktifkan kembali");
       queryClient.invalidateQueries({ queryKey: ["tenant-detail", businessId] });
+      queryClient.invalidateQueries({ queryKey: ["landlord-tenants"] });
     },
     onError: (err: Error) => {
       toast.error(err.message || "Gagal mengaktifkan akun");
@@ -212,7 +214,9 @@ export default function TenantDetailPage() {
   }
 
   const { business, subscription, wallet, overrides, effective_policy } = detail;
-  const isSuspended = business.status === "SUSPENDED";
+  const currentStatus =
+    subscription?.status || effective_policy?.status || business?.status || "ACTIVE";
+  const isSuspended = currentStatus === "SUSPENDED";
 
   return (
     <div className="space-y-6">

@@ -136,7 +136,7 @@ export interface BusinessDetailResponse {
     owner_name: string;
     phone_number?: string;
     address?: string;
-    status: string;
+    status?: string;
     created_at: string;
   };
   subscription?: Subscription;
@@ -144,6 +144,8 @@ export interface BusinessDetailResponse {
   overrides?: TenantFeatureOverride[];
   effective_policy?: {
     plan_code: string;
+    plan_name?: string;
+    status?: string;
     boolean_flags: Record<string, boolean>;
     numeric_limits: Record<string, number>;
   };
