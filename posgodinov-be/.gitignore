@@ -36,5 +36,5 @@ graphify-out
 *.log
 
 # Database Backup Dumps
-backups/
+/backups/
 *.sql.gz

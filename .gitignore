@@ -32,7 +32,7 @@ Thumbs.db
 /.qa-build/
 
 # Database Backup Dumps
-backups/
+/backups/
 *.sql.gz
 
 .idea
