@@ -11,6 +11,7 @@ import {
   ScrollText,
   LogOut,
   ShieldCheck,
+  Database,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,11 @@ const NAV_ITEMS = [
     label: "Audit Logs",
     href: "/audit-logs",
     icon: ScrollText,
+  },
+  {
+    label: "Database Backups",
+    href: "/backups",
+    icon: Database,
   },
 ];
 

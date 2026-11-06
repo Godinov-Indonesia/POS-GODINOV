@@ -218,3 +218,44 @@ export interface LandlordAuditLog {
   ip_address?: string;
   created_at: string;
 }
+
+export interface BackupJob {
+  id: string;
+  target_type: "ALL" | "LANDLORD" | "TENANT";
+  target_id?: string;
+  mode: "FULL" | "TABLES" | "FULL_AND_TABLES";
+  status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
+  total_dbs: number;
+  completed_dbs: number;
+  total_size_bytes: number;
+  storage_provider: "LOCAL" | "GDRIVE" | "BOTH";
+  error_message?: string;
+  triggered_by: string;
+  started_at?: string;
+  completed_at?: string;
+  created_at: string;
+  files?: BackupFile[];
+}
+
+export interface BackupFile {
+  id: string;
+  job_id: string;
+  db_name: string;
+  scope: "FULL" | "TABLE";
+  table_name?: string;
+  file_path: string;
+  file_size_bytes: number;
+  checksum_sha256: string;
+  storage_provider: string;
+  remote_file_id?: string;
+  remote_web_link?: string;
+  created_at: string;
+}
+
+export interface TriggerBackupPayload {
+  target: "ALL" | "LANDLORD" | "TENANT";
+  tenant_id?: string;
+  mode?: "FULL" | "TABLES" | "FULL_AND_TABLES";
+  storage_provider?: "LOCAL" | "GDRIVE" | "BOTH";
+  tables?: string[];
+}
