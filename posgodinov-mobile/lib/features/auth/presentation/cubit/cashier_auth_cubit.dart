@@ -55,6 +55,11 @@ class CashierAuthCubit extends Cubit<CashierAuthState> {
   /// Pesan kegagalan **disamakan** untuk identifier tidak dikenal maupun PIN
   /// salah. Membedakannya akan memberi tahu penyerang identifier mana yang sah.
   static const String _pesanGagal = 'ID atau PIN salah.';
+  static const int maxFailedAttempts = 5;
+  static const Duration lockoutDuration = Duration(seconds: 60);
+
+  int _failedAttempts = 0;
+  DateTime? _lockedUntil;
 
   CashierSession? get session {
     final CashierAuthState s = state;
@@ -68,6 +73,20 @@ class CashierAuthCubit extends Cubit<CashierAuthState> {
     // Mencegah ketukan ganda memicu dua isolate bcrypt sekaligus.
     if (state is CashierVerifying) return;
 
+    final DateTime? until = _lockedUntil;
+    if (until != null) {
+      if (DateTime.now().isBefore(until)) {
+        emit(
+          const CashierAuthFailure(
+            'Terlalu banyak percobaan PIN salah. Tunggu 60 detik.',
+          ),
+        );
+        return;
+      }
+      _lockedUntil = null;
+      _failedAttempts = 0;
+    }
+
     if (staffIdentifier.trim().isEmpty || pin.isEmpty) {
       emit(const CashierAuthFailure(_pesanGagal));
       return;
@@ -80,11 +99,27 @@ class CashierAuthCubit extends Cubit<CashierAuthState> {
       pin: pin,
     );
 
-    emit(
-      session == null
-          ? const CashierAuthFailure(_pesanGagal)
-          : CashierLoggedIn(session),
-    );
+    if (session == null) {
+      _failedAttempts++;
+      if (_failedAttempts >= maxFailedAttempts) {
+        _lockedUntil = DateTime.now().add(lockoutDuration);
+      }
+      emit(const CashierAuthFailure(_pesanGagal));
+      return;
+    }
+
+    if (await _lock?.isBlockedForStaff(session.staffId) ?? false) {
+      emit(
+        const CashierAuthFailure(
+          'Shift masih aktif atas nama kasir lain. Selesaikan tutup shift atau gunakan Force Close Supervisor.',
+        ),
+      );
+      return;
+    }
+
+    _failedAttempts = 0;
+    _lockedUntil = null;
+    emit(CashierLoggedIn(session));
   }
 
   /// Keluar sesi — **dapat DITOLAK** sejak M15.2 (butir 12).

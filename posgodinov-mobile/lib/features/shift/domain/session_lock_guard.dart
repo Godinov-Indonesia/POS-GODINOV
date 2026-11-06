@@ -61,6 +61,15 @@ class SessionLockGuard {
   /// benar-benar mencoba keluar — tenggelam di antara ratusan duplikat.
   Future<bool> isLockedSilently() async => await _shiftDao.openShift() != null;
 
+  /// `true` bila ada shift `OPEN` milik kasir LAIN (butir 12).
+  Future<bool> isBlockedForStaff(String staffId) async {
+    final LocalShift? shift = await _shiftDao.openShift();
+    if (shift == null || shift.staffId == staffId) return false;
+
+    await _record(shift, 'login:staff_switch_blocked:$staffId');
+    return true;
+  }
+
   Future<void> _record(LocalShift shift, String source) async {
     try {
       await _events.recordEvent(

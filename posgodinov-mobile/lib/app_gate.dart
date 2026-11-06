@@ -13,6 +13,9 @@ import 'package:posgodinov_mobile/features/device/presentation/pages/binding_pag
 import 'package:posgodinov_mobile/features/device/presentation/pages/master_sync_page.dart';
 import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/database/daos/sync_dao.dart';
+import 'package:posgodinov_mobile/core/database/daos/transaction_dao.dart';
+import 'package:posgodinov_mobile/core/network/api_client.dart';
+import 'package:posgodinov_mobile/core/network/interceptors/device_token_interceptor.dart';
 import 'package:posgodinov_mobile/core/printer/receipt_printer.dart';
 import 'package:posgodinov_mobile/core/sync/background_sync_worker.dart';
 import 'package:posgodinov_mobile/core/sync/sync_triggers.dart';
@@ -26,7 +29,15 @@ import 'package:posgodinov_mobile/features/shift/presentation/cubit/shift_cubit.
 import 'package:posgodinov_mobile/features/shift/presentation/pages/open_shift_page.dart';
 
 /// Tahapan gerbang, sesuai urutan [09 §8].
-enum GateStep { checking, binding, masterSync, cashierLogin, openShift, ready }
+enum GateStep {
+  checking,
+  binding,
+  masterSync,
+  cashierLogin,
+  openShift,
+  ready,
+  suspended,
+}
 
 /// **Gerbang navigasi awal.**
 ///
@@ -53,11 +64,30 @@ class AppGate extends StatefulWidget {
 
 class _AppGateState extends State<AppGate> {
   GateStep _step = GateStep.checking;
+  StreamSubscription<DeviceStatus>? _deviceStatusSub;
 
   @override
   void initState() {
     super.initState();
+    if (getIt.isRegistered<ApiClient>()) {
+      _deviceStatusSub = getIt<ApiClient>()
+          .deviceTokenInterceptor
+          .status
+          .listen((DeviceStatus status) {
+        if (status == DeviceStatus.rejected) {
+          _goTo(GateStep.binding);
+        } else if (status == DeviceStatus.suspended) {
+          _goTo(GateStep.suspended);
+        }
+      });
+    }
     unawaited(_evaluate());
+  }
+
+  @override
+  void dispose() {
+    unawaited(_deviceStatusSub?.cancel());
+    super.dispose();
   }
 
   /// Menentukan langkah berikutnya berdasarkan keadaan perangkat.
@@ -126,6 +156,7 @@ class _AppGateState extends State<AppGate> {
         GateStep.openShift =>
           _OpenShiftStep(onOpened: () => _goTo(GateStep.ready)),
         GateStep.ready => const _RegisterStep(),
+        GateStep.suspended => _SuspendedScreen(onRetry: _evaluate),
       },
     );
   }
@@ -187,6 +218,8 @@ class _RegisterStepState extends State<_RegisterStep> {
             // Memicu sinkronisasi tepat setelah transaksi tersimpan —
             // fire-and-forget; antrean tetap aman bila gagal ([09 §7.3]).
             onPersisted: () async => getIt<SyncTriggers>().onTransactionSaved(),
+            onReceiptPrinted: (String id) => getIt<TransactionDao>()
+                .markReceiptPrinted(id, DateTime.now().toUtc()),
           ),
         ),
       ],
@@ -248,5 +281,54 @@ class _Splash extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(body: Center(child: CircularProgressIndicator()));
+  }
+}
+
+class _SuspendedScreen extends StatelessWidget {
+  const _SuspendedScreen({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Icon(
+                  Icons.block_rounded,
+                  size: 64,
+                  color: Colors.redAccent,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Akun Bisnis Ditangguhkan',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Layanan bisnis Anda sedang berstatus SUSPENDED. '
+                  'Data transaksi lokal tetap tersimpan aman di perangkat. '
+                  'Silakan hubungi administrator atau dukungan pelanggan.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () => unawaited(onRetry()),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Coba Lagi'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:posgodinov_mobile/features/history/domain/entities/history_entry.dart';
 import 'package:posgodinov_mobile/features/history/presentation/cubit/history_cubit.dart';
+import 'package:posgodinov_mobile/features/history/presentation/pages/return_page.dart';
 import 'package:posgodinov_mobile/features/history/presentation/pages/void_page.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
 import 'package:posgodinov_mobile/shared/theme/app_theme.dart';
@@ -362,8 +363,38 @@ class _EntryTile extends StatelessWidget {
               //
               // ⛔ Retur hanya sah pada shift berjalan — transaksi dari shift
               // lampau yang sudah ditutup tidak dapat dibatalkan/diretur.
-              if (entry.canCancel && !entry.status.isCancellation) ...<Widget>[
-                if (activeShiftId != null &&
+              if (!entry.status.isCancellation) ...<Widget>[
+                if (fromLookup || entry.receiptPrintedAt != null) ...<Widget>[
+                  const SizedBox(width: Gap.destructive),
+                  Builder(
+                    builder: (BuildContext ctx) {
+                      return TextButton.icon(
+                        onPressed: () => Navigator.of(ctx).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => BlocProvider<HistoryCubit>.value(
+                              value: ctx.read<HistoryCubit>(),
+                              child: ReturnPage(entry: entry),
+                            ),
+                          ),
+                        ),
+                        icon: Icon(
+                          Icons.assignment_return_outlined,
+                          size: 18,
+                          color: t.warningText,
+                        ),
+                        label: Text(
+                          'Retur',
+                          style: PosText.sm.copyWith(color: t.warningText),
+                        ),
+                        style: TextButton.styleFrom(
+                          minimumSize:
+                              const Size(Touch.standard, Touch.standard),
+                        ),
+                      );
+                    },
+                  ),
+                ] else if (entry.canCancel &&
+                    activeShiftId != null &&
                     entry.shiftId != activeShiftId) ...<Widget>[
                   const SizedBox(width: Gap.destructive),
                   Row(
@@ -377,7 +408,7 @@ class _EntryTile extends StatelessWidget {
                       ),
                     ],
                   ),
-                ] else ...<Widget>[
+                ] else if (entry.canCancel) ...<Widget>[
                   const SizedBox(width: Gap.destructive),
                   Builder(
                     builder: (BuildContext ctx) {

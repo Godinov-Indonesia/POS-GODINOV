@@ -341,6 +341,18 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
+  /// Menandai transaksi bahwa struknya sudah tercetak (butir 15).
+  Future<void> markReceiptPrinted(String id, DateTime at) {
+    return db.customStatement(
+      'UPDATE transactions '
+      'SET receipt_printed_at = COALESCE(receipt_printed_at, ?), '
+      '    reprint_count = reprint_count + '
+      '        CASE WHEN receipt_printed_at IS NULL THEN 0 ELSE 1 END '
+      'WHERE id = ?',
+      <Object?>[at, id],
+    );
+  }
+
   /// Jumlah baris yang menuntut tindakan manusia.
   Stream<int> watchQuarantinedCount() {
     final Expression<int> count = db.transactions.id.count();

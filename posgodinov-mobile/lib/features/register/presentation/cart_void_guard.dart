@@ -1,6 +1,12 @@
+import 'dart:convert';
+
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/config/pos_config.dart';
+import 'package:posgodinov_mobile/core/database/app_database.dart';
+import 'package:posgodinov_mobile/core/database/daos/security_event_dao.dart';
 import 'package:posgodinov_mobile/core/database/daos/sync_dao.dart';
 import 'package:posgodinov_mobile/core/di/injection.dart';
 import 'package:posgodinov_mobile/core/sync/sync_triggers.dart';
@@ -8,6 +14,7 @@ import 'package:posgodinov_mobile/features/register/domain/entities/cart_line.da
 import 'package:posgodinov_mobile/features/register/domain/repositories/register_repository.dart';
 import 'package:posgodinov_mobile/features/register/presentation/cubit/cart_cubit.dart';
 import 'package:posgodinov_mobile/features/history/presentation/widgets/void_reason_sheet.dart';
+import 'package:uuid/uuid.dart';
 
 /// Gerbang penurunan kuantitas keranjang — **butir 5** ([11 §M13.4]).
 ///
@@ -66,6 +73,40 @@ class CartVoidGuard {
       return true;
     }
 
+    final PosConfig config = await PosConfig.read(getIt<SyncDao>());
+    if (cart
+        .canDecrementTo(line.id, nextQuantity, config.voidThresholdQty)
+        .allowed) {
+      cart.applyAudited(line.id, nextQuantity);
+      return true;
+    }
+
+    if (getIt.isRegistered<SecurityEventDao>()) {
+      try {
+        await getIt<SecurityEventDao>().record(
+          SecurityEventsCompanion.insert(
+            id: const Uuid().v4(),
+            shiftId: Value<String?>(shiftId),
+            staffId: Value<String?>(staffId),
+            eventType: SecurityEventType.qtyDecreaseEscalatedToVoid,
+            severity: SecuritySeverity.info,
+            detailsJson: Value<String>(
+              jsonEncode(<String, dynamic>{
+                'product_id': line.productId,
+                'product_name': line.productName,
+                'quantity_before': line.quantity,
+                'quantity_after': nextQuantity,
+                'threshold': config.voidThresholdQty,
+              }),
+            ),
+            clientCreatedAt: DateTime.now().toUtc(),
+          ),
+        );
+      } on Object {
+        // Kegagalan log event keamanan tidak menahan Void Sheet.
+      }
+    }
+
     if (!context.mounted) return false;
 
     final VoidReasonResult? result = await showVoidReasonSheet(
@@ -74,7 +115,7 @@ class CartVoidGuard {
       description: '$decrease unit ${line.productName} akan dibatalkan. '
           'Setiap pembatalan item tercatat pada audit dan mencetak struk void.',
       valueMinor: decrease * line.unitPriceMinor,
-      requiresAuth: true,
+      requiresAuth: config.requireSupervisorForVoid,
       submitLabel: 'Void & Cetak Struk',
     );
 
@@ -88,6 +129,8 @@ class CartVoidGuard {
       quantityAfter: nextQuantity,
       reasonCode: result.reasonCode,
       reasonNotes: result.reasonNotes,
+      authorizedBy: result.authorizedBy,
+      authorizedByName: result.authorizedByName,
       cashierName: cashierName,
     );
 
@@ -160,6 +203,8 @@ class CartVoidGuard {
         quantityAfter: 0,
         reasonCode: result.reasonCode,
         reasonNotes: result.reasonNotes,
+        authorizedBy: result.authorizedBy,
+        authorizedByName: result.authorizedByName,
         cashierName: cashierName,
       );
     }

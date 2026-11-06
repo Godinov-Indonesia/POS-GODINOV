@@ -42,13 +42,25 @@ class VoidPage extends StatefulWidget {
 class _VoidPageState extends State<VoidPage> {
   bool _busy = false;
 
-  CancellationDecision get _decision {
-    if (widget.entry.status.isCancellation) {
-      return const CancellationDecision.forbidden(
-          ForbiddenReason.alreadyVoided,);
-    }
-    return const CancellationDecision.void_(requiresAuth: true);
-  }
+  CancellationDecision get _decision => decideCancellation(
+        CancellableTransaction(
+          id: widget.entry.id,
+          status: widget.entry.status,
+          receiptPrintedAt: widget.entry.receiptPrintedAt,
+          items: <CancellableItem>[
+            for (int i = 0; i < widget.entry.lines.length; i++)
+              CancellableItem(
+                id: i < widget.entry.itemIds.length
+                    ? widget.entry.itemIds[i]
+                    : '',
+                productId: widget.entry.lines[i].productId,
+                productName: widget.entry.lines[i].productName,
+                quantity: widget.entry.lines[i].quantity,
+                unitPriceMinor: widget.entry.lines[i].unitPriceMinor,
+              ),
+          ],
+        ),
+      );
 
   Future<void> _submit() async {
     // Keputusan diambil ULANG tepat sebelum menulis: antara render dan ketukan,
@@ -93,6 +105,7 @@ class _VoidPageState extends State<VoidPage> {
           staffId: auth.session.staffId,
           reasonCode: result.reasonCode,
           reasonNotes: result.reasonNotes,
+          authorizedBy: result.authorizedBy,
           cashierName: auth.session.name,
           // Void masuk antrean; picu sinkronisasi agar stok segera dipulihkan.
           // Pembatalan memakai pemicunya sendiri agar `syncLog` mencatat

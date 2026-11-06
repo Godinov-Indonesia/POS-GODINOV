@@ -236,6 +236,8 @@ Future<void> _cancelHeldCart(
     staffId: auth.session.staffId,
     reasonCode: result.reasonCode,
     reasonNotes: result.reasonNotes,
+    authorizedBy: result.authorizedBy,
+    authorizedByName: result.authorizedByName,
     cashierName: auth.session.name,
   );
 

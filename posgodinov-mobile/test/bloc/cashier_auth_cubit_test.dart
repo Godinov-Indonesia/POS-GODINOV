@@ -179,4 +179,7 @@ class _AlwaysLockedGuard implements SessionLockGuard {
 
   @override
   Future<bool> isLockedSilently() async => true;
+
+  @override
+  Future<bool> isBlockedForStaff(String staffId) async => false;
 }

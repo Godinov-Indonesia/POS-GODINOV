@@ -94,6 +94,9 @@ class HistoryEntry extends Equatable {
         cancelNotes,
         synced,
         lines,
+        receiptPrintedAt,
+        itemIds,
+        shortCode,
       ];
 }
 

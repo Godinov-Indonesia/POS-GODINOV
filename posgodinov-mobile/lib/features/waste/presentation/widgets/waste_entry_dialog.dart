@@ -4,9 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/di/injection.dart';
 import 'package:posgodinov_mobile/core/printer/audit_receipt_data.dart';
+import 'package:posgodinov_mobile/core/sync/sync_triggers.dart';
 import 'package:posgodinov_mobile/features/register/domain/entities/catalog.dart';
 import 'package:posgodinov_mobile/features/register/domain/repositories/catalog_repository.dart';
-import 'package:posgodinov_mobile/features/register/presentation/cubit/cart_cubit.dart';
 import 'package:posgodinov_mobile/features/waste/presentation/cubit/waste_cubit.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
 import 'package:posgodinov_mobile/shared/theme/app_theme.dart';
@@ -14,7 +14,7 @@ import 'package:posgodinov_mobile/shared/theme/godinov_tokens.dart';
 import 'package:posgodinov_mobile/shared/theme/spacing.dart';
 import 'package:posgodinov_mobile/shared/widgets/touch_button.dart';
 
-/// Dialog input Waste yang memasukkan item ke POS kasir dan mencetak struk fisik.
+/// Dialog input Waste yang menyimpan ke tabel wastes lokal dan mencetak struk fisik.
 class WasteEntryDialog extends StatefulWidget {
   const WasteEntryDialog({
     super.key,
@@ -33,19 +33,14 @@ class WasteEntryDialog extends StatefulWidget {
     required String staffName,
     required String? shiftId,
   }) {
-    final CartCubit cartCubit = context.read<CartCubit>();
-
     return showDialog<void>(
       context: context,
-      builder: (BuildContext ctx) => BlocProvider<WasteCubit>(
-        create: (_) => getIt<WasteCubit>(),
-        child: BlocProvider<CartCubit>.value(
-          value: cartCubit,
-          child: WasteEntryDialog(
-            staffId: staffId,
-            staffName: staffName,
-            shiftId: shiftId,
-          ),
+      builder: (BuildContext ctx) => BlocProvider<WasteCubit>.value(
+        value: getIt<WasteCubit>(),
+        child: WasteEntryDialog(
+          staffId: staffId,
+          staffName: staffName,
+          shiftId: shiftId,
         ),
       ),
     );
@@ -88,27 +83,36 @@ class _WasteEntryDialogState extends State<WasteEntryDialog> {
     if (!_canSubmit) return;
     final CatalogProduct p = _selected!;
     final String reasonText = _reason.text.trim();
-    final String label =
-        ReasonLabels.wasteReasons[_reasonCode!] ?? _reasonCode!;
+    final WasteCubit cubit = context.read<WasteCubit>();
 
-    // 1. Masukkan ke display POS utama sebagai baris waste (Rp 0)
-    context.read<CartCubit>().addProduct(
-          productId: p.id,
-          productName: p.name,
-          priceMinor: 0, // Waste tidak menambah nominal cashflow penjualan
-          quantity: _quantity,
-          note: '[Waste] $label: $reasonText',
-        );
+    await cubit.submit(
+      staffId: widget.staffId,
+      productId: p.id,
+      productName: p.name,
+      quantity: _quantity,
+      reason: reasonText,
+      reasonCode: _reasonCode!,
+      staffName: widget.staffName,
+      shiftId: widget.shiftId,
+      onReported: () async => getIt<SyncTriggers>().onTransactionSaved(),
+    );
 
     if (!mounted) return;
-    Navigator.of(context).pop();
+    final String? err = cubit.state.error;
+    if (err != null && err.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(err)),
+      );
+      return;
+    }
 
+    Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text(
-          'Produk waste ditambahkan ke keranjang. Silakan tekan CASHOUT untuk mencetak struk bukti pembuangan.',
+          'Laporan waste ${p.name} ($_quantity×) tercatat dan struk dicetak.',
         ),
-        duration: Duration(seconds: 3),
+        duration: const Duration(seconds: 3),
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'package:posgodinov_mobile/core/config/constants.dart';
 import 'package:posgodinov_mobile/core/config/pos_config.dart';
 import 'package:posgodinov_mobile/core/database/daos/print_job_dao.dart';
 import 'package:posgodinov_mobile/core/database/daos/sync_dao.dart';
+import 'package:posgodinov_mobile/core/database/daos/transaction_dao.dart';
 import 'package:posgodinov_mobile/core/printer/audit_receipt_data.dart';
 import 'package:posgodinov_mobile/core/printer/print_queue_service.dart';
 import 'package:posgodinov_mobile/core/sync/sync_triggers.dart';
@@ -29,7 +30,6 @@ import 'package:posgodinov_mobile/features/register/presentation/widgets/registe
 import 'package:posgodinov_mobile/features/register/presentation/widgets/register_summary_panel.dart';
 import 'package:posgodinov_mobile/features/register/presentation/widgets/selected_items_table.dart';
 import 'package:posgodinov_mobile/features/waste/presentation/widgets/waste_entry_dialog.dart';
-import 'package:posgodinov_mobile/features/waste/domain/repositories/waste_repository.dart';
 import 'package:posgodinov_mobile/features/device/presentation/pages/settings_page.dart';
 import 'package:posgodinov_mobile/features/history/domain/repositories/history_repository.dart';
 import 'package:posgodinov_mobile/features/history/presentation/cubit/history_cubit.dart';
@@ -122,25 +122,6 @@ class _RegisterPageState extends State<RegisterPage> {
       customerName: cart.customerName,
       outletName: outletName,
       onConfirm: (List<TenderDraft> tenders, int cashReceivedMinor) async {
-        // Bila transaksi memuat item Waste, catat ke log audit waste
-        for (final CartLine l in cart.lines) {
-          if (l.note.toLowerCase().contains('waste')) {
-            try {
-              await getIt<WasteRepository>().report(
-                staffId: widget.session.staffId,
-                productId: l.productId,
-                productName: l.productName,
-                quantity: l.quantity,
-                reason: l.note.replaceFirst(RegExp(r'^\[Waste\]\s*'), ''),
-                staffName: widget.session.name,
-                shiftId: widget.shiftId,
-              );
-            } on Object {
-              // Ditoleransi bila sudah tercatat
-            }
-          }
-        }
-
         await tx.confirmPayment(
           shiftId: widget.shiftId,
           cashierName: widget.session.name,
@@ -241,6 +222,10 @@ class _RegisterPageState extends State<RegisterPage> {
                 'Status': entry.status.wireValue,
               },
               onPrint: () async {
+                await getIt<TransactionDao>().markReceiptPrinted(
+                  entry.id,
+                  DateTime.now().toUtc(),
+                );
                 final PrintJobDao dao = getIt<PrintJobDao>();
                 final dynamic jobs =
                     await dao.byRef('transaction', entry.id);
@@ -364,6 +349,8 @@ class _RegisterPageState extends State<RegisterPage> {
         quantityAfter: 0,
         reasonCode: result.reasonCode,
         reasonNotes: result.reasonNotes,
+        authorizedBy: result.authorizedBy,
+        authorizedByName: result.authorizedByName,
         cashierName: widget.session.name,
         skipPrint: true,
       );
@@ -834,8 +821,14 @@ class _ProductPanelState extends State<_ProductPanel> {
                         isLocked: cartState.isAuditLocked,
                         onIncrement: (String id) =>
                             context.read<CartCubit>().increment(id),
-                        onDecrement: (String id) =>
-                            context.read<CartCubit>().decrement(id),
+                        onDecrement: (String id) {
+                          for (final CartLine l in cartState.lines) {
+                            if (l.id == id) {
+                              unawaited(widget.guard.decrementOne(context, l));
+                              break;
+                            }
+                          }
+                        },
                       );
                     },
                   ),

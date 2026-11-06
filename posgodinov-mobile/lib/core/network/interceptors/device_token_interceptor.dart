@@ -11,6 +11,9 @@ enum DeviceStatus {
 
   /// Server menjawab `401` — perangkat harus di-*binding* ulang teknisi.
   rejected,
+
+  /// Server menjawab `403 SUSPENDED` — bisnis ditangguhkan oleh Landlord.
+  suspended,
 }
 
 /// Menyisipkan `Authorization: Bearer <device_token>` dan menangani penolakan
@@ -82,6 +85,13 @@ class DeviceTokenInterceptor extends Interceptor {
         ),
       );
       return;
+    }
+
+    if (err.response?.statusCode == 403 && !isPublic) {
+      final String body = (err.response?.data ?? '').toString().toUpperCase();
+      if (body.contains('SUSPENDED') || body.contains('DITANGGUHKAN')) {
+        _statusController.add(DeviceStatus.suspended);
+      }
     }
 
     handler.next(err);

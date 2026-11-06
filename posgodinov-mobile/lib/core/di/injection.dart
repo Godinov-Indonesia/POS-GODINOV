@@ -216,6 +216,7 @@ Future<void> configureDependencies() async {
       SupervisorAuthorizer(
         masterDao: getIt<MasterDao>(),
         verifier: getIt<PinVerifier>(),
+        securityEventDao: getIt<SecurityEventDao>(),
       ),
     );
 

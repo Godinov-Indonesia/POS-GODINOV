@@ -119,10 +119,12 @@ class TransactionCubit extends Cubit<TransactionState> {
     required ReceiptPrinter printer,
     required String outletName,
     Future<void> Function()? onPersisted,
+    Future<void> Function(String transactionId)? onReceiptPrinted,
   })  : _repository = repository,
         _printer = printer,
         _outletName = outletName,
         _onPersisted = onPersisted,
+        _onReceiptPrinted = onReceiptPrinted,
         super(const TxIdle());
 
   final RegisterRepository _repository;
@@ -132,6 +134,7 @@ class TransactionCubit extends Cubit<TransactionState> {
   /// Pemicu sinkronisasi, dipasang pada M5. Dipanggil *fire-and-forget*:
   /// antrean lokal tetap aman bila gagal.
   final Future<void> Function()? _onPersisted;
+  final Future<void> Function(String transactionId)? _onReceiptPrinted;
 
   /// Membuka modal pembayaran.
   void startPayment(int totalMinor) {
@@ -245,6 +248,9 @@ class TransactionCubit extends Cubit<TransactionState> {
     final bool printOk = await _printer.printReceipt(
       _buildReceipt(transaction, cashierName),
     );
+    if (printOk) {
+      await (_onReceiptPrinted?.call(transaction.id) ?? Future<void>.value());
+    }
 
     unawaited(_onPersisted?.call() ?? Future<void>.value());
 
@@ -259,6 +265,9 @@ class TransactionCubit extends Cubit<TransactionState> {
     final bool ok = await _printer.printReceipt(
       _buildReceipt(s.transaction, ''),
     );
+    if (ok) {
+      await (_onReceiptPrinted?.call(s.transaction.id) ?? Future<void>.value());
+    }
     emit(TxCompleted(transaction: s.transaction, printOk: ok));
   }
 

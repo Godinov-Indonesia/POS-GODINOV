@@ -69,27 +69,34 @@ class _CloseShiftPageState extends State<CloseShiftPage> {
   Widget build(BuildContext context) {
     final GodinovTokens t = context.tokens;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Tutup Shift')),
-      backgroundColor: t.bg,
-      body: BlocConsumer<ShiftCubit, ShiftState>(
-        listener: (BuildContext context, ShiftState state) {
-          if (state is ShiftClosed) widget.onClosed?.call();
-        },
-        builder: (BuildContext context, ShiftState state) {
-          return switch (state) {
-            ShiftClosing(shift: final Shift shift) => _BlindCloseForm(
-                // `key` mengikat state isian pada shift-nya: pergantian shift
-                // melahirkan formulir baru, sehingga tidak ada angka milik
-                // shift sebelumnya yang tertinggal di kotak isian.
-                key: ValueKey<String>(shift.id),
-                shift: shift,
-              ),
-            ShiftClosed() => const _Done(),
-            ShiftFailure(message: final String m) => _Failed(message: m),
-            _ => const Center(child: CircularProgressIndicator()),
-          };
-        },
+    return PopScope(
+      onPopInvokedWithResult: (bool didPop, Object? _) {
+        if (didPop) {
+          context.read<ShiftCubit>().cancelClose();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Tutup Shift')),
+        backgroundColor: t.bg,
+        body: BlocConsumer<ShiftCubit, ShiftState>(
+          listener: (BuildContext context, ShiftState state) {
+            if (state is ShiftClosed) widget.onClosed?.call();
+          },
+          builder: (BuildContext context, ShiftState state) {
+            return switch (state) {
+              ShiftClosing(shift: final Shift shift) => _BlindCloseForm(
+                  // `key` mengikat state isian pada shift-nya: pergantian shift
+                  // melahirkan formulir baru, sehingga tidak ada angka milik
+                  // shift sebelumnya yang tertinggal di kotak isian.
+                  key: ValueKey<String>(shift.id),
+                  shift: shift,
+                ),
+              ShiftClosed() => const _Done(),
+              ShiftFailure(message: final String m) => _Failed(message: m),
+              _ => const Center(child: CircularProgressIndicator()),
+            };
+          },
+        ),
       ),
     );
   }

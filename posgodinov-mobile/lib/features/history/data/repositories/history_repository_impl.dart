@@ -156,7 +156,7 @@ class HistoryRepositoryImpl implements HistoryRepository {
         reasonCode: reasonCode,
         reasonNotes: reasonNotes,
         at: now,
-        authorizedBy: authorizedBy ?? staffId,
+        authorizedBy: authorizedBy,
       );
 
       printed = tx;

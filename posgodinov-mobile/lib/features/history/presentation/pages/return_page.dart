@@ -9,6 +9,7 @@ import 'package:posgodinov_mobile/core/sync/sync_triggers.dart';
 import 'package:posgodinov_mobile/features/auth/presentation/cubit/cashier_auth_cubit.dart';
 import 'package:posgodinov_mobile/features/history/domain/entities/history_entry.dart';
 import 'package:posgodinov_mobile/features/history/domain/repositories/return_repository.dart';
+import 'package:posgodinov_mobile/features/shift/domain/supervisor_authorizer.dart';
 import 'package:posgodinov_mobile/features/shift/presentation/cubit/shift_cubit.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
 import 'package:posgodinov_mobile/shared/theme/app_theme.dart';
@@ -66,11 +67,13 @@ class ReturnPage extends StatefulWidget {
 
 class _ReturnPageState extends State<ReturnPage> {
   final TextEditingController _notes = TextEditingController();
+  final TextEditingController _supervisorPin = TextEditingController();
   final ReturnRepository _repo = getIt<ReturnRepository>();
 
   CancellationDecision? _decision;
   bool _loading = true;
   bool _busy = false;
+  String? _authError;
 
   /// `transactionItemId → qty yang dipilih`.
   final Map<String, int> _picked = <String, int>{};
@@ -95,6 +98,7 @@ class _ReturnPageState extends State<ReturnPage> {
   @override
   void dispose() {
     _notes.dispose();
+    _supervisorPin.dispose();
     super.dispose();
   }
 
@@ -161,6 +165,10 @@ class _ReturnPageState extends State<ReturnPage> {
     final String? code = _reasonCode;
     if (code == null || _selectedCount == 0 || _busy) return false;
     if (_missingWasteReason) return false;
+    final CancellationDecision? d = _decision;
+    if (d != null && d.requiresAuth && _supervisorPin.text.trim().length < 4) {
+      return false;
+    }
     if (code == ReasonCodes.other &&
         _notes.text.trim().length < ReasonCodes.otherNotesMinLength) {
       return false;
@@ -184,8 +192,28 @@ class _ReturnPageState extends State<ReturnPage> {
       return;
     }
 
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _authError = null;
+    });
     try {
+      String? authorizedBy;
+      String? authorizedByName;
+      if (d.requiresAuth && getIt.isRegistered<SupervisorAuthorizer>()) {
+        final SupervisorVerdict verdict =
+            await getIt<SupervisorAuthorizer>().authorizePin(
+          pin: _supervisorPin.text.trim(),
+          requiredPermission: 'RETURN_APPROVE',
+        );
+        if (!mounted) return;
+        if (!verdict.ok) {
+          setState(() => _authError = verdict.message);
+          return;
+        }
+        authorizedBy = verdict.staffId;
+        authorizedByName = verdict.staffName;
+      }
+
       // Sisa dibaca ULANG tepat sebelum menulis: sebuah retur dari perangkat
       // lain bisa saja tersinkron sejak layar ini dibuka.
       final Map<String, int> fresh =
@@ -233,6 +261,8 @@ class _ReturnPageState extends State<ReturnPage> {
         refundMethod: _refundMethod,
         reasonCode: _reasonCode!,
         reasonNotes: _notes.text.trim(),
+        authorizedBy: authorizedBy,
+        authorizedByName: authorizedByName,
         cashierName: auth.session.name,
         originalCode: widget.entry.shortId,
         lines: lines,
@@ -367,6 +397,25 @@ class _ReturnPageState extends State<ReturnPage> {
               hintText: 'Contoh: kemasan bocor saat diterima pelanggan',
             ),
           ),
+          if (d.requiresAuth) ...<Widget>[
+            const SizedBox(height: Gap.md),
+            Text(
+              'PIN Supervisor (wajib)',
+              style: PosText.sm.copyWith(color: t.fgMuted),
+            ),
+            const SizedBox(height: Gap.xs),
+            TextField(
+              controller: _supervisorPin,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              onChanged: (_) => setState(() => _authError = null),
+              style: PosText.base,
+              decoration: InputDecoration(
+                hintText: 'Masukkan PIN Supervisor',
+                errorText: _authError,
+              ),
+            ),
+          ],
           const SizedBox(height: Gap.xl),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

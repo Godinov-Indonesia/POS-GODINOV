@@ -16,8 +16,8 @@ class RegisterSummaryPanel extends StatelessWidget {
     super.key,
     required this.state,
     required this.onCashout,
-    this.memberId = '123456789',
-    this.memberName = 'Member Godinov',
+    this.memberId = '',
+    this.memberName = 'Pelanggan Umum',
     this.onMemberTap,
   });
 
@@ -69,7 +69,9 @@ class RegisterSummaryPanel extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '$memberId • $memberName',
+                          memberId.isEmpty
+                              ? memberName
+                              : '$memberId • $memberName',
                           style: PosText.sm.copyWith(
                             fontWeight: FontWeight.w600,
                             color: t.fg,

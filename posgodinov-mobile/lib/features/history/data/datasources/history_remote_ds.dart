@@ -66,6 +66,13 @@ class HistoryRemoteDataSource {
       customerName: json['customer_name'] as String? ?? '',
       cancelNotes: json['cancel_notes'] as String? ?? '',
       shortCode: json['short_code'] as String?,
+      receiptPrintedAt:
+          DateTime.tryParse(json['receipt_printed_at'] as String? ?? '')
+              ?.toUtc(),
+      itemIds: Envelope.list(
+        json['items'],
+        (Map<String, dynamic> m) => m['id'] as String? ?? '',
+      ),
       // Baris server tidak dapat di-void maupun dicetak ulang: itemnya tidak
       // membawa nama produk, sehingga struk tidak dapat dirakit ulang.
       isLocal: false,
@@ -90,8 +97,13 @@ class HistoryRemoteDataSource {
     return PaymentSummary.cash;
   }
 
-  TransactionStatus _status(String? raw) =>
-      raw == TransactionStatus.cancelled.wireValue
-          ? TransactionStatus.cancelled
-          : TransactionStatus.completed;
+  TransactionStatus _status(String? raw) {
+    if (raw == TransactionStatus.voided.wireValue) {
+      return TransactionStatus.voided;
+    }
+    if (raw == TransactionStatus.cancelled.wireValue) {
+      return TransactionStatus.cancelled;
+    }
+    return TransactionStatus.completed;
+  }
 }

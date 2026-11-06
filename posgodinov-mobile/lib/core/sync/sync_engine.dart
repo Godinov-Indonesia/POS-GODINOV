@@ -15,6 +15,7 @@ import 'package:posgodinov_mobile/core/sync/backoff.dart';
 import 'package:posgodinov_mobile/core/sync/reconciler.dart';
 import 'package:posgodinov_mobile/core/sync/sync_models.dart';
 import 'package:posgodinov_mobile/core/sync/sync_remote_ds.dart';
+import 'package:posgodinov_mobile/core/sync/wire_mapper.dart';
 import 'package:synchronized/synchronized.dart';
 
 /// Mesin sinkronisasi *sync up* ([09 §6.1]).
@@ -196,10 +197,26 @@ class SyncEngine {
   /// tersimpan meski kita menandainya tersinkron. Menyertakannya ulang bersifat
   /// aman: upsert backend idempotent dan hanya menyentuh kolom penutupan.
   Future<SentBatch> _collectBatch() async {
-    final List<TransactionWithItems> transactions =
+    final List<TransactionWithItems> rawTransactions =
         await _txDao.pendingTransactions(
       limit: SyncLimits.maxTransactionsPerBatch,
     );
+    final List<TransactionWithItems> transactions = <TransactionWithItems>[];
+    for (final TransactionWithItems t in rawTransactions) {
+      try {
+        WireMapper.assertTenderIntegrity(
+          t.transaction,
+          WireMapper.resolvePayments(t),
+        );
+        transactions.add(t);
+      } on Object catch (e) {
+        await _txDao.markQuarantined(
+          t.transaction.id,
+          _now(),
+          'Cacat integritas lokal: $e',
+        );
+      }
+    }
     final List<LocalWaste> wastes = await _wasteDao.pending();
 
     // Entitas v2. DAO yang tidak disuntikkan menghasilkan daftar kosong —
@@ -256,9 +273,11 @@ class SyncEngine {
     DateTime startedAt,
   ) async {
     final DateTime now = _now();
-    final int failures = await _syncDao.consecutiveFailures() + 1;
-
-    await _syncDao.recordFailure(now, _backoff.nextDelay(failures));
+    if (failure is! DeviceRejectedFailure &&
+        !failure.message.toUpperCase().contains('SUSPENDED')) {
+      final int failures = await _syncDao.consecutiveFailures() + 1;
+      await _syncDao.recordFailure(now, _backoff.nextDelay(failures));
+    }
     await _writeLog(
       trigger,
       batch,

@@ -233,8 +233,8 @@ CancellationDecision decideCancellation(
     return const CancellationDecision.forbidden(ForbiddenReason.alreadyVoided);
   }
 
-  // ── 2. Transaksi aktif → VOID ──────────────────────────────────────────
-  if (!transaction.status.isCancellation) {
+  // ── 2. Struk BELUM pernah terbit → VOID ──────────────────────────────────
+  if (transaction.receiptPrintedAt == null) {
     return CancellationDecision.void_(
       requiresAuth: policy.requireSupervisorForVoid,
     );

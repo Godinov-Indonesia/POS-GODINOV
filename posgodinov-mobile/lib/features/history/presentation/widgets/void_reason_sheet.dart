@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:posgodinov_mobile/core/config/constants.dart';
+import 'package:posgodinov_mobile/core/di/injection.dart';
+import 'package:posgodinov_mobile/features/shift/domain/supervisor_authorizer.dart';
 import 'package:posgodinov_mobile/shared/extensions/context_ext.dart';
 import 'package:posgodinov_mobile/shared/theme/app_theme.dart';
 import 'package:posgodinov_mobile/shared/theme/godinov_tokens.dart';
@@ -9,10 +11,17 @@ import 'package:posgodinov_mobile/shared/widgets/touch_button.dart';
 
 /// Hasil formulir pembatalan.
 class VoidReasonResult {
-  const VoidReasonResult({required this.reasonCode, required this.reasonNotes});
+  const VoidReasonResult({
+    required this.reasonCode,
+    required this.reasonNotes,
+    this.authorizedBy,
+    this.authorizedByName,
+  });
 
   final String reasonCode;
   final String reasonNotes;
+  final String? authorizedBy;
+  final String? authorizedByName;
 }
 
 /// Label Bahasa Indonesia untuk kamus beku [ReasonCodes.voidReasons].
@@ -88,11 +97,15 @@ class _VoidReasonSheet extends StatefulWidget {
 
 class _VoidReasonSheetState extends State<_VoidReasonSheet> {
   final TextEditingController _notes = TextEditingController();
+  final TextEditingController _supervisorPin = TextEditingController();
   String? _reasonCode;
+  String? _authError;
+  bool _verifying = false;
 
   @override
   void dispose() {
     _notes.dispose();
+    _supervisorPin.dispose();
     super.dispose();
   }
 
@@ -100,10 +113,53 @@ class _VoidReasonSheetState extends State<_VoidReasonSheet> {
   /// "Lainnya" dalam dua minggu — jalur yang paling sedikit gesekannya selalu
   /// menang — dan laporan kecurangan kehilangan seluruh dayanya.
   bool get _complete {
+    if (_verifying) return false;
     final String? code = _reasonCode;
     if (code == null) return false;
+    if (widget.requiresAuth && _supervisorPin.text.trim().length < 4) {
+      return false;
+    }
     if (code != ReasonCodes.other) return true;
     return _notes.text.trim().length >= ReasonCodes.otherNotesMinLength;
+  }
+
+  Future<void> _handleSubmit() async {
+    if (!_complete) return;
+
+    String? authorizedBy;
+    String? authorizedByName;
+
+    if (widget.requiresAuth && getIt.isRegistered<SupervisorAuthorizer>()) {
+      setState(() {
+        _verifying = true;
+        _authError = null;
+      });
+      final SupervisorVerdict verdict =
+          await getIt<SupervisorAuthorizer>().authorizePin(
+        pin: _supervisorPin.text.trim(),
+        requiredPermission: 'VOID_APPROVE',
+      );
+      if (!mounted) return;
+      if (!verdict.ok) {
+        setState(() {
+          _verifying = false;
+          _authError = verdict.message;
+        });
+        return;
+      }
+      authorizedBy = verdict.staffId;
+      authorizedByName = verdict.staffName;
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).pop(
+      VoidReasonResult(
+        reasonCode: _reasonCode!,
+        reasonNotes: _notes.text.trim(),
+        authorizedBy: authorizedBy,
+        authorizedByName: authorizedByName,
+      ),
+    );
   }
 
   @override
@@ -193,19 +249,33 @@ class _VoidReasonSheetState extends State<_VoidReasonSheet> {
               ),
             ),
 
+            if (widget.requiresAuth) ...<Widget>[
+              const SizedBox(height: Gap.md),
+              Text(
+                'PIN Supervisor (wajib)',
+                style: PosText.sm.copyWith(color: t.fgMuted),
+              ),
+              const SizedBox(height: Gap.xs),
+              TextField(
+                controller: _supervisorPin,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() => _authError = null),
+                style: PosText.base,
+                decoration: InputDecoration(
+                  hintText: 'Masukkan PIN Supervisor',
+                  errorText: _authError,
+                ),
+              ),
+            ],
+
             const SizedBox(height: Gap.xl),
             TouchButton(
               label: widget.submitLabel,
               icon: Icons.block,
               variant: TouchVariant.danger,
-              onPressed: _complete
-                  ? () => Navigator.of(context).pop(
-                        VoidReasonResult(
-                          reasonCode: _reasonCode!,
-                          reasonNotes: _notes.text.trim(),
-                        ),
-                      )
-                  : null,
+              isLoading: _verifying,
+              onPressed: _complete ? _handleSubmit : null,
             ),
             const SizedBox(height: Gap.sm),
             TextButton(

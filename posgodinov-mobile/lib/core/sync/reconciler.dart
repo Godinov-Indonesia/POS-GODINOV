@@ -139,17 +139,27 @@ class Reconciler {
       // ── Entitas v2 — dilacak SEPENUHNYA per-ID ───────────────────────────
       //
       // Tidak ada mode agregat di sini, sehingga tidak ada tebakan: baris tanpa
-      // galat berarti diterima.
-      final bool returnsOk = response.returnsSynced == sent.returns.length;
+      // galat di `errors` berarti diterima ketika jumlah sisanya cocok.
+      final int returnErrCount = sent.returns
+          .where((ReturnWithItems r) => errors.containsKey('return:${r.returnRow.id}'))
+          .length;
+      final bool returnsOk =
+          response.returnsSynced >= (sent.returns.length - returnErrCount);
       for (final ReturnWithItems r in sent.returns) {
         final String id = r.returnRow.id;
-        final SyncEntityError? blocker = blockerFor('return', id);
-        if (blocker != null) {
+        final SyncEntityError? err = errors['return:$id'];
+        if (err != null && !err.retryable) {
           quarantined++;
           await _returnDao?.markQuarantined(
             id,
             now,
-            '${blocker.code}: ${blocker.message}',
+            '${err.code}: ${err.message}',
+          );
+        } else if (err != null) {
+          await _returnDao?.markFailed(
+            id,
+            now,
+            '${err.code}: ${err.message}',
           );
         } else if (returnsOk) {
           await _returnDao?.markSynced(id);
@@ -162,15 +172,25 @@ class Reconciler {
         }
       }
 
-      final bool voidsOk = response.voidLogsSynced == sent.voidLogs.length;
+      final int voidErrCount = sent.voidLogs
+          .where((LocalVoidLog v) => errors.containsKey('void_log:${v.id}'))
+          .length;
+      final bool voidsOk =
+          response.voidLogsSynced >= (sent.voidLogs.length - voidErrCount);
       for (final LocalVoidLog v in sent.voidLogs) {
-        final SyncEntityError? blocker = blockerFor('void_log', v.id);
-        if (blocker != null) {
+        final SyncEntityError? err = errors['void_log:${v.id}'];
+        if (err != null && !err.retryable) {
           quarantined++;
           await _voidLogDao?.markQuarantined(
             v.id,
             now,
-            '${blocker.code}: ${blocker.message}',
+            '${err.code}: ${err.message}',
+          );
+        } else if (err != null) {
+          await _voidLogDao?.markFailed(
+            v.id,
+            now,
+            '${err.code}: ${err.message}',
           );
         } else if (voidsOk) {
           await _voidLogDao?.markSynced(v.id);
@@ -183,16 +203,28 @@ class Reconciler {
         }
       }
 
-      final bool eventsOk =
-          response.securityEventsSynced == sent.securityEvents.length;
+      final int eventErrCount = sent.securityEvents
+          .where(
+            (LocalSecurityEvent e) =>
+                errors.containsKey('security_event:${e.id}'),
+          )
+          .length;
+      final bool eventsOk = response.securityEventsSynced >=
+          (sent.securityEvents.length - eventErrCount);
       for (final LocalSecurityEvent e in sent.securityEvents) {
-        final SyncEntityError? blocker = blockerFor('security_event', e.id);
-        if (blocker != null) {
+        final SyncEntityError? err = errors['security_event:${e.id}'];
+        if (err != null && !err.retryable) {
           quarantined++;
           await _securityEventDao?.markQuarantined(
             e.id,
             now,
-            '${blocker.code}: ${blocker.message}',
+            '${err.code}: ${err.message}',
+          );
+        } else if (err != null) {
+          await _securityEventDao?.markFailed(
+            e.id,
+            now,
+            '${err.code}: ${err.message}',
           );
         } else if (eventsOk) {
           await _securityEventDao?.markSynced(e.id);

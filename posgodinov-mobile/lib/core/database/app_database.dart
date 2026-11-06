@@ -135,6 +135,54 @@ class AppDatabase extends _$AppDatabase {
           await customStatement(
             'CREATE INDEX idx_product_category ON products (category_id)',
           );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_tx_shift_created '
+            'ON transactions (shift_id, client_created_at DESC)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_tx_short_code '
+            'ON transactions (short_code)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_tx_payment_parent '
+            'ON transaction_payments (transaction_id)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_return_queue '
+            'ON returns (synced, client_created_at)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_return_original '
+            'ON returns (original_transaction_id)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_return_item_parent '
+            'ON return_items (return_id)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_void_queue '
+            'ON void_logs (synced, client_created_at)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_void_shift '
+            'ON void_logs (shift_id, client_created_at)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_sec_queue '
+            'ON security_events (synced, client_created_at)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_tx_quarantine '
+            'ON transactions (quarantined)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_print_job_status '
+            'ON print_jobs (status, created_at)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_print_job_ref '
+            'ON print_jobs (ref_type, ref_id)',
+          );
         },
         onUpgrade: (Migrator m, int from, int to) async {
           if (from < 2) {
