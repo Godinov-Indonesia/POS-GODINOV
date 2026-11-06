@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+:root {
+  /* Brand Primitive Palette */
+  --godinov-navy-950: #0f172a;
+  --godinov-navy-900: #1e293b;
+  --godinov-navy-800: #334155;
+
+  --godinov-blue-600: #2563eb;
+  --godinov-blue-700: #1d4ed8;
+  --godinov-blue-50: #eff6ff;
+
+  --godinov-emerald-600: #059669;
+  --godinov-emerald-700: #047857;
+  --godinov-emerald-50: #ecfdf5;
+
+  --godinov-amber-600: #d97706;
+  --godinov-amber-700: #b45309;
+  --godinov-amber-50: #fffbeb;
+
+  --godinov-red-600: #dc2626;
+  --godinov-red-700: #b91c1c;
+  --godinov-red-50: #fef2f2;
+
+  --godinov-slate-50: #f8fafc;
+  --godinov-slate-100: #f1f5f9;
+  --godinov-slate-200: #e2e8f0;
+  --godinov-slate-300: #cbd5e1;
+  --godinov-slate-500: #64748b;
+  --godinov-slate-600: #475569;
+  --godinov-white: #ffffff;
+
+  /* Semantic Variables */
+  --bg: var(--godinov-slate-50);
+  --fg: var(--godinov-navy-950);
+  --muted: var(--godinov-slate-500);
+  --card: var(--godinov-white);
+  --border: var(--godinov-slate-200);
+  --primary: var(--godinov-blue-600);
+  --primary-hover: var(--godinov-blue-700);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+}
