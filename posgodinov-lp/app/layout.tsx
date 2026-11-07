@@ -5,6 +5,7 @@ import { ThemeColorSync } from "@/components/providers/ThemeColorSync";
 import { PagePreloader } from "@/components/common/PagePreloader";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { getLandingPageData, getMergedLandingContent } from "@/lib/api/landing";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -65,11 +66,14 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const apiData = await getLandingPageData();
+  const content = getMergedLandingContent(apiData);
+
   return (
     <html
       lang="id"
@@ -87,7 +91,7 @@ export default function RootLayout({
           <main id="main" className="flex-1">
             {children}
           </main>
-          <SiteFooter />
+          <SiteFooter contacts={content.contacts} />
         </ThemeProvider>
       </body>
     </html>

@@ -4,8 +4,13 @@ import { siteContent } from "@/lib/content";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, MessageCircle } from "lucide-react";
 
-export function FinalCtaSection() {
+export interface FinalCtaSectionProps {
+  whatsappUrl?: string;
+}
+
+export function FinalCtaSection({ whatsappUrl }: FinalCtaSectionProps = {}) {
   const { finalCta } = siteContent;
+  const secondaryHref = whatsappUrl || finalCta.ctaSecondary.href;
 
   return (
     <section className="relative overflow-hidden py-20 lg:py-24">
@@ -37,7 +42,7 @@ export function FinalCtaSection() {
                 size="lg"
                 className="w-full sm:w-auto border-ink-800 bg-ink-900/80 text-paper-50 hover:bg-ink-800"
               >
-                <Link href={finalCta.ctaSecondary.href} className="flex items-center justify-center gap-2">
+                <Link href={secondaryHref} className="flex items-center justify-center gap-2">
                   <MessageCircle className="h-4 w-4 text-brand-300" />
                   <span>{finalCta.ctaSecondary.text}</span>
                 </Link>

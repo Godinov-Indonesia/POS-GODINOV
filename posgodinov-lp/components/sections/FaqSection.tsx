@@ -1,30 +1,46 @@
 "use client";
 
 import * as React from "react";
-import { siteContent } from "@/lib/content";
+import { siteContent, type FaqItem } from "@/lib/content";
 import { SectionShell } from "@/components/common/SectionShell";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function FaqSection() {
+export interface FaqSectionProps {
+  items?: FaqItem[];
+  heading?: string;
+  subheading?: string;
+}
+
+export function FaqSection({
+  items: propItems,
+  heading,
+  subheading,
+}: FaqSectionProps = {}) {
   const { faq } = siteContent;
-  const [openId, setOpenId] = React.useState<string | null>("faq-1");
+  const displayItems = propItems && propItems.length > 0 ? propItems : faq.items;
+  const [openId, setOpenId] = React.useState<string | null>(
+    displayItems[0]?.id || "faq-1"
+  );
+
+  const displayHeading = heading || faq.heading;
+  const displaySubheading = subheading || faq.subheading;
 
   return (
     <SectionShell
       id="faq"
       eyebrow="Tanya Jawab"
-      title={faq.heading}
-      subtitle={faq.subheading}
+      title={displayHeading}
+      subtitle={displaySubheading}
     >
       <div className="mx-auto max-w-3xl space-y-3">
-        {faq.items.map((item) => {
+        {displayItems.map((item) => {
           const isOpen = openId === item.id;
           return (
             <div
               key={item.id}
               className={cn(
-                "rounded-xl  border transition-all duration-200 overflow-hidden",
+                "rounded-xl border transition-all duration-200 overflow-hidden",
                 isOpen
                   ? "border-brand-500/40 bg-ink-900/90 shadow-lg"
                   : "border-ink-800 bg-ink-950/70 hover:border-ink-700"

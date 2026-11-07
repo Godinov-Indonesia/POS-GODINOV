@@ -20,8 +20,22 @@ function LinkedinIcon({ className }: { className?: string }) {
   );
 }
 
-export function SiteFooter() {
-  const { contacts } = siteContent.brand;
+export interface SiteFooterProps {
+  contacts?: {
+    whatsapp?: string;
+    whatsappUrl?: string;
+    email?: string;
+  };
+}
+
+export function SiteFooter({ contacts: propContacts }: SiteFooterProps = {}) {
+  const baseContacts = siteContent.brand.contacts;
+  const contacts = {
+    ...baseContacts,
+    whatsapp: propContacts?.whatsapp || baseContacts.whatsapp,
+    whatsappUrl: propContacts?.whatsappUrl || baseContacts.whatsappUrl,
+    email: propContacts?.email || baseContacts.email,
+  };
 
   return (
     <footer data-testid="site-footer" className="border-t border-ink-800/80 bg-ink-950 pt-16 pb-12 text-sm text-paper-50/70">

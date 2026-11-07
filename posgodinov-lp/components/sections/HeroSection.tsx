@@ -3,10 +3,29 @@ import Link from "next/link";
 import { siteContent } from "@/lib/content";
 import { Button } from "@/components/ui/button";
 import { HeroCardDeck } from "@/components/interactive/HeroCardDeck";
-import { CheckCircle2, ArrowRight } from "lucide-react";
+import { CheckCircle2, ArrowRight, Download } from "lucide-react";
 
-export function HeroSection() {
+export interface HeroSectionProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  apkUrls?: {
+    pos?: string;
+    so?: string;
+  };
+}
+
+export function HeroSection({
+  eyebrow,
+  headline,
+  subheadline,
+  apkUrls,
+}: HeroSectionProps = {}) {
   const { hero } = siteContent;
+
+  const displayEyebrow = eyebrow || hero.eyebrow;
+  const displayHeadline = headline || hero.headline;
+  const displaySubheadline = subheadline || hero.subheadline;
 
   return (
     <section
@@ -18,19 +37,32 @@ export function HeroSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-7 space-y-6 sm:space-y-8">
+            {displayEyebrow && (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-ink-800 bg-ink-950/80 text-xs text-brand-400 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-400" />
+                <span>{displayEyebrow}</span>
+              </div>
+            )}
+
             <h1
               id="hero-title"
               className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.5rem] font-bold tracking-tight text-paper-50 leading-[1.12]"
             >
-              Kasir tetap jalan.
-              <br />
-              <span className="text-paper-50/80">
-                Uang tidak ikut jalan-jalan.
-              </span>
+              {displayHeadline.includes(".") ? (
+                <>
+                  {displayHeadline.split(".")[0]}.
+                  <br />
+                  <span className="text-paper-50/80">
+                    {displayHeadline.split(".").slice(1).join(".").trim()}
+                  </span>
+                </>
+              ) : (
+                displayHeadline
+              )}
             </h1>
 
             <p className="max-w-[58ch] text-base sm:text-lg text-paper-50/70 leading-relaxed">
-              {hero.subheadline}
+              {displaySubheadline}
             </p>
 
             {/* Dual CTA in Hero */}
@@ -55,6 +87,20 @@ export function HeroSection() {
               >
                 <Link href={hero.ctaSecondary.href}>{hero.ctaSecondary.text}</Link>
               </Button>
+
+              {apkUrls?.pos && (
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="border-brand-500/40 bg-brand-500/10 text-brand-300 hover:bg-brand-500/20"
+                >
+                  <a href={apkUrls.pos} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    <span>Unduh APK POS</span>
+                  </a>
+                </Button>
+              )}
             </div>
 
             <div className="pt-2 border-t border-ink-800/80 flex flex-wrap items-center gap-y-2 gap-x-6 text-xs text-paper-50/60">
