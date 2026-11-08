@@ -40,6 +40,9 @@ type ShiftReconcileRepository interface {
 
 	// ListReconciliation membaca baris untuk layar pemilik.
 	ListReconciliation(ctx context.Context, f ShiftReconciliationFilter) ([]*ShiftReconciliationRow, error)
+
+	// GetShiftDetail membaca rincian lengkap transaksi, struk, void, waste, dan audit satu shift.
+	GetShiftDetail(ctx context.Context, businessID, outletID, shiftID string) (*ShiftDetailResponse, error)
 }
 
 // ShiftReconciliation adalah hasil hitung server untuk satu shift.
@@ -90,6 +93,9 @@ type ShiftReconcileService interface {
 
 	// List menyusun layar Rekonsiliasi Shift milik pemilik.
 	List(ctx context.Context, f ShiftReconciliationFilter) ([]*ShiftReconciliationRow, error)
+
+	// GetDetail mengambil rincian mendalam satu shift untuk audit pemilik.
+	GetDetail(ctx context.Context, businessID, outletID, shiftID string) (*ShiftDetailResponse, error)
 }
 
 // ShiftReconciliationRow adalah satu baris pada layar Rekonsiliasi Shift milik
@@ -144,4 +150,149 @@ type ShiftReconciliationFilter struct {
 	OutletID   string
 	StartDate  string
 	EndDate    string
+}
+
+// ── DTO Rincian Mendalam Shift (Detail Fetching) ─────────────────────────────
+
+type ShiftDetailResponse struct {
+	ShiftSummary        ShiftSummary             `json:"shift_summary"`
+	TransactionsMetric  ShiftTransactionsMetric  `json:"transactions_metric"`
+	ReceiptPrintsMetric ShiftReceiptPrintsMetric `json:"receipt_prints_metric"`
+	VoidsMetric         ShiftVoidsMetric         `json:"voids_metric"`
+	WastesMetric        ShiftWastesMetric        `json:"wastes_metric"`
+	ReturnsMetric       ShiftReturnsMetric       `json:"returns_metric"`
+	SecurityEvents      []ShiftSecurityEventRecord `json:"security_events"`
+}
+
+type ShiftSummary struct {
+	ShiftID           string                `json:"shift_id"`
+	OutletID          string                `json:"outlet_id"`
+	StaffID           string                `json:"staff_id"`
+	StaffName         string                `json:"staff_name"`
+	DeviceID          string                `json:"device_id"`
+	Status            string                `json:"status"`
+	BlindClose        bool                  `json:"blind_close"`
+	OpenedAt          time.Time             `json:"opened_at"`
+	ClosedAt          *time.Time            `json:"closed_at"`
+	ReconciledAt      *time.Time            `json:"reconciled_at"`
+	OpeningBalance    float64               `json:"opening_balance"`
+	Cash              ShiftVarianceDetail   `json:"cash"`
+	EDC               ShiftVarianceDetail   `json:"edc"`
+	QRIS              ShiftVarianceDetail   `json:"qris"`
+	Flagged           bool                  `json:"flagged"`
+	VarianceThreshold float64               `json:"variance_threshold"`
+}
+
+type ShiftVarianceDetail struct {
+	Declared float64  `json:"declared"`
+	Expected *float64 `json:"expected"`
+	Variance *float64 `json:"variance"`
+}
+
+type ShiftTransactionsMetric struct {
+	TotalCount          int                      `json:"total_count"`
+	CompletedCount      int                      `json:"completed_count"`
+	VoidedCount         int                      `json:"voided_count"`
+	TotalGrossAmount    float64                  `json:"total_gross_amount"`
+	TotalDiscountAmount float64                  `json:"total_discount_amount"`
+	TotalNetAmount      float64                  `json:"total_net_amount"`
+	PaymentBreakdown    map[string]float64       `json:"payment_breakdown"`
+	Transactions        []ShiftTransactionRecord `json:"transactions"`
+}
+
+type ShiftTransactionRecord struct {
+	ID               string                 `json:"id"`
+	ReceiptCode      string                 `json:"receipt_code"`
+	CustomerName     string                 `json:"customer_name"`
+	TotalAmount      float64                `json:"total_amount"`
+	PaymentMethod    string                 `json:"payment_method"`
+	Status           string                 `json:"status"`
+	ReprintCount     int                    `json:"reprint_count"`
+	ReceiptPrintedAt *time.Time             `json:"receipt_printed_at"`
+	CreatedAt        time.Time              `json:"created_at"`
+	Items            []ShiftTransactionItem `json:"items"`
+}
+
+type ShiftTransactionItem struct {
+	ID          string  `json:"id"`
+	ProductID   string  `json:"product_id"`
+	ProductName string  `json:"product_name"`
+	SKU         string  `json:"sku"`
+	Quantity    int     `json:"quantity"`
+	UnitPrice   float64 `json:"unit_price"`
+	Subtotal    float64 `json:"subtotal"`
+}
+
+type ShiftReceiptPrintsMetric struct {
+	TotalReprinted        int                        `json:"total_reprinted"`
+	TransactionsReprinted []ShiftReceiptPrintRecord  `json:"transactions_reprinted"`
+}
+
+type ShiftReceiptPrintRecord struct {
+	TransactionID    string     `json:"transaction_id"`
+	ReceiptCode      string     `json:"receipt_code"`
+	ReprintCount     int        `json:"reprint_count"`
+	ReceiptPrintedAt *time.Time `json:"receipt_printed_at"`
+}
+
+type ShiftVoidsMetric struct {
+	TotalCount       int              `json:"total_count"`
+	TotalValueAmount float64          `json:"total_value_amount"`
+	Items            []ShiftVoidItem  `json:"items"`
+}
+
+type ShiftVoidItem struct {
+	ID               string    `json:"id"`
+	Scope            string    `json:"scope"`
+	ProductID        *string   `json:"product_id"`
+	ProductName      string    `json:"product_name"`
+	QuantityBefore   int       `json:"quantity_before"`
+	QuantityAfter    int       `json:"quantity_after"`
+	ValueAmount      float64   `json:"value_amount"`
+	ReasonCode       string    `json:"reason_code"`
+	ReasonNotes      string    `json:"reason_notes"`
+	StaffName        string    `json:"staff_name"`
+	AuthorizedByName string    `json:"authorized_by_name"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+type ShiftWastesMetric struct {
+	TotalCount int               `json:"total_count"`
+	Items      []ShiftWasteItem  `json:"items"`
+}
+
+type ShiftWasteItem struct {
+	ID             string    `json:"id"`
+	ItemID         string    `json:"item_id"`
+	ItemName       string    `json:"item_name"`
+	WasteType      string    `json:"waste_type"` // PRODUCT atau RAW_MATERIAL
+	Quantity       float64   `json:"quantity"`
+	Unit           string    `json:"unit"`
+	Reason         string    `json:"reason"`
+	ReasonCode     string    `json:"reason_code"`
+	RecordedByName string    `json:"recorded_by_name"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type ShiftReturnsMetric struct {
+	TotalCount        int                `json:"total_count"`
+	TotalRefundAmount float64            `json:"total_refund_amount"`
+	Items             []ShiftReturnItem  `json:"items"`
+}
+
+type ShiftReturnItem struct {
+	ID            string    `json:"id"`
+	TransactionID string    `json:"transaction_id"`
+	RefundAmount  float64   `json:"refund_amount"`
+	RefundMethod  string    `json:"refund_method"`
+	Reason        string    `json:"reason"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+type ShiftSecurityEventRecord struct {
+	ID        string    `json:"id"`
+	EventType string    `json:"event_type"`
+	Severity  string    `json:"severity"`
+	Details   JSONB     `json:"details,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }

@@ -195,6 +195,7 @@ func SetupRouter(
 	// perangkat berperan kasir. Memindahkannya ke rute device akan membatalkan
 	// seluruh Blind Closing dengan satu baris.
 	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/reports/shift-reconciliation", chain(shiftReconcileHandler.List))
+	mux.HandleFunc("GET /v1/business/outlets/{outlet_id}/reports/shift-reconciliation/{shift_id}", chain(shiftReconcileHandler.GetDetail))
 
 	// ── Modul SO — ADMIN (token bisnis) ─────────────────────────────────────
 	//

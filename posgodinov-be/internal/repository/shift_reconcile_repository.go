@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -209,4 +210,513 @@ func (r *shiftReconcileRepository) ListReconciliation(ctx context.Context, f dom
 	}
 
 	return rows, nil
+}
+
+// GetShiftDetail mengambil seluruh rincian operasional satu shift secara on-demand.
+func (r *shiftReconcileRepository) GetShiftDetail(ctx context.Context, businessID, outletID, shiftID string) (*domain.ShiftDetailResponse, error) {
+	db := database.GetDB(ctx, r.db)
+
+	// ── 1. Shift Summary ───────────────────────────────────────────────────
+	var shiftRow struct {
+		ID                string
+		OutletID          string
+		StaffID           string
+		StaffName         string
+		DeviceID          string
+		Status            string
+		BlindClose        bool
+		ClientOpenedAt    time.Time
+		ClientClosedAt    *time.Time
+		ReconciledAt      *time.Time
+		OpeningBalance    float64
+		DeclaredCash      float64
+		DeclaredEDCTotal  float64
+		DeclaredQRISTotal float64
+		ExpectedCash      *float64
+		ExpectedEDCTotal  *float64
+		ExpectedQRISTotal *float64
+		CashVariance      *float64
+		EDCVariance       *float64
+		QRISVariance      *float64
+	}
+
+	if err := db.WithContext(ctx).
+		Table("shifts s").
+		Select(`
+			s.id,
+			s.outlet_id,
+			s.staff_id,
+			COALESCE(u.name, '') AS staff_name,
+			s.device_id,
+			s.status,
+			s.blind_close,
+			s.client_opened_at,
+			s.client_closed_at,
+			s.reconciled_at,
+			s.opening_balance,
+			s.declared_cash,
+			s.declared_edc_total,
+			s.declared_qris_total,
+			s.expected_cash,
+			s.expected_edc_total,
+			s.expected_qris_total,
+			s.cash_variance,
+			s.edc_variance,
+			s.qris_variance
+		`).
+		Joins("LEFT JOIN users u ON u.id = s.staff_id").
+		Where("s.id = ? AND s.business_id = ? AND s.outlet_id = ?", shiftID, businessID, outletID).
+		Scan(&shiftRow).Error; err != nil {
+		return nil, err
+	}
+
+	if shiftRow.ID == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	summary := domain.ShiftSummary{
+		ShiftID:        shiftRow.ID,
+		OutletID:       shiftRow.OutletID,
+		StaffID:        shiftRow.StaffID,
+		StaffName:      shiftRow.StaffName,
+		DeviceID:       shiftRow.DeviceID,
+		Status:         shiftRow.Status,
+		BlindClose:     shiftRow.BlindClose,
+		OpenedAt:       shiftRow.ClientOpenedAt,
+		OpeningBalance: shiftRow.OpeningBalance,
+		ClosedAt:       shiftRow.ClientClosedAt,
+		ReconciledAt:   shiftRow.ReconciledAt,
+		Cash: domain.ShiftVarianceDetail{
+			Declared: shiftRow.DeclaredCash,
+			Expected: shiftRow.ExpectedCash,
+			Variance: shiftRow.CashVariance,
+		},
+		EDC: domain.ShiftVarianceDetail{
+			Declared: shiftRow.DeclaredEDCTotal,
+			Expected: shiftRow.ExpectedEDCTotal,
+			Variance: shiftRow.EDCVariance,
+		},
+		QRIS: domain.ShiftVarianceDetail{
+			Declared: shiftRow.DeclaredQRISTotal,
+			Expected: shiftRow.ExpectedQRISTotal,
+			Variance: shiftRow.QRISVariance,
+		},
+	}
+
+	// ── 2. Transaksi & Detail Items ─────────────────────────────────────────
+	var txRows []struct {
+		ID               string
+		ShortCode        *string
+		CustomerName     string
+		TotalAmount      float64
+		PaymentMethod    string
+		Status           string
+		ReprintCount     int
+		ReceiptPrintedAt *time.Time
+		CreatedAt        time.Time
+	}
+
+	if err := db.WithContext(ctx).
+		Table("transactions").
+		Select(`
+			id,
+			short_code,
+			customer_name,
+			total_amount,
+			payment_method,
+			status,
+			reprint_count,
+			receipt_printed_at,
+			created_at
+		`).
+		Where("shift_id = ?", shiftID).
+		Order("client_created_at DESC").
+		Scan(&txRows).Error; err != nil {
+		return nil, err
+	}
+
+	txList := make([]domain.ShiftTransactionRecord, 0, len(txRows))
+	txIDs := make([]string, 0, len(txRows))
+	var completedCount, voidedCount int
+	var totalGross float64
+
+	for _, tr := range txRows {
+		receiptCode := tr.ID
+		if tr.ShortCode != nil && *tr.ShortCode != "" {
+			receiptCode = *tr.ShortCode
+		}
+
+		rec := domain.ShiftTransactionRecord{
+			ID:               tr.ID,
+			ReceiptCode:      receiptCode,
+			CustomerName:     tr.CustomerName,
+			TotalAmount:      tr.TotalAmount,
+			PaymentMethod:    tr.PaymentMethod,
+			Status:           tr.Status,
+			ReprintCount:     tr.ReprintCount,
+			ReceiptPrintedAt: tr.ReceiptPrintedAt,
+			CreatedAt:        tr.CreatedAt,
+			Items:            []domain.ShiftTransactionItem{},
+		}
+
+		if tr.Status == domain.TxStatusCompleted {
+			completedCount++
+			totalGross += tr.TotalAmount
+		} else if domain.IsCancellation(tr.Status) {
+			voidedCount++
+		}
+
+		txList = append(txList, rec)
+		txIDs = append(txIDs, tr.ID)
+	}
+
+	// Batch query item transaksi
+	if len(txIDs) > 0 {
+		var itemRows []struct {
+			ID            string
+			TransactionID string
+			ProductID     string
+			ProductName   string
+			SKU           string
+			Quantity      int
+			UnitPrice     float64
+			Subtotal      float64
+		}
+
+		if err := db.WithContext(ctx).
+			Table("transaction_items ti").
+			Select(`
+				ti.id,
+				ti.transaction_id,
+				ti.product_id,
+				COALESCE(p.name, '') AS product_name,
+				COALESCE(p.sku, '')  AS sku,
+				ti.quantity,
+				ti.unit_price,
+				(ti.quantity * ti.unit_price) AS subtotal
+			`).
+			Joins("LEFT JOIN products p ON p.id = ti.product_id").
+			Where("ti.transaction_id IN ?", txIDs).
+			Order("ti.id ASC").
+			Scan(&itemRows).Error; err != nil {
+			return nil, err
+		}
+
+		itemsByTx := make(map[string][]domain.ShiftTransactionItem, len(txIDs))
+		for _, item := range itemRows {
+			itemsByTx[item.TransactionID] = append(itemsByTx[item.TransactionID], domain.ShiftTransactionItem{
+				ID:          item.ID,
+				ProductID:   item.ProductID,
+				ProductName: item.ProductName,
+				SKU:         item.SKU,
+				Quantity:    item.Quantity,
+				UnitPrice:   item.UnitPrice,
+				Subtotal:    item.Subtotal,
+			})
+		}
+
+		for i := range txList {
+			if items, ok := itemsByTx[txList[i].ID]; ok {
+				txList[i].Items = items
+			}
+		}
+	}
+
+	// Breakdown metode pembayaran
+	paymentBreakdown := make(map[string]float64)
+	var paymentRows []struct {
+		Method string
+		Amount float64
+	}
+	if err := db.WithContext(ctx).
+		Table("transaction_payments p").
+		Select("p.method, COALESCE(SUM(p.amount), 0) AS amount").
+		Joins("JOIN transactions t ON t.id = p.transaction_id").
+		Where("t.shift_id = ? AND t.status = ?", shiftID, domain.TxStatusCompleted).
+		Group("p.method").
+		Scan(&paymentRows).Error; err == nil {
+		for _, pr := range paymentRows {
+			paymentBreakdown[pr.Method] = pr.Amount
+		}
+	}
+
+	txMetric := domain.ShiftTransactionsMetric{
+		TotalCount:       len(txList),
+		CompletedCount:   completedCount,
+		VoidedCount:      voidedCount,
+		TotalGrossAmount: totalGross,
+		TotalNetAmount:   totalGross,
+		PaymentBreakdown: paymentBreakdown,
+		Transactions:     txList,
+	}
+
+	// ── 3. Cetak Ulang Struk (Reprint) ──────────────────────────────────────
+	var reprintedTx []domain.ShiftReceiptPrintRecord
+	for _, tr := range txList {
+		if tr.ReprintCount > 0 {
+			reprintedTx = append(reprintedTx, domain.ShiftReceiptPrintRecord{
+				TransactionID:    tr.ID,
+				ReceiptCode:      tr.ReceiptCode,
+				ReprintCount:     tr.ReprintCount,
+				ReceiptPrintedAt: tr.ReceiptPrintedAt,
+			})
+		}
+	}
+	receiptPrintsMetric := domain.ShiftReceiptPrintsMetric{
+		TotalReprinted:        len(reprintedTx),
+		TransactionsReprinted: reprintedTx,
+	}
+
+	// ── 4. Void Logs ────────────────────────────────────────────────────────
+	var voidRows []struct {
+		ID               string
+		Scope            string
+		ProductID        *string
+		ProductName      string
+		QuantityBefore   int
+		QuantityAfter    int
+		ValueAmount      float64
+		ReasonCode       string
+		ReasonNotes      string
+		StaffName        string
+		AuthorizedByName string
+		CreatedAt        time.Time
+	}
+
+	if err := db.WithContext(ctx).
+		Table("void_logs v").
+		Select(`
+			v.id,
+			v.scope,
+			v.product_id,
+			COALESCE(p.name, '') AS product_name,
+			v.quantity_before,
+			v.quantity_after,
+			v.value_amount,
+			v.reason_code,
+			v.reason_notes,
+			COALESCE(u.name, '') AS staff_name,
+			COALESCE(auth.name, '') AS authorized_by_name,
+			v.created_at
+		`).
+		Joins("LEFT JOIN products p ON p.id = v.product_id").
+		Joins("LEFT JOIN users u ON u.id = v.staff_id").
+		Joins("LEFT JOIN users auth ON auth.id = v.authorized_by").
+		Where("v.shift_id = ?", shiftID).
+		Order("v.created_at DESC").
+		Scan(&voidRows).Error; err != nil {
+		return nil, err
+	}
+
+	voidList := make([]domain.ShiftVoidItem, 0, len(voidRows))
+	var totalVoidValue float64
+	for _, vr := range voidRows {
+		totalVoidValue += vr.ValueAmount
+		voidList = append(voidList, domain.ShiftVoidItem{
+			ID:               vr.ID,
+			Scope:            vr.Scope,
+			ProductID:        vr.ProductID,
+			ProductName:      vr.ProductName,
+			QuantityBefore:   vr.QuantityBefore,
+			QuantityAfter:    vr.QuantityAfter,
+			ValueAmount:      vr.ValueAmount,
+			ReasonCode:       vr.ReasonCode,
+			ReasonNotes:      vr.ReasonNotes,
+			StaffName:        vr.StaffName,
+			AuthorizedByName: vr.AuthorizedByName,
+			CreatedAt:        vr.CreatedAt,
+		})
+	}
+	voidsMetric := domain.ShiftVoidsMetric{
+		TotalCount:       len(voidList),
+		TotalValueAmount: totalVoidValue,
+		Items:            voidList,
+	}
+
+	// ── 5. Waste Logs (Produk POS & Bahan Baku) ─────────────────────────────
+	wasteList := make([]domain.ShiftWasteItem, 0)
+
+	// Produk waste dari POS
+	var pwRows []struct {
+		ID             string
+		ProductID      string
+		ProductName    string
+		Quantity       int
+		Reason         string
+		ReasonCode     string
+		RecordedByName string
+		CreatedAt      time.Time
+	}
+	if err := db.WithContext(ctx).
+		Table("product_wastes pw").
+		Select(`
+			pw.id,
+			pw.product_id,
+			COALESCE(p.name, '') AS product_name,
+			pw.quantity,
+			pw.reason,
+			pw.reason_code,
+			COALESCE(u.name, '') AS recorded_by_name,
+			pw.created_at
+		`).
+		Joins("LEFT JOIN products p ON p.id = pw.product_id").
+		Joins("LEFT JOIN users u ON u.id = pw.staff_id").
+		Where("pw.shift_id = ?", shiftID).
+		Order("pw.created_at DESC").
+		Scan(&pwRows).Error; err == nil {
+		for _, pw := range pwRows {
+			wasteList = append(wasteList, domain.ShiftWasteItem{
+				ID:             pw.ID,
+				ItemID:         pw.ProductID,
+				ItemName:       pw.ProductName,
+				WasteType:      "PRODUCT",
+				Quantity:       float64(pw.Quantity),
+				Unit:           "pcs",
+				Reason:         pw.Reason,
+				ReasonCode:     pw.ReasonCode,
+				RecordedByName: pw.RecordedByName,
+				CreatedAt:      pw.CreatedAt,
+			})
+		}
+	}
+
+	// Bahan baku waste dalam rentang shift
+	openedAt := shiftRow.ClientOpenedAt
+	closedAt := openedAt
+	if shiftRow.ClientClosedAt != nil {
+		closedAt = *shiftRow.ClientClosedAt
+	} else {
+		closedAt = time.Now()
+	}
+
+	var rmWasteRows []struct {
+		ID             string
+		RawMaterialID  string
+		ItemName       string
+		Quantity       float64
+		Unit           string
+		Reason         string
+		RecordedByName string
+		CreatedAt      time.Time
+	}
+	if err := db.WithContext(ctx).
+		Table("waste_logs wl").
+		Select(`
+			wl.id,
+			wl.raw_material_id,
+			COALESCE(rm.name, '') AS item_name,
+			wl.quantity,
+			COALESCE(rm.unit, 'satuan') AS unit,
+			wl.reason,
+			COALESCE(u.name, '') AS recorded_by_name,
+			wl.created_at
+		`).
+		Joins("LEFT JOIN raw_materials rm ON rm.id = wl.raw_material_id").
+		Joins("LEFT JOIN users u ON u.id = wl.recorded_by").
+		Where("wl.outlet_id = ? AND wl.created_at >= ? AND wl.created_at <= ?", outletID, openedAt, closedAt).
+		Order("wl.created_at DESC").
+		Scan(&rmWasteRows).Error; err == nil {
+		for _, rw := range rmWasteRows {
+			wasteList = append(wasteList, domain.ShiftWasteItem{
+				ID:             rw.ID,
+				ItemID:         rw.RawMaterialID,
+				ItemName:       rw.ItemName,
+				WasteType:      "RAW_MATERIAL",
+				Quantity:       rw.Quantity,
+				Unit:           rw.Unit,
+				Reason:         rw.Reason,
+				ReasonCode:     "",
+				RecordedByName: rw.RecordedByName,
+				CreatedAt:      rw.CreatedAt,
+			})
+		}
+	}
+
+	wastesMetric := domain.ShiftWastesMetric{
+		TotalCount: len(wasteList),
+		Items:      wasteList,
+	}
+
+	// ── 6. Returns ──────────────────────────────────────────────────────────
+	var retRows []struct {
+		ID                    string
+		OriginalTransactionID string
+		RefundAmount          float64
+		RefundMethod          string
+		ReasonCode            string
+		CreatedAt             time.Time
+	}
+
+	if err := db.WithContext(ctx).
+		Table("returns r").
+		Select(`
+			r.id,
+			r.original_transaction_id,
+			r.refund_amount,
+			r.refund_method,
+			r.reason_code,
+			r.created_at
+		`).
+		Where("r.shift_id = ?", shiftID).
+		Order("r.created_at DESC").
+		Scan(&retRows).Error; err != nil {
+		return nil, err
+	}
+
+	retList := make([]domain.ShiftReturnItem, 0, len(retRows))
+	var totalRefund float64
+	for _, rr := range retRows {
+		totalRefund += rr.RefundAmount
+		retList = append(retList, domain.ShiftReturnItem{
+			ID:            rr.ID,
+			TransactionID: rr.OriginalTransactionID,
+			RefundAmount:  rr.RefundAmount,
+			RefundMethod:  rr.RefundMethod,
+			Reason:        rr.ReasonCode,
+			CreatedAt:     rr.CreatedAt,
+		})
+	}
+
+	returnsMetric := domain.ShiftReturnsMetric{
+		TotalCount:        len(retList),
+		TotalRefundAmount: totalRefund,
+		Items:             retList,
+	}
+
+	// ── 7. Security Events ──────────────────────────────────────────────────
+	var secRows []struct {
+		ID        string
+		EventType string
+		Severity  string
+		Details   domain.JSONB
+		CreatedAt time.Time
+	}
+
+	secEvents := make([]domain.ShiftSecurityEventRecord, 0)
+	if err := db.WithContext(ctx).
+		Table("pos_security_events").
+		Select("id, event_type, severity, details, created_at").
+		Where("shift_id = ?", shiftID).
+		Order("created_at DESC").
+		Scan(&secRows).Error; err == nil {
+		for _, sr := range secRows {
+			secEvents = append(secEvents, domain.ShiftSecurityEventRecord{
+				ID:        sr.ID,
+				EventType: sr.EventType,
+				Severity:  sr.Severity,
+				Details:   sr.Details,
+				CreatedAt: sr.CreatedAt,
+			})
+		}
+	}
+
+	return &domain.ShiftDetailResponse{
+		ShiftSummary:        summary,
+		TransactionsMetric:  txMetric,
+		ReceiptPrintsMetric: receiptPrintsMetric,
+		VoidsMetric:         voidsMetric,
+		WastesMetric:        wastesMetric,
+		ReturnsMetric:       returnsMetric,
+		SecurityEvents:      secEvents,
+	}, nil
 }

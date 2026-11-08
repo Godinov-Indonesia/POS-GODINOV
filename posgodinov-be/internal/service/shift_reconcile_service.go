@@ -141,6 +141,25 @@ func (s *shiftReconcileService) List(ctx context.Context, f domain.ShiftReconcil
 	return rows, nil
 }
 
+// GetDetail mengambil rincian komprehensif satu shift untuk keperluan audit pemilik.
+func (s *shiftReconcileService) GetDetail(ctx context.Context, businessID, outletID, shiftID string) (*domain.ShiftDetailResponse, error) {
+	if businessID == "" || outletID == "" || shiftID == "" {
+		return nil, errors.New("parameter tidak lengkap")
+	}
+
+	detail, err := s.reconcileRepo.GetShiftDetail(ctx, businessID, outletID, shiftID)
+	if err != nil {
+		return nil, err
+	}
+
+	detail.ShiftSummary.VarianceThreshold = VarianceThreshold
+	detail.ShiftSummary.Flagged = exceeds(detail.ShiftSummary.Cash.Variance) ||
+		exceeds(detail.ShiftSummary.EDC.Variance) ||
+		exceeds(detail.ShiftSummary.QRIS.Variance)
+
+	return detail, nil
+}
+
 // exceeds menilai satu selisih terhadap ambang.
 //
 // Nil berarti shift-nya belum direkonsiliasi — bukan berarti selisihnya nol.

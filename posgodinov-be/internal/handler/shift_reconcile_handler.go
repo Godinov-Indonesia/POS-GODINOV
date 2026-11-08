@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
+
+	"gorm.io/gorm"
 
 	"posgodinov-backend/internal/domain"
 	"posgodinov-backend/internal/middleware"
@@ -50,4 +53,34 @@ func (h *ShiftReconcileHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, http.StatusOK, "Berhasil memuat rekonsiliasi shift", rows)
+}
+
+// GetDetail mengembalikan rincian lengkap sebuah shift (transaksi, item, struk, void, waste, retur, keamanan).
+func (h *ShiftReconcileHandler) GetDetail(w http.ResponseWriter, r *http.Request) {
+	payload, ok := r.Context().Value(middleware.AuthPayloadKey).(*token.Payload)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "Token tidak valid", nil)
+		return
+	}
+
+	outletID := r.PathValue("outlet_id")
+	shiftID := r.PathValue("shift_id")
+
+	if outletID == "" || shiftID == "" {
+		response.Error(w, http.StatusBadRequest, "Parameter outlet_id atau shift_id tidak boleh kosong", nil)
+		return
+	}
+
+	detail, err := h.service.GetDetail(r.Context(), payload.ID, outletID, shiftID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.Error(w, http.StatusNotFound, "Shift tidak ditemukan", nil)
+			return
+		}
+		response.Error(w, http.StatusInternalServerError, "Gagal memuat rincian shift",
+			map[string]string{"error": err.Error()})
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Berhasil memuat rincian shift", detail)
 }
