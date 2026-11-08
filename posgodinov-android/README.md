@@ -7,6 +7,7 @@ Aplikasi kasir POS Godinov berbasis **Android Kotlin Native** untuk Tablet Andro
 - **Skema Database:** [`../docs/02-database-schema.md`](../docs/02-database-schema.md)
 - **Kebutuhan Fitur Mobile & Kiosk:** [`../docs/04-frontend-mobile-web-requirements.md`](../docs/04-frontend-mobile-web-requirements.md)
 - **Design System & Brand:** [`../docs/06-ui-ux-design-system.md`](../docs/06-ui-ux-design-system.md) · [`../docs/brand-guideline-godinov-pos.md`](../docs/brand-guideline-godinov-pos.md)
+- **Aturan Struktur Kode (wajib):** [`RULES.md`](RULES.md)
 
 ---
 
