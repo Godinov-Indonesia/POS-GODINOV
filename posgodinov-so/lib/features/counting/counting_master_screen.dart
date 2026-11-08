@@ -259,7 +259,7 @@ class _CountingMasterScreenState extends State<CountingMasterScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: AppTheme.dangerColor,
+            backgroundColor: AppTheme.danger,
             content: Text(ErrorFormatter.format(e)),
           ),
         );

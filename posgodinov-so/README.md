@@ -4,15 +4,16 @@ Aplikasi mobile berbasis **Flutter** yang dirancang khusus untuk operasional **S
 
 ---
 
-## 📱 Mengapa Terpisah dari `posgodinov-mobile`?
+## 📱 Mengapa Terpisah dari Aplikasi POS Kasir (`posgodinov-android`)?
 
-| Parameter | **`posgodinov-mobile` (Aplikasi POS Kasir)** | **`posgodinov-so` (Aplikasi Stock Opname)** |
+| Parameter | **`posgodinov-android` (Aplikasi POS Kasir)** | **`posgodinov-so` (Aplikasi Stock Opname)** |
 | :--- | :--- | :--- |
-| **Form Factor** | Tablet Android 10" (*Landscape*) | Smartphone 5.5"–6.7" (*Portrait / Handheld*) |
+| **Form Factor** | Tablet Android 10" (*Landscape*) / Handheld POS | Smartphone 5.5"–6.7" (*Portrait / Handheld*) |
 | **Lokasi Operasi** | Meja Kasir / Counter Transaksi | Lorong Gudang, Rak Bahan Baku, Kitchen, Chiller |
 | **Perangkat Pendukung** | Cash Drawer, EDC, Printer Thermal ESC/POS | Kamera Smartphone (Barcode 1D & QR), Haptic Engine |
 | **Karakter Pengguna** | Kasir fokus pada kecepatan transaksi penjualan | Staf gudang, barista, dan cook menghitung persediaan fisik |
 | **Kondisi Jaringan** | Wi-Fi counter relatif stabil | Sering berada di area *blank spot* / sinyal lemah |
+| **Application ID** | `id.godinov.pos` | `id.godinov.so` |
 | **Scope Token Perangkat** | `godinov-device-pos` | `godinov-device-so` (Scope: `OPNAME`) |
 
 ---
@@ -62,7 +63,7 @@ posgodinov-so/
 │   ├── main.dart                          # Entrypoint aplikasi Flutter
 │   ├── core/
 │   │   ├── config/
-│   │   │   └── app_config.dart            # Hardcoded static Base URL (http://localhost:8080)
+│   │   │   └── app_config.dart            # Base URL dinamis (--dart-define, default: https://api-pos.godinov.web.id)
 │   │   ├── crypto/
 │   │   │   └── pin_verifier.dart          # Pure Dart BCrypt verification via compute isolate
 │   │   ├── database/
@@ -113,51 +114,84 @@ Aplikasi berkomunikasi dengan `posgodinov-be` melalui kontrak endpoint berikut:
 
 ---
 
-## 🚀 Panduan Menjalankan & Pengembangan
+## ⚙️ Konfigurasi `API_BASE_URL`, Keamanan Android & Toolchain
 
-### Prasyarat
-- **Flutter SDK**: 3.47+ (Dart 3.13+)
-- **Android SDK**: Platform 34+, Android Studio JBR
-- Perangkat fisik Android (dengan USB Debugging aktif) atau Android Emulator
+### 1. Toolchain Android (Diselaraskan dengan `posgodinov-android`)
+- **Gradle Wrapper:** `9.5.1` ([`android/gradle/wrapper/gradle-wrapper.properties`](android/gradle/wrapper/gradle-wrapper.properties))
+- **AGP & Kotlin:** `9.0.1` & `2.3.20` ([`android/settings.gradle.kts`](android/settings.gradle.kts)) — disamakan agar berbagi *cache* Gradle yang identik di lokal maupun GitHub Actions.
+- **SDK & Java:** `minSdk = 24`, `compileSdk` / `targetSdk` mengikuti Flutter SDK (`36`), `JavaVersion.VERSION_17`.
 
-### 1. Persiapan Port Forwarding (Perangkat Fisik)
-Jika menguji menggunakan perangkat fisik yang tersambung via kabel data USB, arahkan port host backend ke perangkat via `adb`:
+### 2. Resolusi Dinamis `API_BASE_URL`
+[`lib/core/config/app_config.dart`](lib/core/config/app_config.dart) membaca `String.fromEnvironment('API_BASE_URL')` pada saat kompilasi (otomatis membersihkan garis miring `/` di akhir):
+- **Default Produksi:** `https://api-pos.godinov.web.id` (dipakai langsung bila argumen `--dart-define` tidak disertakan).
+- **Override Lokal / CI:** Dikirim lewat `--dart-define=API_BASE_URL=...` (di CI diambil otomatis dari `vars.API_BASE_URL` atau input manual).
 
+### 3. Keamanan Manifest Android (Wajib Dijaga)
+- **`android:allowBackup="false"` ([`main/AndroidManifest.xml`](android/app/src/main/AndroidManifest.xml)):** Wajib tetap `false` karena SQLite lokal menyimpan sinkronisasi `pin_hash` bcrypt staf outlet yang tidak boleh terunggah ke Google Drive oleh Android Auto Backup.
+- **Kebijakan Cleartext HTTP:**
+  - **Build Release (`src/main`):** `android:usesCleartextTraffic="false"` — mewajibkan HTTPS murni di produksi.
+  - **Build Debug & Profile (`src/debug` & `src/profile`):** Meng-override `android:usesCleartextTraffic="true"` khusus pengembangan lokal agar pengujian ke `http://localhost:8080` (`adb reverse`) atau IP LAN tetap diizinkan.
+
+---
+
+## 🚀 Panduan Menjalankan & Pengembangan Lokal
+
+### 1. Menjalankan ke Backend Lokal (`localhost:8080`)
+Karena nilai default kini mengarah ke produksi (`https://api-pos.godinov.web.id`), sertakan `--dart-define=API_BASE_URL=...` saat menguji terhadap backend lokal:
+
+- **Perangkat Fisik via USB (`adb reverse`):**
+  ```bash
+  adb reverse tcp:8080 tcp:8080
+  cd posgodinov-so
+  flutter pub get
+  flutter run -d <device-id> --dart-define=API_BASE_URL=http://localhost:8080
+  ```
+- **Android Emulator:**
+  ```bash
+  flutter run -d <emulator-id> --dart-define=API_BASE_URL=http://10.0.2.2:8080
+  ```
+- **Perangkat Fisik via Wi-Fi LAN:**
+  ```bash
+  flutter run -d <device-id> --dart-define=API_BASE_URL=http://192.168.1.10:8080
+  ```
+
+### 2. Analisis Kode & Pengujian
 ```bash
-adb reverse tcp:8080 tcp:8080
-```
-
-Dengan `adb reverse`, aplikasi di smartphone dapat langsung memanggil `http://localhost:8080` yang mengarah ke mesin laptop/PC Anda.
-
-### 2. Menjalankan Aplikasi
-
-```bash
-cd posgodinov-so
-flutter pub get
-flutter devices               # Catat ID perangkat Anda
-flutter run -d <device-id>
-```
-
-> **Hot Reload / Hot Restart:**
-> - Tekan tombol **`r`** di terminal untuk *Hot Reload*.
-> - Tekan tombol **`R`** di terminal untuk *Hot Restart*.
-
-### 3. Analisis Kode & Pengujian
-
-```bash
-# Menjalankan linter & static analyzer
 flutter analyze
-
-# Menjalankan seluruh test suite
 flutter test
 ```
 
-### 4. Build APK Release
-
+### 3. Build APK Release Lokal
 ```bash
+# Menggunakan URL produksi default (https://api-pos.godinov.web.id):
 flutter build apk --release
+
+# Atau mengarahkan ke domain lain:
+flutter build apk --release --dart-define=API_BASE_URL=https://api-baru.godinov.web.id
 ```
-Berkas APK akan tersedia di `build/app/outputs/flutter-apk/app-release.apk`.
+Berkas APK tersedia di `build/app/outputs/flutter-apk/app-release.apk`.
+
+---
+
+## 🔐 Signing APK & Pipeline CI/CD GitHub Actions
+
+### 1. Release Signing (`key.properties` & GitHub Secrets)
+- **Lokal:** Salin [`android/key.properties.example`](android/key.properties.example) menjadi `android/key.properties` (sudah di-ignore di `.gitignore`).
+- **GitHub Actions:** Membaca otomatis 4 **Repository Secrets** yang sama dengan proyek Android utama:
+  - `ANDROID_KEYSTORE_BASE64` (`base64 -w 0 godinov-release.jks`)
+  - `ANDROID_STORE_PASSWORD`
+  - `ANDROID_KEY_ALIAS`
+  - `ANDROID_KEY_PASSWORD`
+- **Fallback Otomatis:** Bila `key.properties` maupun GitHub Secrets belum diset, build `release` otomatis memakai kunci `debug` agar APK langsung bisa dipasang untuk pengujian awal. Pastikan keempat secret sudah diisi sebelum distribusi ke staf lapangan.
+- **Aturan ProGuard / R8 ([`android/app/proguard-rules.pro`](android/app/proguard-rules.pro)):** Menjaga kelas refleksi SQLite/Drift, `flutter_secure_storage`, dan Google MLKit Barcode (`mobile_scanner`) agar tidak terhapus saat minifikasi Release.
+
+### 2. Workflow CI/CD & Caching ([`../.github/workflows/so-ci-cd.yml`](../.github/workflows/so-ci-cd.yml))
+- **Trigger:**
+  - Otomatis saat `push` / *merge* ke branch `main` yang mengubah berkas di `posgodinov-so/**` atau `.github/workflows/so-ci-cd.yml`.
+  - Manual lewat **Actions → Stock Opname Mobile CI/CD → Run workflow** (`workflow_dispatch`), dengan pilihan `release` / `debug` dan override `api_base_url`.
+- **Ubah Domain di CI Tanpa Edit Kode:** Set **GitHub Repository Variable** `API_BASE_URL` (*Settings → Secrets and variables → Actions → Variables*).
+- **Strategi Cache:** Menggabungkan `subosito/flutter-action@v2` (`cache: true` untuk Flutter SDK & Pub) dan `gradle/actions/setup-gradle@v4` pada branch `main` (beserta `caching`, `parallel`, `vfs.watch` di [`android/gradle.properties`](android/gradle.properties)), sehingga setiap eksekusi berikutnya mendapatkan **Cache Hit** penuh selama versi Flutter & Gradle `9.5.1` tidak berubah dan diakses minimal dalam 7 hari.
+- **Unduh Hasil APK:** Tersimpan selama **7 hari** pada bagian **Artifacts** di halaman ringkasan eksekusi GitHub Actions (`posgodinov-so-release-<run_number>`).
 
 ---
 

@@ -1,8 +1,42 @@
+import java.io.StringReader
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val keystoreProps = Properties()
+val keystoreContent =
+    providers
+        .fileContents(rootProject.layout.projectDirectory.file("key.properties"))
+        .asText
+        .orNull
+if (keystoreContent != null) {
+    keystoreProps.load(StringReader(keystoreContent))
+}
+
+val storeFilePath =
+    providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull?.takeIf { it.isNotBlank() }
+        ?: keystoreProps.getProperty("storeFile")?.takeIf { it.isNotBlank() }
+val storePasswordVal =
+    providers.environmentVariable("ANDROID_STORE_PASSWORD").orNull?.takeIf { it.isNotBlank() }
+        ?: keystoreProps.getProperty("storePassword")?.takeIf { it.isNotBlank() }
+val keyAliasVal =
+    providers.environmentVariable("ANDROID_KEY_ALIAS").orNull?.takeIf { it.isNotBlank() }
+        ?: keystoreProps.getProperty("keyAlias")?.takeIf { it.isNotBlank() }
+val keyPasswordVal =
+    providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull?.takeIf { it.isNotBlank() }
+        ?: keystoreProps.getProperty("keyPassword")?.takeIf { it.isNotBlank() }
+
+val releaseKeystoreFile = storeFilePath?.let { rootProject.file(it) }
+val hasReleaseKeystore =
+    releaseKeystoreFile != null &&
+        releaseKeystoreFile.exists() &&
+        storePasswordVal != null &&
+        keyAliasVal != null &&
+        keyPasswordVal != null
 
 android {
     namespace = "id.godinov.posgodinov_so"
@@ -18,19 +52,35 @@ android {
         applicationId = "id.godinov.so"
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
-        // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
-        // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
-        // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
-        // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = releaseKeystoreFile
+                storePassword = storePasswordVal
+                keyAlias = keyAliasVal
+                keyPassword = keyPasswordVal
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig =
+                if (hasReleaseKeystore) {
+                    signingConfigs.getByName("release")
+                } else {
+                    signingConfigs.getByName("debug")
+                }
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
