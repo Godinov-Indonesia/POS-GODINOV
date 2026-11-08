@@ -269,3 +269,39 @@ export interface TriggerBackupPayload {
   storage_provider?: "LOCAL" | "GDRIVE" | "BOTH";
   tables?: string[];
 }
+
+export interface POSMobileCredential {
+  id: string;
+  code: string;
+  label: string;
+  notes?: string;
+  business_id?: string;
+  is_active: boolean;
+  usage_count: number;
+  max_usage: number; // 0 = unlimited
+  last_used_at?: string;
+  expires_at?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePOSMobileCredentialPayload {
+  code?: string;
+  label: string;
+  notes?: string;
+  business_id?: string;
+  is_active?: boolean;
+  max_usage?: number;
+  expires_at?: string;
+}
+
+export interface UpdatePOSMobileCredentialPayload {
+  label?: string;
+  notes?: string;
+  business_id?: string;
+  is_active?: boolean;
+  max_usage?: number;
+  expires_at?: string;
+}
+

@@ -12,6 +12,7 @@ import {
   LogOut,
   Database,
   ShieldAlert,
+  Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -51,6 +52,11 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: "Infrastruktur & Bisnis",
     items: [
+      {
+        label: "Kredensial POS Mobile",
+        href: "/pos-credentials",
+        icon: Smartphone,
+      },
       {
         label: "Database Backups",
         href: "/backups",
