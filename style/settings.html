@@ -1,0 +1,465 @@
+<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"><style>@layer base { html, body { margin: 0; padding: 0; } body { overscroll-behavior: none; } main > :first-child { margin-top: 0 !important; } main > :last-child { margin-bottom: 0 !important; } } ::-webkit-scrollbar { display: none; }</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "tertiary": "#006058", "on-surface-variant": "#434655", "surface-container": "#eceef0", "secondary-container": "#d5e0f8", "surface-variant": "#e0e3e5", "error": "#ba1a1a", "on-error-container": "#93000a", "surface-container-lowest": "#ffffff", "primary-container": "#2563eb", "on-tertiary": "#ffffff", "background": "#f7f9fb", "on-secondary-fixed-variant": "#3c475a", "on-primary-fixed-variant": "#003ea8", "inverse-primary": "#b4c5ff", "inverse-surface": "#2d3133", "surface-dim": "#d8dadc", "tertiary-fixed-dim": "#6bd8cb", "surface-container-low": "#f2f4f6", "on-error": "#ffffff", "secondary-fixed-dim": "#bcc7de", "surface-tint": "#0053db", "outline-variant": "#c3c6d7", "primary-fixed-dim": "#b4c5ff", "on-primary-fixed": "#00174b", "primary": "#004ac6", "on-background": "#191c1e", "on-primary-container": "#eeefff", "secondary-fixed": "#d8e3fb", "on-secondary-fixed": "#111c2d", "outline": "#737686", "tertiary-container": "#007b71", "tertiary-fixed": "#89f5e7", "primary-fixed": "#dbe1ff", "surface-container-highest": "#e0e3e5", "on-tertiary-fixed": "#00201d", "inverse-on-surface": "#eff1f3", "on-surface": "#191c1e", "surface": "#f7f9fb", "on-secondary-container": "#586377", "surface-container-high": "#e6e8ea", "error-container": "#ffdad6", "on-secondary": "#ffffff", "on-tertiary-fixed-variant": "#005049", "on-primary": "#ffffff", "on-tertiary-container": "#b3fff3", "secondary": "#545f73", "surface-bright": "#f7f9fb" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "margin-tablet-landscape": "1.5rem", "space-xs": "0.25rem", "space-3xl": "3rem", "margin": "1rem", "gutter-tablet-landscape": "1.25rem", "space-xl": "1.5rem", "space-lg": "1rem", "space-2xl": "2rem", "space-sm": "0.5rem", "gutter": "1rem", "space-md": "0.75rem" }, "fontFamily": { "headline-lg": ["Inter"], "title-sm": ["Inter"], "label-md": ["Inter"], "display-lg": ["Inter"], "label-lg": ["Inter"], "title-md": ["Inter"], "body-md": ["Inter"], "numeral-total": ["Inter"], "label-sm": ["Inter"], "headline-sm": ["Inter"], "display-md": ["Inter"], "headline-md": ["Inter"], "body-sm": ["Inter"], "title-lg": ["Inter"], "body-lg": ["Inter"] }, "fontSize": { "headline-lg": ["2rem", { "lineHeight": "2.5rem", "letterSpacing": "-0.01em", "fontWeight": "600" }], "title-sm": ["0.875rem", { "lineHeight": "1.25rem", "fontWeight": "600" }], "label-md": ["0.75rem", { "lineHeight": "1rem", "letterSpacing": "0.02em", "fontWeight": "600" }], "display-lg": ["3.5rem", { "lineHeight": "4rem", "letterSpacing": "-0.02em", "fontWeight": "700" }], "label-lg": ["0.875rem", { "lineHeight": "1.25rem", "letterSpacing": "0.01em", "fontWeight": "600" }], "title-md": ["1rem", { "lineHeight": "1.5rem", "fontWeight": "600" }], "body-md": ["0.875rem", { "lineHeight": "1.25rem", "fontWeight": "400" }], "numeral-total": ["2.25rem", { "lineHeight": "2.5rem", "letterSpacing": "-0.02em", "fontWeight": "700" }], "label-sm": ["0.6875rem", { "lineHeight": "0.875rem", "letterSpacing": "0.04em", "fontWeight": "700" }], "headline-sm": ["1.5rem", { "lineHeight": "2rem", "fontWeight": "600" }], "display-md": ["2.75rem", { "lineHeight": "3.25rem", "letterSpacing": "-0.01em", "fontWeight": "700" }], "headline-md": ["1.75rem", { "lineHeight": "2.25rem", "fontWeight": "600" }], "body-sm": ["0.75rem", { "lineHeight": "1rem", "fontWeight": "400" }], "title-lg": ["1.25rem", { "lineHeight": "1.75rem", "fontWeight": "600" }], "body-lg": ["1rem", { "lineHeight": "1.5rem", "fontWeight": "400" }] } } } };</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><header class="fixed top-0 left-0 right-0 h-16 bg-surface-container-lowest/95 backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 px-gutter-tablet-landscape flex items-center justify-between"><div class="flex items-center gap-space-lg"><a class="flex items-center gap-space-xs px-space-md py-space-sm rounded-full bg-surface-container-low hover:bg-surface-container-high text-on-surface transition-colors" data-path="dashboard" href="#"><span class="material-symbols-outlined text-[20px]">arrow_back</span><span class="font-label-lg text-label-lg">Kembali ke Dashboard</span></a></div></header><div class=""><main class="relative pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<!-- Content Header Area -->
+<div class="px-gutter-tablet-landscape pt-space-lg pb-space-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-space-sm"><div class=""><h1 class="font-headline-md text-headline-md text-on-surface tracking-tight">Konfigurasi Printer Termal</h1></div><div class="flex items-center gap-space-sm"><button class="h-10 px-space-md rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface flex items-center gap-space-xs transition-colors shadow-sm" onclick="triggerToast('Menyinkronkan daftar perangkat hardware...')" type="button"><span class="material-symbols-outlined text-[18px]">refresh</span><span class="font-label-lg text-label-lg">Segarkan</span></button></div></div>
+<!-- Dual-Column Landscape Layout -->
+<div class="p-gutter-tablet-landscape pt-space-sm grid grid-cols-12 gap-space-lg items-start pb-28">
+<!-- LEFT COLUMN: Connected Hardware & Device Registry (~360px equivalent on landscape tablets) -->
+<div class="col-span-12 lg:col-span-4 xl:col-span-4 flex flex-col gap-space-md">
+<!-- Primary Active Device Card -->
+<div class="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm relative overflow-hidden">
+<div class="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-primary/5 pointer-events-none"></div>
+<div class="flex items-center justify-between mb-space-md">
+<div class="flex items-center gap-space-xs px-space-sm py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<span class="font-label-sm text-label-sm uppercase tracking-wide">Terhubung (Ready)</span>
+</div>
+<span class="font-label-sm text-label-sm font-semibold uppercase text-primary bg-primary-fixed/60 px-space-xs py-0.5 rounded">Default POS</span>
+</div>
+<div class="flex items-start gap-space-md mb-space-md">
+<div class="w-14 h-14 rounded-xl bg-secondary-container flex items-center justify-center text-primary flex-shrink-0 shadow-inner">
+<span class="material-symbols-outlined text-[32px]">receipt_long</span>
+</div>
+<div class="min-w-0">
+<h2 class="font-title-md text-title-md text-on-surface truncate">Epson TM-T82X / POS-80C</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Thermal Direct • ESC/POS Protocol</p>
+<div class="mt-1 flex items-center gap-1.5 text-tertiary font-label-md text-label-md font-medium">
+<span class="material-symbols-outlined text-[16px]">usb</span>
+<span class="">Port COM-3 • 115200 bps</span>
+</div>
+</div>
+</div>
+<!-- Quick Hardware Action Controls -->
+<div class="grid grid-cols-2 gap-space-sm pt-space-xs">
+<button class="h-12 px-space-sm rounded-xl bg-primary text-on-primary font-label-lg text-label-lg flex items-center justify-center gap-space-xs shadow-sm active:scale-95 transition-all" id="btnTestPrint" onclick="handleTestPrint(this)" type="button">
+<span class="material-symbols-outlined text-[20px]">print</span>
+<span class="">Uji Cetak</span>
+</button>
+<button class="h-12 px-space-sm rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-lg text-label-lg flex items-center justify-center gap-space-xs active:scale-95 transition-all" id="btnCashDrawer" onclick="handleKickDrawer(this)" type="button">
+<span class="material-symbols-outlined text-[20px] text-tertiary">payments</span>
+<span class="">Buka Laci</span>
+</button>
+</div>
+<!-- Printer Diagnostic Micro Telemetry -->
+<div class="mt-space-md pt-space-sm bg-surface-container-low rounded-xl p-space-sm flex items-center justify-between text-on-surface-variant">
+<div class="flex items-center gap-space-xs font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px] text-tertiary">sensor_door</span>
+<span class="">Cover: Tertutup</span>
+</div>
+<div class="flex items-center gap-space-xs font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px] text-tertiary">check</span>
+<span class="">Kertas: Cukup (Roll 80mm)</span>
+</div>
+</div>
+</div>
+<!-- Discovered & Paired Hardware List -->
+<div class="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<h3 class="font-title-sm text-title-sm text-on-surface uppercase tracking-wider">Perangkat Tersimpan &amp; Ditemukan</h3>
+<span class="px-2 py-0.5 rounded-full bg-surface-container font-label-sm text-label-sm text-on-surface-variant">3 Unit</span>
+</div>
+<!-- Device Card 1 (Active) -->
+<div class="p-space-md rounded-xl bg-primary/5 flex items-center justify-between transition-colors">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-10 h-10 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[22px]">print</span>
+</div>
+<div class="min-w-0">
+<div class="flex items-center gap-1.5">
+<p class="font-title-sm text-title-sm text-on-surface truncate">Epson TM-T82X</p>
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Thermal 80mm • USB Direct</p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs flex-shrink-0">
+<span class="px-2 py-1 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm">Aktif</span>
+<span class="material-symbols-outlined text-[22px] text-primary">check_circle</span>
+</div>
+</div>
+<!-- Device Card 2 (Bluetooth Mini) -->
+<div class="p-space-md rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors flex items-center justify-between group">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest text-on-surface-variant flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[22px]">bluetooth</span>
+</div>
+<div class="min-w-0">
+<p class="font-title-sm text-title-sm text-on-surface truncate">Zijiang ZJ-5802</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Bluetooth • 58mm Portabel</p>
+</div>
+</div>
+<button class="h-9 px-space-sm rounded-lg bg-surface-container hover:bg-primary hover:text-on-primary font-label-md text-label-md text-on-surface transition-colors flex items-center gap-1" onclick="triggerToast('Beralih ke Zijiang ZJ-5802...')" type="button">
+<span class="">Pilih</span>
+</button>
+</div>
+<!-- Device Card 3 (Kitchen LAN) -->
+<div class="p-space-md rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors flex items-center justify-between group">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest text-on-surface-variant flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[22px]">soup_kitchen</span>
+</div>
+<div class="min-w-0">
+<p class="font-title-sm text-title-sm text-on-surface truncate">Kitchen Printer (Dapur)</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">LAN IP: 192.168.1.180:9100</p>
+</div>
+</div>
+<button class="h-9 px-space-sm rounded-lg bg-surface-container hover:bg-primary hover:text-on-primary font-label-md text-label-md text-on-surface transition-colors flex items-center gap-1" onclick="triggerToast('Menghubungkan ke Printer Dapur...')" type="button">
+<span class="">Pilih</span>
+</button>
+</div>
+<!-- Scan Hardware Button -->
+<button class="w-full h-12 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-primary font-label-lg text-label-lg flex items-center justify-center gap-space-sm active:scale-[0.99] transition-all" id="btnScanHardware" onclick="startDeviceScan(this)" type="button">
+<span class="material-symbols-outlined text-[20px] transition-transform" id="scanIcon">bluetooth_searching</span>
+<span id="scanText" class="">+ Pindai Perangkat Baru (Scan Devices)</span>
+</button>
+</div>
+<!-- Quick Guidance Info Box -->
+<div class="bg-secondary-container/40 rounded-2xl p-space-md flex gap-space-sm items-start">
+<span class="material-symbols-outlined text-[22px] text-primary mt-0.5">help</span>
+<div class="text-on-secondary-container">
+<p class="font-title-sm text-title-sm">Butuh Bantuan Sambungan?</p>
+<p class="font-body-sm text-body-sm mt-0.5 leading-relaxed">Pastikan kabel USB OTG terhubung kencang ke terminal Android atau mode Bluetooth Pairing diaktifkan pada printer sebelum melakukan scan.</p>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN: Detailed Configuration Panels -->
+<div class="col-span-12 lg:col-span-8 xl:col-span-8 flex flex-col gap-space-lg">
+<!-- Section 1: Pengaturan Koneksi Printer -->
+<section class="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm">
+<div class="flex items-center gap-space-sm mb-space-md pb-space-sm border-b-0">
+
+<div>
+<h2 class="font-title-lg text-title-lg text-on-surface">Koneksi &amp; Antarmuka Hardware</h2>
+
+</div>
+</div>
+<!-- Segmented Connection Types -->
+<div class="mb-space-lg">
+<label class="block font-label-lg text-label-lg text-on-surface mb-space-xs">Tipe Koneksi Utama</label>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-space-sm" id="connectionModeGrid">
+<button class="connection-btn h-14 rounded-xl px-space-md flex items-center justify-center gap-space-xs font-label-lg text-label-lg bg-primary text-on-primary transition-all shadow-sm" onclick="selectConnectionType('usb', this)" type="button">
+<span class="material-symbols-outlined text-[20px]">usb</span>
+<span class="">USB Cable</span>
+</button>
+<button class="connection-btn h-14 rounded-xl px-space-md flex items-center justify-center gap-space-xs font-label-lg text-label-lg bg-surface-container-low hover:bg-surface-container text-on-surface transition-all" onclick="selectConnectionType('bluetooth', this)" type="button">
+<span class="material-symbols-outlined text-[20px]">bluetooth</span>
+<span class="">Bluetooth</span>
+</button>
+<button class="connection-btn h-14 rounded-xl px-space-md flex items-center justify-center gap-space-xs font-label-lg text-label-lg bg-surface-container-low hover:bg-surface-container text-on-surface transition-all" onclick="selectConnectionType('lan', this)" type="button">
+<span class="material-symbols-outlined text-[20px]">lan</span>
+<span class="">Ethernet / LAN</span>
+</button>
+<button class="connection-btn h-14 rounded-xl px-space-md flex items-center justify-center gap-space-xs font-label-lg text-label-lg bg-surface-container-low hover:bg-surface-container text-on-surface transition-all" onclick="selectConnectionType('wifi', this)" type="button">
+<span class="material-symbols-outlined text-[20px]">wifi</span>
+<span class="">Wi-Fi IP</span>
+</button>
+</div>
+</div>
+<!-- Form Parameter Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md mb-space-md">
+<div class="space-y-1">
+<label class="block font-label-md text-label-md text-on-surface-variant">Nama Alias Printer</label>
+<div class="h-13 bg-surface-container-low rounded-xl px-space-md flex items-center gap-space-sm focus-within:bg-surface-container-lowest focus-within:shadow-[0_0_0_2px_#2563eb] transition-all">
+<span class="material-symbols-outlined text-outline text-[20px]">badge</span>
+<input class="w-full bg-transparent font-body-md text-body-md text-on-surface focus:outline-none placeholder-outline" placeholder="Contoh: Kasir Kasir 1" type="text" value="Kasir Utama (TM-T82X)">
+</div>
+</div>
+<div class="space-y-1">
+<label class="block font-label-md text-label-md text-on-surface-variant" id="fieldLabelAddr">Port COM / USB Device Identifier</label>
+<div class="h-13 bg-surface-container-low rounded-xl px-space-md flex items-center gap-space-sm focus-within:bg-surface-container-lowest focus-within:shadow-[0_0_0_2px_#2563eb] transition-all">
+<span class="material-symbols-outlined text-outline text-[20px]" id="fieldIconAddr">settings_input_hdmi</span>
+<input class="w-full bg-transparent font-body-md text-body-md text-on-surface focus:outline-none placeholder-outline" id="fieldInputAddr" placeholder="Misal: COM-3 atau 192.168.1.100" type="text" value="COM-3 (04b8:0e15)">
+</div>
+</div>
+<div class="space-y-1">
+<label class="block font-label-md text-label-md text-on-surface-variant">Baud Rate / Kecepatan Transfer</label>
+<div class="h-13 bg-surface-container-low rounded-xl px-space-md flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-outline text-[20px]">speed</span>
+<select class="bg-transparent font-body-md text-body-md text-on-surface focus:outline-none cursor-pointer">
+<option selected="" value="115200">115200 bps (Optimal)</option>
+<option value="38400">38400 bps</option>
+<option value="19200">19200 bps</option>
+<option value="9600">9600 bps</option>
+</select>
+</div>
+<span class="material-symbols-outlined text-outline-variant text-[18px]">unfold_more</span>
+</div>
+</div>
+</div>
+<!-- Connection Toggles -->
+
+</section>
+<!-- Section 2: Format Kertas & Perilaku Transaksi -->
+<section class="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm">
+<div class="flex items-center gap-space-sm mb-space-md pb-space-sm">
+
+<div>
+<h2 class="font-title-lg text-title-lg text-on-surface">Format Kertas &amp; Struk Pembelian</h2>
+
+</div>
+</div>
+<!-- Paper Width Selector -->
+<div class="mb-space-lg">
+<label class="block font-label-lg text-label-lg text-on-surface mb-space-xs">Lebar Gulungan Kertas (Roll Paper Width)</label>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+<div class="paper-width-card cursor-pointer p-space-md rounded-xl bg-primary/5 shadow-[0_0_0_2px_#2563eb] flex items-center justify-between transition-all" onclick="setPaperWidth('80mm', this)">
+<div class="flex items-center gap-space-md">
+<div class="w-12 h-12 rounded-xl bg-primary text-on-primary flex items-center justify-center font-bold text-lg">
+                  80
+                </div>
+<div>
+
+
+</div>
+</div>
+<span class="material-symbols-outlined text-primary text-[24px] check-indicator">check_circle</span>
+</div>
+<div class="paper-width-card cursor-pointer p-space-md rounded-xl bg-surface-container-low hover:bg-surface-container flex items-center justify-between transition-all" onclick="setPaperWidth('58mm', this)">
+<div class="flex items-center gap-space-md">
+<div class="w-12 h-12 rounded-xl bg-surface-container-high text-on-surface-variant flex items-center justify-center font-bold text-lg">
+                  58
+                </div>
+<div>
+
+
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant text-[24px] check-indicator opacity-0">check_circle</span>
+</div>
+</div>
+</div>
+<!-- Typographic Density & Copies Stepper -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md mb-space-lg">
+<div>
+<label class="block font-label-md text-label-md text-on-surface-variant mb-1">Kerapatan Huruf (Font Density)</label>
+<div class="grid grid-cols-3 gap-2 bg-surface-container-low p-1.5 rounded-xl">
+<button class="density-btn py-2 px-space-xs rounded-lg font-label-md text-label-md bg-surface-container-lowest text-primary font-semibold shadow-sm transition-all text-center" onclick="setDensity(this)" type="button">Standar</button>
+<button class="density-btn py-2 px-space-xs rounded-lg font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all text-center" onclick="setDensity(this)" type="button">Kompak</button>
+<button class="density-btn py-2 px-space-xs rounded-lg font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all text-center" onclick="setDensity(this)" type="button">Besar</button>
+</div>
+</div>
+<div>
+<label class="block font-label-md text-label-md text-on-surface-variant mb-1">Jumlah Salinan Struk (Copies per Print)</label>
+<div class="h-12 bg-surface-container-low rounded-xl px-space-sm flex items-center justify-between">
+<button class="w-9 h-9 rounded-lg bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface transition-colors" onclick="modifyCopies(-1)" type="button">
+<span class="material-symbols-outlined text-[18px]">remove</span>
+</button>
+<span class="font-title-md text-title-md text-on-surface font-semibold" id="copyCountDisplay">1 Lembar (Pelanggan)</span>
+<button class="w-9 h-9 rounded-lg bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface transition-colors" onclick="modifyCopies(1)" type="button">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Hardware Event Behavior Toggles -->
+
+</section>
+<!-- Section 3: Header, Footer & Visual Branding Struk -->
+
+</div>
+</div>
+<!-- FIXED BOTTOM ACTION BAR FOR LANDSCAPE TABLET (Elevated Bar) -->
+<div class="fixed bottom-0 right-0 h-20 bg-surface-container-lowest/95 backdrop-blur-md shadow-[0_-4px_16px_rgba(0,0,0,0.06)] z-40 px-gutter-tablet-landscape flex items-center justify-between left-0">
+<div>
+<button class="h-12 px-space-md rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-lg text-label-lg flex items-center gap-space-xs transition-colors active:scale-95" onclick="resetToDefaults()" type="button">
+<span class="material-symbols-outlined text-[20px] text-outline">history</span>
+<span class="">Kembalikan Pengaturan Default</span>
+</button>
+</div>
+<div class="flex items-center gap-space-md">
+<button class="h-12 px-space-lg rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-primary font-label-lg text-label-lg flex items-center gap-space-xs transition-all active:scale-95" onclick="handleSamplePrint()" type="button">
+<span class="material-symbols-outlined text-[20px]">print_connect</span>
+<span class="">Uji Koneksi &amp; Cetak Sampel</span>
+</button>
+<button class="h-14 px-space-2xl rounded-full bg-primary hover:bg-primary/95 text-on-primary font-label-lg text-label-lg flex items-center gap-space-sm shadow-md active:scale-95 transition-all" onclick="handleSaveConfig(this)" type="button">
+<span class="material-symbols-outlined text-[22px]">save</span>
+<span class="font-bold">Simpan Pengaturan</span>
+</button>
+</div>
+</div>
+<!-- Toast Notification Dynamic Container -->
+<div class="fixed top-20 right-6 bg-inverse-surface text-inverse-on-surface px-space-lg py-space-md rounded-xl shadow-xl z-50 flex items-center gap-space-sm transition-all duration-300 translate-y-[-100px] opacity-0 pointer-events-none" id="posToast">
+<span class="material-symbols-outlined text-[20px] text-tertiary-fixed" id="toastIcon">check_circle</span>
+<span class="font-body-md text-body-md" id="toastMsg">Pengaturan printer berhasil disimpan!</span>
+</div>
+</div>
+<script>
+  // Toast Utility
+  function triggerToast(message, icon = 'check_circle') {
+    const toast = document.getElementById('posToast');
+    const msg = document.getElementById('toastMsg');
+    const ico = document.getElementById('toastIcon');
+    if (!toast) return;
+    
+    msg.innerText = message;
+    ico.innerText = icon;
+    toast.classList.remove('translate-y-[-100px]', 'opacity-0', 'pointer-events-none');
+    toast.classList.add('translate-y-0', 'opacity-100');
+
+    setTimeout(() => {
+      toast.classList.remove('translate-y-0', 'opacity-100');
+      toast.classList.add('translate-y-[-100px]', 'opacity-0', 'pointer-events-none');
+    }, 3200);
+  }
+
+  // Quick Action: Test Print
+  function handleTestPrint(btn) {
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span><span>Mencetak...</span>`;
+    btn.disabled = true;
+
+    setTimeout(() => {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+      triggerToast('Perintah cetak terkirim ke Epson TM-T82X (COM-3)');
+    }, 1200);
+  }
+
+  // Quick Action: Kick Drawer
+  function handleKickDrawer(btn) {
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = `<span class="material-symbols-outlined text-[20px] text-tertiary">lock_open</span><span>Terbuka!</span>`;
+    btn.classList.add('bg-tertiary-fixed', 'text-on-tertiary-fixed');
+
+    triggerToast('Pulsa laci kasir (Pin 2 ESC/POS) berhasil dipicu');
+
+    setTimeout(() => {
+      btn.innerHTML = originalContent;
+      btn.classList.remove('bg-tertiary-fixed', 'text-on-tertiary-fixed');
+    }, 1800);
+  }
+
+  // Scanning Devices Simulation
+  function startDeviceScan(btn) {
+    const scanIcon = document.getElementById('scanIcon');
+    const scanText = document.getElementById('scanText');
+    
+    scanIcon.classList.add('animate-spin');
+    scanText.innerText = 'Memindai USB & Bluetooth...';
+    btn.disabled = true;
+
+    setTimeout(() => {
+      scanIcon.classList.remove('animate-spin');
+      scanText.innerText = '+ Pindai Perangkat Baru (Scan Devices)';
+      btn.disabled = false;
+      triggerToast('Pindai selesai: 3 perangkat siap digunakan', 'search_check');
+    }, 2000);
+  }
+
+  // Connection Type Selector
+  function selectConnectionType(type, btn) {
+    const buttons = document.querySelectorAll('.connection-btn');
+    buttons.forEach(b => {
+      b.classList.remove('bg-primary', 'text-on-primary', 'shadow-sm');
+      b.classList.add('bg-surface-container-low', 'text-on-surface');
+    });
+    btn.classList.add('bg-primary', 'text-on-primary', 'shadow-sm');
+    btn.classList.remove('bg-surface-container-low', 'text-on-surface');
+
+    const labelAddr = document.getElementById('fieldLabelAddr');
+    const inputAddr = document.getElementById('fieldInputAddr');
+    const iconAddr = document.getElementById('fieldIconAddr');
+
+    if (type === 'usb') {
+      labelAddr.innerText = 'Port COM / USB Device Identifier';
+      inputAddr.value = 'COM-3 (04b8:0e15)';
+      iconAddr.innerText = 'settings_input_hdmi';
+    } else if (type === 'bluetooth') {
+      labelAddr.innerText = 'Alamat MAC Bluetooth Hardware';
+      inputAddr.value = '88:4A:EA:12:F0:3B';
+      iconAddr.innerText = 'bluetooth';
+    } else if (type === 'lan' || type === 'wifi') {
+      labelAddr.innerText = 'IP Address & Port Printer Jaringan';
+      inputAddr.value = '192.168.1.180:9100';
+      iconAddr.innerText = 'lan';
+    }
+  }
+
+  // Paper Width Selector
+  function setPaperWidth(size, card) {
+    const cards = document.querySelectorAll('.paper-width-card');
+    cards.forEach(c => {
+      c.classList.remove('bg-primary/5', 'shadow-[0_0_0_2px_#2563eb]');
+      c.classList.add('bg-surface-container-low');
+      const check = c.querySelector('.check-indicator');
+      check.classList.remove('text-primary');
+      check.classList.add('opacity-0');
+    });
+
+    card.classList.add('bg-primary/5', 'shadow-[0_0_0_2px_#2563eb]');
+    card.classList.remove('bg-surface-container-low');
+    const check = card.querySelector('.check-indicator');
+    check.classList.remove('opacity-0');
+    check.classList.add('text-primary');
+
+    triggerToast('Format struk disesuaikan ke roll ' + size);
+  }
+
+  // Font Density Selector
+  function setDensity(btn) {
+    const btns = document.querySelectorAll('.density-btn');
+    btns.forEach(b => {
+      b.classList.remove('bg-surface-container-lowest', 'text-primary', 'font-semibold', 'shadow-sm');
+      b.classList.add('text-on-surface-variant');
+    });
+    btn.classList.add('bg-surface-container-lowest', 'text-primary', 'font-semibold', 'shadow-sm');
+    btn.classList.remove('text-on-surface-variant');
+  }
+
+  // Copies Stepper
+  let currentCopies = 1;
+  function modifyCopies(delta) {
+    currentCopies = Math.max(1, Math.min(5, currentCopies + delta));
+    const label = currentCopies === 1 ? '1 Lembar (Pelanggan)' : currentCopies === 2 ? '2 Lembar (Kasir + Dapur)' : `${currentCopies} Lembar Salinan`;
+    document.getElementById('copyCountDisplay').innerText = label;
+  }
+
+  // Receipt Preview Live Interactions
+  function toggleReceiptLogo(checkbox) {
+    const logoBadge = document.getElementById('receiptLogoBadge');
+    if (logoBadge) {
+      logoBadge.style.display = checkbox.checked ? 'flex' : 'none';
+    }
+  }
+
+  function toggleReceiptQR(checkbox) {
+    const qrSection = document.getElementById('receiptQRSection');
+    if (qrSection) {
+      qrSection.style.display = checkbox.checked ? 'flex' : 'none';
+    }
+  }
+
+  function updateReceiptFooter(val) {
+    const footerElement = document.getElementById('receiptFooterNote');
+    if (footerElement) {
+      footerElement.innerText = val.trim() || 'Terima kasih atas kunjungan Anda!';
+    }
+  }
+
+  // Save Settings CTA
+  function handleSaveConfig(btn) {
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-[22px]">progress_activity</span><span>Menyimpan...</span>`;
+    btn.disabled = true;
+
+    setTimeout(() => {
+      btn.innerHTML = originalHtml;
+      btn.disabled = false;
+      triggerToast('Seluruh konfigurasi printer termal berhasil disimpan ke sistem POS!');
+    }, 900);
+  }
+
+  function handleSamplePrint() {
+    triggerToast('Mencetak sampel struk diagnostik ESC/POS...');
+  }
+
+  function resetToDefaults() {
+    if (confirm('Kembalikan konfigurasi printer ke pengaturan pabrik?')) {
+      triggerToast('Pengaturan printer dikembalikan ke standar bawaan');
+    }
+  }
+</script></main></div>
+
+</body></html>
