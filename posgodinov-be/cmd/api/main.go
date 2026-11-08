@@ -219,6 +219,9 @@ func main() {
 	}
 	backupSvc := service.NewBackupService(cfg, backupRepo, localBackupStore, gdriveBackupStore, db)
 	landlordHandler := handler.NewLandlordHandler(landlordSvc, backupSvc)
+	posMobileCredRepo := repository.NewPOSMobileCredentialRepository(db)
+	posMobileCredSvc := service.NewPOSMobileCredentialService(posMobileCredRepo, landlordRepo)
+	posMobileCredHandler := handler.NewPOSMobileCredentialHandler(posMobileCredSvc)
 	dunningSvc := service.NewDunningService(
 		saasRepo,
 		policyEngine,
@@ -246,6 +249,7 @@ func main() {
 		tokenMaker,
 		auditRepo,
 		businessManager,
+		posMobileCredHandler,
 		policyEngine,
 	)
 

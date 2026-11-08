@@ -29,6 +29,7 @@ func SetupRouter(
 	tokenMaker token.TokenMaker,
 	auditRepo domain.AuditRepository,
 	tenantManager *database.BusinessDBManager,
+	posMobileCredHandler *POSMobileCredentialHandler,
 	policyEngines ...domain.PolicyEngine,
 ) *http.ServeMux {
 	mux := http.NewServeMux()
@@ -108,6 +109,15 @@ func SetupRouter(
 	mux.HandleFunc("GET /v1/landlord/metrics/overview", landlordChain(landlordHandler.GetMetricsOverview))
 	mux.HandleFunc("GET /v1/landlord/audit-logs", landlordChain(landlordHandler.ListAuditLogs))
 
+	// Landlord POS Mobile Credentials Routes
+	if posMobileCredHandler != nil {
+		mux.HandleFunc("GET /v1/landlord/pos-credentials", landlordChain(posMobileCredHandler.List))
+		mux.HandleFunc("POST /v1/landlord/pos-credentials", landlordChain(posMobileCredHandler.Create))
+		mux.HandleFunc("GET /v1/landlord/pos-credentials/{id}", landlordChain(posMobileCredHandler.Get))
+		mux.HandleFunc("PUT /v1/landlord/pos-credentials/{id}", landlordChain(posMobileCredHandler.Update))
+		mux.HandleFunc("DELETE /v1/landlord/pos-credentials/{id}", landlordChain(posMobileCredHandler.Delete))
+	}
+
 	// Landlord Backup Management Routes
 	mux.HandleFunc("POST /v1/landlord/backups/trigger", landlordChain(landlordHandler.TriggerBackup))
 	mux.HandleFunc("GET /v1/landlord/backups/jobs", landlordChain(landlordHandler.ListBackupJobs))
@@ -126,6 +136,10 @@ func SetupRouter(
 	mux.HandleFunc("POST /v1/webhooks/payment-hub", landlordHandler.HandlePaymentWebhook)
 	
 	// POS Device Routes
+	if posMobileCredHandler != nil {
+		mux.HandleFunc("POST /v1/auth/pos-mobile/verify", middleware.RateLimitRegistration(posMobileCredHandler.Verify))
+		mux.HandleFunc("POST /v1/auth/device/verify-key", middleware.RateLimitRegistration(posMobileCredHandler.Verify))
+	}
 	mux.HandleFunc("POST /v1/auth/device/bind", middleware.RateLimitRegistration(posAuthHandler.BindDevice))
 	// POS Sync Routes (Mobile / Cashier Device)
 	//
