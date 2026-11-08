@@ -1,0 +1,12 @@
+# Salin menjadi `key.properties` untuk signing lokal (tidak pernah di-commit).
+# Di GitHub Actions, kredensial dibaca otomatis dari GitHub Secrets:
+#   ANDROID_KEYSTORE_BASE64, ANDROID_STORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+#
+# Membuat keystore baru:
+#   keytool -genkey -v -keystore ~/godinov-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias godinov
+
+storePassword=GANTI_INI
+keyPassword=GANTI_INI
+keyAlias=godinov
+storeFile=/path/absolut/ke/godinov-release.jks
