@@ -30,6 +30,8 @@ export const queryKeys = {
   reportWaste: (o: string) => [...queryKeys.outletScope(o), 'reports', 'waste'] as const,
   reportShiftReconciliation: (o: string, range: DateRange) =>
     [...queryKeys.outletScope(o), 'reports', 'shift-reconciliation', range.start, range.end] as const,
+  reportShiftDetail: (o: string, shiftId: string) =>
+    [...queryKeys.outletScope(o), 'reports', 'shift-reconciliation', 'detail', shiftId] as const,
   reportOpnames: (o: string) => [...queryKeys.outletScope(o), 'reports', 'opnames'] as const,
   soForms: (o: string, status?: string) =>
     [...queryKeys.outletScope(o), 'so-forms', status ?? 'all'] as const,

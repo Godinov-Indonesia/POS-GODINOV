@@ -208,3 +208,361 @@ export const listShiftReconciliation = async (
     reconciledAt: r.reconciled_at,
   }))
 }
+
+// ── Rincian Mendalam Shift (Shift Detail) ───────────────────────────────────
+
+export type ShiftDetailDto = {
+  shift_summary: {
+    shift_id: string
+    outlet_id: string
+    staff_id: string
+    staff_name: string
+    device_id: string
+    status: string
+    blind_close: boolean
+    opened_at: IsoDateTime
+    closed_at: IsoDateTime | null
+    reconciled_at: IsoDateTime | null
+    opening_balance: number
+    cash: { declared: number; expected: number | null; variance: number | null }
+    edc: { declared: number; expected: number | null; variance: number | null }
+    qris: { declared: number; expected: number | null; variance: number | null }
+    flagged: boolean
+    variance_threshold: number
+  }
+  transactions_metric: {
+    total_count: number
+    completed_count: number
+    voided_count: number
+    total_gross_amount: number
+    total_discount_amount: number
+    total_net_amount: number
+    payment_breakdown: Record<string, number>
+    transactions: {
+      id: string
+      receipt_code: string
+      customer_name: string
+      total_amount: number
+      payment_method: string
+      status: string
+      reprint_count: number
+      receipt_printed_at: IsoDateTime | null
+      created_at: IsoDateTime
+      items: {
+        id: string
+        product_id: string
+        product_name: string
+        sku: string
+        quantity: number
+        unit_price: number
+        subtotal: number
+      }[]
+    }[]
+  }
+  receipt_prints_metric: {
+    total_reprinted: number
+    transactions_reprinted: {
+      transaction_id: string
+      receipt_code: string
+      reprint_count: number
+      receipt_printed_at: IsoDateTime | null
+    }[]
+  }
+  voids_metric: {
+    total_count: number
+    total_value_amount: number
+    items: {
+      id: string
+      scope: string
+      product_id: string | null
+      product_name: string
+      quantity_before: number
+      quantity_after: number
+      value_amount: number
+      reason_code: string
+      reason_notes: string
+      staff_name: string
+      authorized_by_name: string
+      created_at: IsoDateTime
+    }[]
+  }
+  wastes_metric: {
+    total_count: number
+    items: {
+      id: string
+      item_id: string
+      item_name: string
+      waste_type: 'PRODUCT' | 'RAW_MATERIAL'
+      quantity: number
+      unit: string
+      reason: string
+      reason_code: string
+      recorded_by_name: string
+      created_at: IsoDateTime
+    }[]
+  }
+  returns_metric: {
+    total_count: number
+    total_refund_amount: number
+    items: {
+      id: string
+      transaction_id: string
+      refund_amount: number
+      refund_method: string
+      reason: string
+      created_at: IsoDateTime
+    }[]
+  }
+  security_events: {
+    id: string
+    event_type: string
+    severity: string
+    details?: Record<string, unknown>
+    created_at: IsoDateTime
+  }[]
+}
+
+export type ShiftDetailView = {
+  summary: {
+    shiftId: string
+    outletId: string
+    staffId: string
+    staffName: string
+    deviceId: string
+    status: string
+    blindClose: boolean
+    openedAt: IsoDateTime
+    closedAt: IsoDateTime | null
+    reconciledAt: IsoDateTime | null
+    openingBalanceMinor: number
+    cash: { declaredMinor: number; expectedMinor: number | null; varianceMinor: number | null }
+    edc: { declaredMinor: number; expectedMinor: number | null; varianceMinor: number | null }
+    qris: { declaredMinor: number; expectedMinor: number | null; varianceMinor: number | null }
+    flagged: boolean
+    varianceThresholdMinor: number
+  }
+  transactions: {
+    totalCount: number
+    completedCount: number
+    voidedCount: number
+    totalGrossMinor: number
+    totalNetMinor: number
+    paymentBreakdownMinor: Record<string, number>
+    list: {
+      id: string
+      receiptCode: string
+      customerName: string
+      totalAmountMinor: number
+      paymentMethod: string
+      status: string
+      reprintCount: number
+      receiptPrintedAt: IsoDateTime | null
+      createdAt: IsoDateTime
+      items: {
+        id: string
+        productId: string
+        productName: string
+        sku: string
+        quantity: number
+        unitPriceMinor: number
+        subtotalMinor: number
+      }[]
+    }[]
+  }
+  receiptPrints: {
+    totalReprinted: number
+    list: {
+      transactionId: string
+      receiptCode: string
+      reprintCount: number
+      receiptPrintedAt: IsoDateTime | null
+    }[]
+  }
+  voids: {
+    totalCount: number
+    totalValueMinor: number
+    list: {
+      id: string
+      scope: string
+      productId: string | null
+      productName: string
+      quantityBefore: number
+      quantityAfter: number
+      valueAmountMinor: number
+      reasonCode: string
+      reasonNotes: string
+      staffName: string
+      authorizedByName: string
+      createdAt: IsoDateTime
+    }[]
+  }
+  wastes: {
+    totalCount: number
+    list: {
+      id: string
+      itemId: string
+      itemName: string
+      wasteType: 'PRODUCT' | 'RAW_MATERIAL'
+      quantity: number
+      unit: string
+      reason: string
+      reasonCode: string
+      recordedByName: string
+      createdAt: IsoDateTime
+    }[]
+  }
+  returns: {
+    totalCount: number
+    totalRefundMinor: number
+    list: {
+      id: string
+      transactionId: string
+      refundAmountMinor: number
+      refundMethod: string
+      reason: string
+      createdAt: IsoDateTime
+    }[]
+  }
+  securityEvents: {
+    id: string
+    eventType: string
+    severity: string
+    details?: Record<string, unknown>
+    createdAt: IsoDateTime
+  }[]
+}
+
+export async function getShiftDetail(outletId: OutletId, shiftId: string): Promise<ShiftDetailView> {
+  const dto = await adminRequest<ShiftDetailDto>(
+    `/v1/business/outlets/${outletId}/reports/shift-reconciliation/${shiftId}`,
+  )
+
+  const paymentBreakdownMinor: Record<string, number> = {}
+  if (dto.transactions_metric.payment_breakdown) {
+    for (const [method, amount] of Object.entries(dto.transactions_metric.payment_breakdown)) {
+      paymentBreakdownMinor[method] = toMinor(amount)
+    }
+  }
+
+  return {
+    summary: {
+      shiftId: dto.shift_summary.shift_id,
+      outletId: dto.shift_summary.outlet_id,
+      staffId: dto.shift_summary.staff_id,
+      staffName: dto.shift_summary.staff_name,
+      deviceId: dto.shift_summary.device_id,
+      status: dto.shift_summary.status,
+      blindClose: dto.shift_summary.blind_close,
+      openedAt: dto.shift_summary.opened_at,
+      closedAt: dto.shift_summary.closed_at,
+      reconciledAt: dto.shift_summary.reconciled_at,
+      openingBalanceMinor: toMinor(dto.shift_summary.opening_balance),
+      cash: {
+        declaredMinor: toMinor(dto.shift_summary.cash.declared),
+        expectedMinor: toMinorOrNull(dto.shift_summary.cash.expected),
+        varianceMinor: toMinorOrNull(dto.shift_summary.cash.variance),
+      },
+      edc: {
+        declaredMinor: toMinor(dto.shift_summary.edc.declared),
+        expectedMinor: toMinorOrNull(dto.shift_summary.edc.expected),
+        varianceMinor: toMinorOrNull(dto.shift_summary.edc.variance),
+      },
+      qris: {
+        declaredMinor: toMinor(dto.shift_summary.qris.declared),
+        expectedMinor: toMinorOrNull(dto.shift_summary.qris.expected),
+        varianceMinor: toMinorOrNull(dto.shift_summary.qris.variance),
+      },
+      flagged: dto.shift_summary.flagged,
+      varianceThresholdMinor: toMinor(dto.shift_summary.variance_threshold),
+    },
+    transactions: {
+      totalCount: dto.transactions_metric.total_count,
+      completedCount: dto.transactions_metric.completed_count,
+      voidedCount: dto.transactions_metric.voided_count,
+      totalGrossMinor: toMinor(dto.transactions_metric.total_gross_amount),
+      totalNetMinor: toMinor(dto.transactions_metric.total_net_amount),
+      paymentBreakdownMinor,
+      list: (dto.transactions_metric.transactions ?? []).map((t) => ({
+        id: t.id,
+        receiptCode: t.receipt_code,
+        customerName: t.customer_name,
+        totalAmountMinor: toMinor(t.total_amount),
+        paymentMethod: t.payment_method,
+        status: t.status,
+        reprintCount: t.reprint_count,
+        receiptPrintedAt: t.receipt_printed_at,
+        createdAt: t.created_at,
+        items: (t.items ?? []).map((item) => ({
+          id: item.id,
+          productId: item.product_id,
+          productName: item.product_name,
+          sku: item.sku,
+          quantity: item.quantity,
+          unitPriceMinor: toMinor(item.unit_price),
+          subtotalMinor: toMinor(item.subtotal),
+        })),
+      })),
+    },
+    receiptPrints: {
+      totalReprinted: dto.receipt_prints_metric.total_reprinted,
+      list: (dto.receipt_prints_metric.transactions_reprinted ?? []).map((rp) => ({
+        transactionId: rp.transaction_id,
+        receiptCode: rp.receipt_code,
+        reprintCount: rp.reprint_count,
+        receiptPrintedAt: rp.receipt_printed_at,
+      })),
+    },
+    voids: {
+      totalCount: dto.voids_metric.total_count,
+      totalValueMinor: toMinor(dto.voids_metric.total_value_amount),
+      list: (dto.voids_metric.items ?? []).map((v) => ({
+        id: v.id,
+        scope: v.scope,
+        productId: v.product_id,
+        productName: v.product_name,
+        quantityBefore: v.quantity_before,
+        quantityAfter: v.quantity_after,
+        valueAmountMinor: toMinor(v.value_amount),
+        reasonCode: v.reason_code,
+        reasonNotes: v.reason_notes,
+        staffName: v.staff_name,
+        authorizedByName: v.authorized_by_name,
+        createdAt: v.created_at,
+      })),
+    },
+    wastes: {
+      totalCount: dto.wastes_metric.total_count,
+      list: (dto.wastes_metric.items ?? []).map((w) => ({
+        id: w.id,
+        itemId: w.item_id,
+        itemName: w.item_name,
+        wasteType: w.waste_type,
+        quantity: w.quantity,
+        unit: w.unit,
+        reason: w.reason,
+        reasonCode: w.reason_code,
+        recordedByName: w.recorded_by_name,
+        createdAt: w.created_at,
+      })),
+    },
+    returns: {
+      totalCount: dto.returns_metric.total_count,
+      totalRefundMinor: toMinor(dto.returns_metric.total_refund_amount),
+      list: (dto.returns_metric.items ?? []).map((r) => ({
+        id: r.id,
+        transactionId: r.transaction_id,
+        refundAmountMinor: toMinor(r.refund_amount),
+        refundMethod: r.refund_method,
+        reason: r.reason,
+        createdAt: r.created_at,
+      })),
+    },
+    securityEvents: (dto.security_events ?? []).map((se) => ({
+      id: se.id,
+      eventType: se.event_type,
+      severity: se.severity,
+      details: se.details,
+      createdAt: se.created_at,
+    })),
+  }
+}

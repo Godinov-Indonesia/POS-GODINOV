@@ -1,15 +1,17 @@
 'use client'
 
-import { AlertTriangle, EyeOff, ShieldAlert, Wallet } from 'lucide-react'
+import { AlertTriangle, EyeOff, FileText, ShieldAlert, Wallet } from 'lucide-react'
 import * as React from 'react'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Banner, EmptyState, SkeletonTable } from '@/components/ui/feedback'
 import { Money } from '@/components/ui/money'
 import { TBody, TD, TH, THead, TR, Table } from '@/components/ui/table'
 import { toastApiError } from '@/components/ui/toaster'
 import { FilterButton } from '@/components/ui/filter-button'
 import { DateRangePicker } from '@/features/admin/reports/components/DateRangePicker'
+import { ShiftDetailDrawer } from '@/features/admin/reports/components/ShiftDetailDrawer'
 import { useDateRange, useShiftReconciliation } from '@/features/admin/reports/hooks/useReports'
 import { OutletGuard } from '@/features/admin/shell/OutletGuard'
 import { PageHeader } from '@/features/admin/shell/PageHeader'
@@ -47,6 +49,7 @@ export function ShiftReconciliation() {
 function ReconciliationContent({ outletId }: { outletId: string }) {
   const [range, setRange] = useDateRange(7)
   const [onlyFlagged, setOnlyFlagged] = React.useState(false)
+  const [selectedShiftId, setSelectedShiftId] = React.useState<string | null>(null)
   const { data, isPending, error } = useShiftReconciliation(outletId, range)
 
   React.useEffect(() => {
@@ -119,22 +122,43 @@ function ReconciliationContent({ outletId }: { outletId: string }) {
               <TH>EDC</TH>
               <TH>QRIS</TH>
               <TH>Status</TH>
+              <TH className="text-right">Aksi</TH>
             </TR>
           </THead>
           <TBody>
             {displayRows.map((row) => (
-              <ReconciliationRow key={row.shiftId} row={row} />
+              <ReconciliationRow
+                key={row.shiftId}
+                row={row}
+                onSelect={() => setSelectedShiftId(row.shiftId)}
+              />
             ))}
           </TBody>
         </Table>
       )}
+
+      {/* ── Drawer Detail Shift ─────────────────────────────────────────── */}
+      <ShiftDetailDrawer
+        outletId={outletId}
+        shiftId={selectedShiftId}
+        onClose={() => setSelectedShiftId(null)}
+      />
     </div>
   )
 }
 
-function ReconciliationRow({ row }: { row: ShiftReconciliationView }) {
+function ReconciliationRow({
+  row,
+  onSelect,
+}: {
+  row: ShiftReconciliationView
+  onSelect: () => void
+}) {
   return (
-    <TR className={row.flagged ? 'bg-danger-subtle' : undefined}>
+    <TR
+      onClick={onSelect}
+      className={row.flagged ? 'bg-danger-subtle cursor-pointer hover:opacity-90' : 'cursor-pointer hover:bg-surface-hover/60'}
+    >
       <TD>
         <div className="flex flex-col">
           <span className="font-medium text-fg">{row.staffName || '—'}</span>
@@ -175,12 +199,6 @@ function ReconciliationRow({ row }: { row: ShiftReconciliationView }) {
             <Badge tone="success">Dalam ambang</Badge>
           )}
 
-          {/*
-            Shift yang ditutup PAKSA ditandai terpisah. Angkanya nol bukan
-            karena lacinya kosong, melainkan karena tidak ada yang
-            menghitungnya — dan membacanya sebagai "selisih besar" akan
-            menuduh kasir atas keadaan yang justru menimpanya.
-          */}
           {!row.blindClose ? (
             <Badge tone="warning">
               <ShieldAlert className="size-3" aria-hidden="true" />
@@ -193,6 +211,21 @@ function ReconciliationRow({ row }: { row: ShiftReconciliationView }) {
             </span>
           )}
         </div>
+      </TD>
+
+      <TD className="text-right">
+        <Button
+          variant="neutral"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation()
+            onSelect()
+          }}
+          className="inline-flex items-center gap-1 text-pos-xs"
+        >
+          <FileText className="size-3.5" />
+          Rincian
+        </Button>
       </TD>
     </TR>
   )

@@ -5,6 +5,7 @@ import * as React from 'react'
 
 import {
   getDashboard,
+  getShiftDetail,
   listShiftReconciliation,
   listTransactionReport,
 } from '@/lib/api/endpoints/reports'
@@ -48,5 +49,16 @@ export function useShiftReconciliation(outletId: string | null, range: DateRange
     queryKey: queryKeys.reportShiftReconciliation(outletId ?? '', range),
     queryFn: () => listShiftReconciliation(outletId!, range),
     enabled: !!outletId && isRangeWithinLimit(range),
+  })
+}
+
+/**
+ * Mengambil rincian mendalam satu shift (on-demand / lazy-loading saat drawer dibuka).
+ */
+export function useShiftDetail(outletId: string | null, shiftId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.reportShiftDetail(outletId ?? '', shiftId ?? ''),
+    queryFn: () => getShiftDetail(outletId!, shiftId!),
+    enabled: Boolean(outletId && shiftId),
   })
 }
