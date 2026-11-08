@@ -249,6 +249,16 @@ object PosIcons {
     val CloudOff: ImageVector by lazy { buildCloudOffIcon() }
     val CheckCircle: ImageVector by lazy { buildCheckCircleIcon() }
     val Warning: ImageVector by lazy { buildWarningIcon() }
+    val LocationOn: ImageVector by lazy { buildLocationOnIcon() }
+    val CloudDone: ImageVector by lazy { buildCloudDoneIcon() }
+    val Download: ImageVector by lazy { buildDownloadIcon() }
+    val RestartAlt: ImageVector by lazy { buildRestartAltIcon() }
+    val Backspace: ImageVector by lazy { buildBackspaceIcon() }
+    val Login: ImageVector by lazy { buildLoginIcon() }
+    val Person: ImageVector by lazy { buildPersonIcon() }
+    val KeyboardArrowUp: ImageVector by lazy { buildKeyboardArrowUpIcon() }
+    val UnfoldMore: ImageVector by lazy { buildUnfoldMoreIcon() }
+    val Payments: ImageVector by lazy { buildPaymentsIcon() }
 }
 
 internal fun materialIcon(

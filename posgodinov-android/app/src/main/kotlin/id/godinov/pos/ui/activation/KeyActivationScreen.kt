@@ -55,7 +55,6 @@ fun KeyActivationScreen(
     onSerialOutletChange: (String) -> Unit,
     onBusinessPasswordChange: (String) -> Unit,
     onTogglePasswordVisibility: () -> Unit,
-    onBackToSerialKey: () -> Unit,
     onSubmitDeviceBinding: () -> Unit,
     onOpenHelp: () -> Unit,
     onPingTest: () -> Unit,
@@ -182,7 +181,6 @@ fun KeyActivationScreen(
                                 onSerialOutletChange = onSerialOutletChange,
                                 onBusinessPasswordChange = onBusinessPasswordChange,
                                 onTogglePasswordVisibility = onTogglePasswordVisibility,
-                                onBack = onBackToSerialKey,
                                 onSubmit = onSubmitDeviceBinding,
                             )
                         }
@@ -222,7 +220,6 @@ private fun PreviewScreen(uiState: KeyActivationUiState = KeyActivationUiState()
             onSerialOutletChange = {},
             onBusinessPasswordChange = {},
             onTogglePasswordVisibility = {},
-            onBackToSerialKey = {},
             onSubmitDeviceBinding = {},
             onOpenHelp = {},
             onPingTest = {},

@@ -71,7 +71,6 @@ internal fun DeviceBindingCard(
     onSerialOutletChange: (String) -> Unit,
     onBusinessPasswordChange: (String) -> Unit,
     onTogglePasswordVisibility: () -> Unit,
-    onBack: () -> Unit,
     onSubmit: () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
@@ -84,8 +83,6 @@ internal fun DeviceBindingCard(
         icon = PosIcons.Devices,
         compact = !isTablet,
         contentPadding = cardPadding,
-        onBack = if (isSubmitting) null else onBack,
-        backContentDescription = "Kembali ke Serial Key",
     ) {
         BindingInputField(
             label = "Serial Business",

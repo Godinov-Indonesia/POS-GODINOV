@@ -2,14 +2,12 @@ package id.godinov.pos.ui.activation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import id.godinov.pos.BuildConfig
 import id.godinov.pos.data.network.DeviceBindResult
 import id.godinov.pos.data.network.HealthCheckResult
 import id.godinov.pos.data.network.KeyVerifyResult
 import id.godinov.pos.data.network.bindDevice
 import id.godinov.pos.data.network.checkBackendHealth
 import id.godinov.pos.data.network.verifyPosMobileKey
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -25,8 +23,13 @@ internal sealed interface ActivationEvent {
         val isError: Boolean = false,
     ) : ActivationEvent
 
+    data object KeyActivated : ActivationEvent
+
     data class DeviceBound(
         val deviceToken: String,
+        val serialBusiness: String,
+        val serialOutlet: String,
+        val feedbackMessage: String,
     ) : ActivationEvent
 }
 
@@ -36,6 +39,12 @@ internal class KeyActivationViewModel : ViewModel() {
 
     private val _events = MutableSharedFlow<ActivationEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<ActivationEvent> = _events.asSharedFlow()
+
+    fun syncPersistedKeyActivation(isKeyAlreadyActivated: Boolean) {
+        if (isKeyAlreadyActivated && _uiState.value.step == ActivationStep.SERIAL_KEY) {
+            _uiState.update { it.copy(step = ActivationStep.DEVICE_BINDING, serialKeyError = null) }
+        }
+    }
 
     fun onSerialKeyChange(raw: String) {
         val sanitized = sanitizeSerialKey(raw)
@@ -84,17 +93,6 @@ internal class KeyActivationViewModel : ViewModel() {
         _uiState.update { it.copy(isPasswordVisible = !it.isPasswordVisible) }
     }
 
-    fun onBackToSerialKey() {
-        if (_uiState.value.isBindingDevice) return
-        _uiState.update {
-            it.copy(
-                step = ActivationStep.SERIAL_KEY,
-                bindingError = null,
-                isPasswordVisible = false,
-            )
-        }
-    }
-
     fun pingServer(baseUrl: String) {
         if (_uiState.value.isPinging) return
         viewModelScope.launch {
@@ -105,9 +103,9 @@ internal class KeyActivationViewModel : ViewModel() {
         }
     }
 
-    fun submitSerialKey(baseUrl: String = BuildConfig.API_BASE_URL) {
+    fun submitSerialKey(baseUrl: String) {
         val current = _uiState.value
-        if (current.isVerifyingKey) return
+        if (current.isVerifyingKey || current.step == ActivationStep.DEVICE_BINDING) return
         val key = current.serialKey.trim()
         if (key.length < MIN_SERIAL_KEY_LENGTH) {
             val msg = "Masukkan Serial Key valid (minimal $MIN_SERIAL_KEY_LENGTH karakter)."
@@ -120,6 +118,7 @@ internal class KeyActivationViewModel : ViewModel() {
         viewModelScope.launch {
             when (val res = verifyPosMobileKey(baseUrl, key)) {
                 is KeyVerifyResult.Success -> {
+                    _events.emit(ActivationEvent.KeyActivated)
                     _uiState.update {
                         it.copy(
                             isVerifyingKey = false,
@@ -127,14 +126,17 @@ internal class KeyActivationViewModel : ViewModel() {
                             bindingError = null,
                         )
                     }
-                    emitMessage(res.serverMessage ?: "Serial Key terverifikasi. Silakan tautkan kredensial bisnis.")
+                    emitMessage(
+                        res.serverMessage
+                            ?: "Kunci aktivasi terverifikasi dan dikunci permanen. Silakan tautkan perangkat.",
+                    )
                 }
                 is KeyVerifyResult.Rejected -> {
                     val msg = res.serverMessage ?: "Serial Key kredensial tidak valid."
                     _uiState.update { it.copy(isVerifyingKey = false, serialKeyError = msg) }
                     emitMessage(msg, isError = true)
                 }
-                is KeyVerifyResult.Unreachable -> {
+                KeyVerifyResult.Unreachable -> {
                     val msg = "Gagal memverifikasi kunci: tidak dapat terhubung ke server POS."
                     _uiState.update { it.copy(isVerifyingKey = false, serialKeyError = msg) }
                     emitMessage(msg, isError = true)
@@ -163,8 +165,17 @@ internal class KeyActivationViewModel : ViewModel() {
             when (val result = bindDevice(baseUrl, business, outlet, password)) {
                 is DeviceBindResult.Success -> {
                     _uiState.update { it.copy(isBindingDevice = false, businessPassword = "") }
-                    emitMessage(result.serverMessage ?: "Perangkat berhasil ditautkan dengan outlet.")
-                    _events.tryEmit(ActivationEvent.DeviceBound(result.deviceToken))
+                    val feedback =
+                        result.serverMessage
+                            ?: "Perangkat berhasil ditautkan permanen ke outlet $outlet."
+                    _events.emit(
+                        ActivationEvent.DeviceBound(
+                            deviceToken = result.deviceToken,
+                            serialBusiness = business,
+                            serialOutlet = outlet,
+                            feedbackMessage = feedback,
+                        ),
+                    )
                 }
                 is DeviceBindResult.Rejected -> {
                     val msg =
@@ -193,6 +204,6 @@ internal class KeyActivationViewModel : ViewModel() {
 private fun HealthCheckResult.toUiMessage(): String =
     when (httpCode) {
         null -> "Server tidak terjangkau. Periksa koneksi internet perangkat."
-        in 200..299 -> "Terhubung ke server POS ($elapsedMs ms)."
-        else -> "Server merespons dengan status HTTP $httpCode ($elapsedMs ms)."
+        in 200..299 -> "Terhubung ke server POS (${elapsedMs} mdtk)."
+        else -> "Server POS merespons HTTP $httpCode (${elapsedMs} mdtk)."
     }

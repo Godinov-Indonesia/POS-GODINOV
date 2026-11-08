@@ -38,6 +38,7 @@ fun PosPrimaryButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     icon: ImageVector? = null,
     loading: Boolean = false,
     destructive: Boolean = false,
@@ -53,7 +54,7 @@ fun PosPrimaryButton(
 
     Button(
         onClick = onClick,
-        enabled = !loading,
+        enabled = enabled && !loading,
         interactionSource = interactionSource,
         shape = MaterialTheme.shapes.large,
         border = if (isFocused) BorderStroke(2.dp, LocalGodinovColors.current.tertiaryFixed) else null,
@@ -61,8 +62,8 @@ fun PosPrimaryButton(
             ButtonDefaults.buttonColors(
                 containerColor = container,
                 contentColor = content,
-                disabledContainerColor = container.copy(alpha = 0.85f),
-                disabledContentColor = content,
+                disabledContainerColor = if (loading) container.copy(alpha = 0.85f) else colorScheme.surfaceContainerHighest,
+                disabledContentColor = if (loading) content else colorScheme.onSurfaceVariant,
             ),
         elevation =
             ButtonDefaults.buttonElevation(

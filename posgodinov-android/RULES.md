@@ -10,12 +10,17 @@ Keywords: **MUST** / **MUST NOT** are hard requirements. **SHOULD** means follow
 
 ```
 app/src/main/kotlin/id/godinov/pos/
-├── MainActivity.kt              # Hosts the theme and calls exactly one Route
+├── MainActivity.kt              # Hosts the theme and delegates to PosAppRoot
 ├── data/
-│   └── network/                 # I/O only: HTTP, sockets. No Compose imports.
+│   ├── crypto/                  # AndroidKeyStore AES-256-GCM + offline BCrypt PIN. No Compose imports.
+│   ├── local/                   # SQLCipher Room (Catalog FTS4, Outbox, Cart Draft) + encrypted prefs.
+│   └── network/                 # HTTP / socket I/O only. No Compose imports.
 │       ├── HealthCheck.kt
-│       └── DeviceBind.kt
+│       ├── DeviceBind.kt
+│       ├── MasterDataSync.kt
+│       └── OutboxSync.kt
 └── ui/
+    ├── PosAppRoot.kt            # Top-level flow switcher across bound terminal states
     ├── theme/                   # Color.kt, Type.kt, Theme.kt: the only place for raw tokens
     ├── icons/                   # PosIcons: hand-built Material Symbols vectors
     ├── components/              # Shared, feature-agnostic composables (prefix `Pos`)
@@ -25,9 +30,11 @@ app/src/main/kotlin/id/godinov/pos/
     │   ├── PosBottomSheet.kt    # PosBottomSheet + PosConfirmSheet
     │   ├── PosSnackbar.kt
     │   └── InlineError.kt
-    └── <feature>/               # One package per screen or flow, e.g. activation/
+    └── <feature>/               # One package per screen or flow (activation, welcome, cashier)
         ├── <Feature>Route.kt    # Stateful entry point
         ├── <Feature>Screen.kt   # Stateless layout + previews
+        ├── <Feature>ViewModel.kt# Feature state holder when surviving config change / I/O
+        ├── <Feature>UiState.kt  # Immutable Screen state contract
         ├── <Part>.kt            # Feature-only sub-composables
         └── <Domain>.kt          # Feature-only constants and pure functions
 ```
@@ -77,7 +84,7 @@ The Route then becomes a thin adapter: collect `UiState`, forward events. The Sc
 | Location | Visibility |
 |---|---|
 | `ui/components/*` | `public` |
-| Feature Route and Screen | `public` |
+| Feature Route, Screen, and `UiState` models | `public` |
 | Feature sub-composables and domain helpers | `internal` |
 | Helpers used inside one file | `private` |
 | `@Preview` functions | `private` |
@@ -128,9 +135,18 @@ The Route then becomes a thin adapter: collect `UiState`, forward events. The Sc
 
 ## 8. Data Layer (`data/`)
 
+- **MUST** encrypt all internal app persistence at rest:
+  - `SharedPreferences` values (`TerminalStorage`) **MUST** be sealed with `AppStorageCipher` (`AndroidKeyStore` hardware-backed `AES-256-GCM`, AAD bound to the preference key) and written synchronously via `.commit()` on `Dispatchers.IO`.
+  - Room databases (`PosDatabase`) **MUST** use SQLCipher 4 (`SupportOpenHelperFactory`) with a 256-bit random key wrapped by `AppStorageCipher`.
+  - `android:allowBackup="false"` **MUST** remain set in `AndroidManifest.xml`.
+- **MUST** enforce the three-tier POS local storage model:
+  - **Product Catalog:** Room + `@Fts4` (`ProductEntity` indexed on `sku` and `category_id` + `ProductFtsEntity`) with paginated queries (`LIMIT` / `OFFSET`). Never hold the full catalog list in heap memory after sync.
+  - **Outbox Queue:** Room (`OutboxItemEntity`) drained by `WorkManager` (`OutboxSyncWorker` with `NetworkType.CONNECTED` + exponential backoff) for crash-proof transaction sync.
+  - **Active Cart:** In-memory `StateFlow` (`ActiveCartStore`) for zero-lag UI taps, backed by debounced Room drafts (`CartDraftEntity` `ACTIVE` / `HELD`) for crash recovery and Hold Order.
+- **MUST** configure Room KSP with `arg("room.generateKotlin", "true")` so codegen emits pure `.kt` sources without `.java` stubs.
 - **MUST** make I/O functions `suspend` and switch with `withContext(Dispatchers.IO)`.
 - **MUST** return data types (`HealthCheckResult`), never UI strings or UI types. The Route maps results to user-facing messages.
-- **MUST** catch specific exceptions (`IOException`). **MUST NOT** catch `Exception` or `Throwable`: it swallows `CancellationException` and breaks coroutine cancellation.
+- **MUST** catch specific exceptions (`IOException`, `GeneralSecurityException`). **MUST NOT** catch `Exception` or `Throwable`: it swallows `CancellationException` and breaks coroutine cancellation.
 - **MUST** read endpoints from `BuildConfig.API_BASE_URL` at the Route level and pass the base URL in. Never hardcode hosts.
 
 ## 9. Adaptive Layout

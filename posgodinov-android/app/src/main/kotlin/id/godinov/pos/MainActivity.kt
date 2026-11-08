@@ -1,12 +1,12 @@
 package id.godinov.pos
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import android.graphics.Color
-import id.godinov.pos.ui.activation.KeyActivationRoute
+import id.godinov.pos.ui.PosAppRoot
 import id.godinov.pos.ui.theme.GodinovPosTheme
 
 class MainActivity : ComponentActivity() {
@@ -18,7 +18,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             GodinovPosTheme {
-                KeyActivationRoute()
+                PosAppRoot()
             }
         }
     }

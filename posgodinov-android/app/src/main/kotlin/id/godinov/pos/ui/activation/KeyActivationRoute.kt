@@ -2,7 +2,6 @@ package id.godinov.pos.ui.activation
 
 import android.content.ClipboardManager
 import android.content.Context
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -20,11 +19,18 @@ import androidx.lifecycle.ViewModelStoreOwner
 import id.godinov.pos.BuildConfig
 import id.godinov.pos.ui.components.showPosMessage
 
-/** Stateful entry point for terminal activation and business device binding. */
+/** Stateful entry point for one-time terminal activation and permanent business device binding. */
 @Composable
 fun KeyActivationRoute(
+    isKeyAlreadyActivated: Boolean,
+    onKeyActivated: suspend () -> Unit,
+    onDeviceBound: suspend (
+        deviceToken: String,
+        serialBusiness: String,
+        serialOutlet: String,
+        feedbackMessage: String,
+    ) -> Unit,
     modifier: Modifier = Modifier,
-    onDeviceBound: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val owner = requireNotNull(LocalActivity.current as? ViewModelStoreOwner)
@@ -33,15 +39,22 @@ fun KeyActivationRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     var showHelpDialog by rememberSaveable { mutableStateOf(false) }
 
-    BackHandler(enabled = uiState.step == ActivationStep.DEVICE_BINDING && !uiState.isBindingDevice) {
-        viewModel.onBackToSerialKey()
+    LaunchedEffect(isKeyAlreadyActivated) {
+        viewModel.syncPersistedKeyActivation(isKeyAlreadyActivated)
     }
 
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
                 is ActivationEvent.ShowMessage -> snackbarHostState.showPosMessage(event.message, event.isError)
-                is ActivationEvent.DeviceBound -> onDeviceBound(event.deviceToken)
+                ActivationEvent.KeyActivated -> onKeyActivated()
+                is ActivationEvent.DeviceBound ->
+                    onDeviceBound(
+                        event.deviceToken,
+                        event.serialBusiness,
+                        event.serialOutlet,
+                        event.feedbackMessage,
+                    )
             }
         }
     }
@@ -63,12 +76,11 @@ fun KeyActivationRoute(
         onSerialKeyChange = viewModel::onSerialKeyChange,
         onClearSerialKey = viewModel::onClearSerialKey,
         onPasteClipboard = ::handlePasteClipboard,
-        onSubmitSerialKey = viewModel::submitSerialKey,
+        onSubmitSerialKey = { viewModel.submitSerialKey(BuildConfig.API_BASE_URL) },
         onSerialBusinessChange = viewModel::onSerialBusinessChange,
         onSerialOutletChange = viewModel::onSerialOutletChange,
         onBusinessPasswordChange = viewModel::onBusinessPasswordChange,
         onTogglePasswordVisibility = viewModel::onTogglePasswordVisibility,
-        onBackToSerialKey = viewModel::onBackToSerialKey,
         onSubmitDeviceBinding = { viewModel.submitDeviceBinding(BuildConfig.API_BASE_URL) },
         onOpenHelp = { showHelpDialog = true },
         onPingTest = { viewModel.pingServer(BuildConfig.API_BASE_URL) },
