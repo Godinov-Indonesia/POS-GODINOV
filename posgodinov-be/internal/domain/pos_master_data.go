@@ -99,6 +99,9 @@ type SyncMasterDataResponse struct {
 	// versi yang dipegang perangkat (butir 10).
 	Version int64 `json:"version"`
 
+	BusinessName string `json:"business_name,omitempty"`
+	OutletName   string `json:"outlet_name,omitempty"`
+
 	Staffs     []*POSMasterStaff    `json:"staffs"`
 	Categories []*POSMasterCategory `json:"categories"`
 	Products   []*POSMasterProduct  `json:"products"`

@@ -39,6 +39,9 @@ type posSyncService struct {
 
 	// Rekonsiliasi shift hidup di layanannya sendiri ([11 §M15.3]).
 	shiftReconcile domain.ShiftReconcileService
+
+	businessRepo domain.BusinessRepository
+	outletRepo   domain.OutletRepository
 }
 
 func NewPOSSyncService(
@@ -99,6 +102,14 @@ func WithShiftReconcileService(r domain.ShiftReconcileService) POSSyncOption {
 
 func WithPOSPolicyEngine(pe domain.PolicyEngine) POSSyncOption {
 	return func(s *posSyncService) { s.stock.policyEngine = pe }
+}
+
+func WithPOSBusinessRepository(r domain.BusinessRepository) POSSyncOption {
+	return func(s *posSyncService) { s.businessRepo = r }
+}
+
+func WithPOSOutletRepository(r domain.OutletRepository) POSSyncOption {
+	return func(s *posSyncService) { s.outletRepo = r }
 }
 
 func (s *posSyncService) GetMasterData(ctx context.Context, businessID, outletID string) (*domain.SyncMasterDataResponse, error) {
@@ -183,11 +194,25 @@ func (s *posSyncService) GetMasterData(ctx context.Context, businessID, outletID
 		}
 	}
 
+	var businessName, outletName string
+	if s.businessRepo != nil {
+		if b, bErr := s.businessRepo.GetByID(ctx, businessID); bErr == nil && b != nil {
+			businessName = b.Name
+		}
+	}
+	if s.outletRepo != nil {
+		if o, oErr := s.outletRepo.GetByID(ctx, outletID); oErr == nil && o != nil {
+			outletName = o.Name
+		}
+	}
+
 	return &domain.SyncMasterDataResponse{
-		Version:    version,
-		Staffs:     posStaffs,
-		Categories: posCategories,
-		Products:   posProducts,
+		Version:      version,
+		BusinessName: businessName,
+		OutletName:   outletName,
+		Staffs:       posStaffs,
+		Categories:   posCategories,
+		Products:     posProducts,
 		// ⚠️ Payload ini SENGAJA tidak memuat stok apa pun. Butir 3 gugur
 		// seketika bila stok sistem hadir di perangkat kasir atau opname.
 		Config: cfg,

@@ -20,7 +20,9 @@ type DeviceBindRequest struct {
 }
 
 type DeviceBindResponse struct {
-	DeviceToken string `json:"device_token"`
+	DeviceToken  string `json:"device_token"`
+	BusinessName string `json:"business_name,omitempty"`
+	OutletName   string `json:"outlet_name,omitempty"`
 }
 
 type POSAuthService interface {

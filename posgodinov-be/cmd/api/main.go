@@ -166,6 +166,8 @@ func main() {
 		service.WithMasterVersionRepository(masterVersionRepo),
 		service.WithShiftReconcileService(shiftReconcileSvc),
 		service.WithPOSPolicyEngine(policyEngine),
+		service.WithPOSBusinessRepository(businessRepo),
+		service.WithPOSOutletRepository(outletRepo),
 	)
 	reportSvc := service.NewReportService(
 		reportRepo,

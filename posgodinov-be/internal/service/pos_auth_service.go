@@ -105,6 +105,8 @@ func (s *posAuthService) BindDevice(ctx context.Context, req *domain.DeviceBindR
 	}
 
 	return &domain.DeviceBindResponse{
-		DeviceToken: deviceToken,
+		DeviceToken:  deviceToken,
+		BusinessName: business.Name,
+		OutletName:   outlet.Name,
 	}, nil
 }
